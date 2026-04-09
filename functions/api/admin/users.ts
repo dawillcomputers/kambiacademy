@@ -29,6 +29,7 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
     userId: number;
     action: 'approve_tutor' | 'suspend' | 'activate' | 'reset_password' | 'change_role';
     role?: string;
+    reason?: string;
     newPassword?: string;
   }>();
 
@@ -47,6 +48,9 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
       await env.DB.prepare('UPDATE users SET role = ?, status = ? WHERE id = ?')
         .bind('teacher', 'active', userId)
         .run();
+      await env.DB.prepare(
+        `INSERT INTO role_change_log (user_id, changed_by, old_role, new_role, reason) VALUES (?, ?, ?, ?, ?)`,
+      ).bind(userId, admin.id, 'teacher', 'teacher', 'Tutor application approved').run();
       break;
 
     case 'suspend':
@@ -80,10 +84,23 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
       if (!role || !['student', 'teacher', 'admin'].includes(role)) {
         return Response.json({ error: 'Invalid role.' }, { status: 400 });
       }
-      await env.DB.prepare('UPDATE users SET role = ? WHERE id = ?')
-        .bind(role, userId)
+      // Get current role for audit log
+      const currentUser = await env.DB.prepare('SELECT role FROM users WHERE id = ?')
+        .bind(userId).first<{ role: string }>();
+      if (!currentUser) {
+        return Response.json({ error: 'User not found.' }, { status: 404 });
+      }
+      if (currentUser.role === role) {
+        return Response.json({ error: `User is already a ${role}.` }, { status: 400 });
+      }
+      await env.DB.prepare('UPDATE users SET role = ?, status = ? WHERE id = ?')
+        .bind(role, 'active', userId)
         .run();
-      break;
+      // Write audit log
+      await env.DB.prepare(
+        `INSERT INTO role_change_log (user_id, changed_by, old_role, new_role, reason) VALUES (?, ?, ?, ?, ?)`,
+      ).bind(userId, admin.id, currentUser.role, role, body.reason || null).run();
+      return Response.json({ message: `Role changed from ${currentUser.role} to ${role}.` });
     }
 
     default:

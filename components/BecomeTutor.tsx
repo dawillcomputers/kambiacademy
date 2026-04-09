@@ -66,7 +66,7 @@ const BecomeTutor: React.FC = () => {
             <p className="text-lg text-slate-600 max-w-3xl mx-auto mb-8">
               Join Kambi Academy as an instructor and inspire the next generation of tech talent. Turn your passion into a rewarding teaching career.
             </p>
-            <Button onClick={() => navigate('/signup')} size="large">Start Your Application</Button>
+            <Button onClick={() => navigate('/signup?role=teacher')} size="large">Start Your Application</Button>
           </header>
 
           <section className="text-center max-w-5xl mx-auto">
@@ -125,7 +125,7 @@ const BecomeTutor: React.FC = () => {
           <section className="text-center bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl shadow-xl p-8 md:p-12">
               <h3 className="text-3xl font-extrabold text-white mb-4">Ready to Inspire?</h3>
               <p className="text-lg text-sky-100 max-w-2xl mx-auto mb-8">Your journey to becoming an online instructor starts here. Join us and shape the future of tech education.</p>
-               <Button onClick={() => navigate('/signup')} size="large" variant="secondary" className="bg-white text-indigo-600 hover:bg-slate-100">
+               <Button onClick={() => navigate('/signup?role=teacher')} size="large" variant="secondary" className="bg-white text-indigo-600 hover:bg-slate-100">
                 Apply Now
               </Button>
           </section>

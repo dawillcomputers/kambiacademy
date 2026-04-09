@@ -167,4 +167,53 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
+
+  // Assignments
+  getAssignments: (courseSlug?: string) =>
+    request<{ assignments: any[] }>(courseSlug ? `/api/assignments?course=${encodeURIComponent(courseSlug)}` : '/api/assignments'),
+
+  createAssignment: (data: { course_slug: string; title: string; description?: string; type?: string; due_date?: string; max_score?: number }) =>
+    request<any>('/api/assignments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Submissions
+  getSubmissions: (assignmentId?: number) =>
+    request<{ submissions: any[] }>(assignmentId ? `/api/submissions?assignment_id=${assignmentId}` : '/api/submissions'),
+
+  submitAssignment: (assignmentId: number, content?: string, file?: File) => {
+    if (file) {
+      const formData = new FormData();
+      formData.set('assignment_id', String(assignmentId));
+      if (content) formData.set('content', content);
+      formData.set('file', file);
+      const token = localStorage.getItem('auth_token');
+      return fetch(`${apiBaseUrl}/api/submissions`, {
+        method: 'POST',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      }).then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error((d as any).error || 'Submit failed');
+        return d;
+      });
+    }
+    return request<any>('/api/submissions', {
+      method: 'POST',
+      body: JSON.stringify({ assignment_id: assignmentId, content }),
+    });
+  },
+
+  gradeSubmission: (submissionId: number, score: number, feedback?: string) =>
+    request<any>('/api/submissions', {
+      method: 'PATCH',
+      body: JSON.stringify({ submission_id: submissionId, score, feedback }),
+    }),
+
+  // Audit log
+  getAuditLog: (userId?: number) =>
+    request<{ log: any[] }>(userId ? `/api/admin/audit-log?user_id=${userId}` : '/api/admin/audit-log'),
 };

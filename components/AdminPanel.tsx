@@ -24,7 +24,11 @@ interface TutorCourse {
   category: string; status: string; tutor_name?: string; tutor_email?: string; created_at: string;
 }
 
-type Tab = 'overview' | 'users' | 'courses' | 'settings';
+type Tab = 'overview' | 'users' | 'courses' | 'settings' | 'audit-log';
+
+interface AuditLogEntry {
+  id: number; user_name: string; changed_by_name: string; old_role: string; new_role: string; reason: string; created_at: string;
+}
 
 const StatCard: React.FC<{ label: string; value: string | number; detail?: string }> = ({ label, value, detail }) => (
   <div className="rounded-[24px] border border-white/70 bg-white/85 px-5 py-5 shadow-lg shadow-slate-200/50">
@@ -45,6 +49,14 @@ const AdminPanel: React.FC = () => {
   const [error, setError] = useState('');
   const [actionMsg, setActionMsg] = useState('');
 
+  // Role change modal
+  const [roleChangeTarget, setRoleChangeTarget] = useState<ManagedUser | null>(null);
+  const [roleChangeNewRole, setRoleChangeNewRole] = useState('');
+  const [roleChangeReason, setRoleChangeReason] = useState('');
+
+  // Audit log
+  const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
+
   useEffect(() => {
     api.adminGetStats()
       .then(setStats)
@@ -56,6 +68,7 @@ const AdminPanel: React.FC = () => {
     if (tab === 'users') api.adminGetUsers().then((d) => setUsers(d.users)).catch(() => {});
     if (tab === 'courses') api.adminGetCourses().then((d) => setCourses(d.courses)).catch(() => {});
     if (tab === 'settings') api.adminGetSettings().then((d) => setSettings(d.settings)).catch(() => {});
+    if (tab === 'audit-log') api.getAuditLog().then((d) => setAuditLog(d.log)).catch(() => {});
   }, [tab]);
 
   const doAction = async (userId: number, action: string, extra?: any) => {
@@ -66,6 +79,14 @@ const AdminPanel: React.FC = () => {
       if (res.tempPassword) setActionMsg(`Temp password: ${res.tempPassword}`);
       api.adminGetUsers().then((d) => setUsers(d.users));
     } catch (e: any) { setActionMsg(e.message); }
+  };
+
+  const handleRoleChange = async () => {
+    if (!roleChangeTarget || !roleChangeNewRole || !roleChangeReason.trim()) return;
+    await doAction(roleChangeTarget.id, 'change_role', { role: roleChangeNewRole, reason: roleChangeReason });
+    setRoleChangeTarget(null);
+    setRoleChangeNewRole('');
+    setRoleChangeReason('');
   };
 
   const doCourseAction = async (courseId: number, status: 'approved' | 'rejected') => {
@@ -106,6 +127,7 @@ const AdminPanel: React.FC = () => {
     { key: 'overview', label: 'Overview' },
     { key: 'users', label: 'Users' },
     { key: 'courses', label: 'Course Approval' },
+    { key: 'audit-log', label: 'Audit Log' },
     { key: 'settings', label: 'Settings' },
   ];
 
@@ -221,11 +243,9 @@ const AdminPanel: React.FC = () => {
                           <button onClick={() => doAction(u.id, 'activate')} className="rounded bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700">Activate</button>
                         )}
                         <button onClick={() => doAction(u.id, 'reset_password')} className="rounded bg-amber-600 px-2 py-1 text-xs text-white hover:bg-amber-700">Reset PW</button>
-                        {u.role === 'student' && (
-                          <button onClick={() => doAction(u.id, 'change_role', { role: 'teacher' })} className="rounded bg-indigo-600 px-2 py-1 text-xs text-white hover:bg-indigo-700">Make Tutor</button>
-                        )}
-                        {u.role === 'teacher' && u.status === 'active' && (
-                          <button onClick={() => doAction(u.id, 'change_role', { role: 'student' })} className="rounded bg-slate-600 px-2 py-1 text-xs text-white hover:bg-slate-700">Demote</button>
+                        {u.role !== 'admin' && (
+                          <button onClick={() => { setRoleChangeTarget(u); setRoleChangeNewRole(u.role === 'student' ? 'teacher' : 'student'); setRoleChangeReason(''); }}
+                            className="rounded bg-indigo-600 px-2 py-1 text-xs text-white hover:bg-indigo-700">Change Role</button>
                         )}
                       </div>
                     </td>
@@ -310,6 +330,92 @@ const AdminPanel: React.FC = () => {
             </div>
           </div>
         </section>
+      )}
+
+      {/* AUDIT LOG TAB */}
+      {tab === 'audit-log' && (
+        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Role Changes</p>
+          <h2 className="mt-2 font-display text-2xl font-bold text-slate-950">Audit Log</h2>
+          <div className="mt-6 overflow-x-auto">
+            {auditLog.length === 0 ? (
+              <p className="text-sm text-slate-400">No role changes recorded yet.</p>
+            ) : (
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
+                    <th className="py-3 px-2">User</th>
+                    <th className="py-3 px-2">Changed By</th>
+                    <th className="py-3 px-2">Old Role</th>
+                    <th className="py-3 px-2">New Role</th>
+                    <th className="py-3 px-2">Reason</th>
+                    <th className="py-3 px-2">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {auditLog.map((entry) => (
+                    <tr key={entry.id} className="hover:bg-slate-50">
+                      <td className="py-3 px-2 font-medium text-slate-900">{entry.user_name}</td>
+                      <td className="py-3 px-2 text-slate-600">{entry.changed_by_name}</td>
+                      <td className="py-3 px-2">
+                        <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600">{entry.old_role}</span>
+                      </td>
+                      <td className="py-3 px-2">
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${entry.new_role === 'teacher' ? 'bg-amber-100 text-amber-700' : entry.new_role === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>{entry.new_role}</span>
+                      </td>
+                      <td className="py-3 px-2 text-slate-600 max-w-xs truncate">{entry.reason || '-'}</td>
+                      <td className="py-3 px-2 text-slate-400">{new Date(entry.created_at).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ROLE CHANGE MODAL */}
+      {roleChangeTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="font-display text-xl font-bold text-slate-950 mb-1">Change User Role</h3>
+            <p className="text-sm text-slate-500 mb-4">
+              Changing role for <span className="font-semibold text-slate-900">{roleChangeTarget.name}</span> ({roleChangeTarget.email})
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-slate-600 mb-1">Current Role</label>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${roleChangeTarget.role === 'teacher' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                  {roleChangeTarget.role}
+                </span>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-600 mb-1">New Role</label>
+                <select value={roleChangeNewRole} onChange={(e) => setRoleChangeNewRole(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2 text-slate-900">
+                  <option value="student">Student</option>
+                  <option value="teacher">Teacher</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-600 mb-1">Reason (required) *</label>
+                <textarea value={roleChangeReason} onChange={(e) => setRoleChangeReason(e.target.value)}
+                  rows={3} className="w-full rounded-xl border border-slate-200 px-4 py-2 text-slate-900"
+                  placeholder="Explain why you are changing this user's role..." required />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={handleRoleChange} disabled={!roleChangeReason.trim()}
+                  className="rounded-full bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+                  Confirm Change
+                </button>
+                <button onClick={() => setRoleChangeTarget(null)}
+                  className="rounded-full border border-slate-200 px-6 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
