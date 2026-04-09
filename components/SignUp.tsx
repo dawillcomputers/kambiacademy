@@ -23,7 +23,7 @@ const SignUp: React.FC = () => {
     setLoading(true);
     try {
       await signup(name, email, password);
-      navigate('/', { replace: true });
+      navigate('/courses', { replace: true });
     } catch (err: any) {
       setError(err.message || 'Could not create account.');
     } finally {

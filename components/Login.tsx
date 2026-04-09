@@ -19,7 +19,7 @@ const Login: React.FC = () => {
     setLoading(true);
     try {
       await login(email, password);
-      const redirect = searchParams.get('redirect') || '/';
+      const redirect = searchParams.get('redirect') || '/courses';
       navigate(redirect, { replace: true });
     } catch (err: any) {
       setError(err.message || 'Invalid email or password.');
