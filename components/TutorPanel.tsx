@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
+import LiveClassroom from './LiveClassroom';
 
-type Tab = 'courses' | 'classes' | 'create-course' | 'create-class' | 'assignments' | 'submissions' | 'quizzes' | 'create-quiz' | 'quiz-results' | 'materials';
+type Tab = 'courses' | 'classes' | 'create-course' | 'create-class' | 'assignments' | 'submissions' | 'quizzes' | 'create-quiz' | 'quiz-results' | 'materials' | 'live';
 
 interface TutorCourse {
   id: number; title: string; slug?: string; description: string; level: string; price: number;
@@ -86,6 +87,11 @@ const TutorPanel: React.FC = () => {
   const [matYoutubeUrl, setMatYoutubeUrl] = useState('');
   const [uploading, setUploading] = useState(false);
 
+  // Live session state
+  const [liveSessions, setLiveSessions] = useState<any[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [startingLive, setStartingLive] = useState(false);
+
   useEffect(() => {
     if (tab === 'courses') api.tutorGetCourses().then((d) => setCourses(d.courses)).catch(() => {});
     if (tab === 'classes') api.tutorGetClasses().then((d) => setClasses(d.classes)).catch(() => {});
@@ -102,6 +108,10 @@ const TutorPanel: React.FC = () => {
     if (tab === 'materials') {
       api.getMaterials().then((d) => setMaterials(d.materials)).catch(() => {});
       api.tutorGetCourses().then((d) => setCourses(d.courses)).catch(() => {});
+    }
+    if (tab === 'live') {
+      api.getLiveSessions().then((d) => setLiveSessions(d.sessions)).catch(() => {});
+      api.tutorGetClasses().then((d) => setClasses(d.classes)).catch(() => {});
     }
   }, [tab]);
 
@@ -218,6 +228,16 @@ const TutorPanel: React.FC = () => {
     } catch (e: any) { setErr(e.message); }
   };
 
+  const startLiveSession = async (classId: number) => {
+    setMsg(''); setErr(''); setStartingLive(true);
+    try {
+      const res = await api.startLiveSession(classId);
+      setActiveSessionId(res.id);
+      setTab('live');
+    } catch (e: any) { setErr(e.message); }
+    finally { setStartingLive(false); }
+  };
+
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -235,6 +255,7 @@ const TutorPanel: React.FC = () => {
     { key: 'quiz-results', label: 'Quiz Results' },
     { key: 'classes', label: 'Private Classes' },
     { key: 'create-class', label: 'Create Class' },
+    { key: 'live', label: '🔴 Live Classes' },
   ];
 
   return (
@@ -354,6 +375,12 @@ const TutorPanel: React.FC = () => {
                     onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/join/${c.invite_code}`); setMsg('Invite link copied!'); }}
                     className="text-indigo-600 hover:text-indigo-800 font-medium">
                     Copy Link
+                  </button>
+                  <button
+                    onClick={() => startLiveSession(c.id)}
+                    disabled={startingLive}
+                    className="rounded-full bg-red-600 px-4 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50">
+                    {startingLive ? 'Starting...' : '🔴 Go Live'}
                   </button>
                 </div>
               </div>
@@ -820,6 +847,76 @@ const TutorPanel: React.FC = () => {
             </button>
           </form>
         </section>
+      )}
+
+      {/* LIVE CLASSES TAB */}
+      {tab === 'live' && (
+        activeSessionId ? (
+          <LiveClassroom sessionId={activeSessionId} onLeave={() => { setActiveSessionId(null); api.getLiveSessions().then((d) => setLiveSessions(d.sessions)).catch(() => {}); }} />
+        ) : (
+          <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+            <h2 className="font-display text-2xl font-bold text-slate-950 mb-6">Live Classes</h2>
+
+            {liveSessions.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-lg font-bold text-slate-900 mb-4">Active Sessions</h3>
+                <div className="space-y-4">
+                  {liveSessions.map((s: any) => (
+                    <div key={s.id} className="rounded-2xl border border-red-200 bg-red-50/50 px-6 py-4 shadow-sm">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="relative flex h-2 w-2">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                              <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                            </span>
+                            <span className="text-xs font-bold uppercase tracking-wider text-red-600">Live Now</span>
+                          </div>
+                          <h3 className="font-semibold text-slate-900">{s.title || s.class_title}</h3>
+                          <p className="text-sm text-slate-500 mt-1">{s.class_title} &middot; {s.member_count || 0} members</p>
+                          <p className="text-xs text-slate-400 mt-1">Started: {new Date(s.started_at).toLocaleString()}</p>
+                        </div>
+                        <button
+                          onClick={() => setActiveSessionId(s.id)}
+                          className="rounded-full bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700">
+                          Rejoin
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Start a Live Session</h3>
+            <p className="text-sm text-slate-500 mb-4">Choose a private class to start a live session for its members.</p>
+            {classes.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-slate-500 mb-4">Create a private class first to start live sessions.</p>
+                <button onClick={() => setTab('create-class')} className="rounded-full bg-amber-600 px-6 py-2 text-sm font-semibold text-white hover:bg-amber-700">
+                  Create Class
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {classes.map((c) => (
+                  <div key={c.id} className="rounded-2xl border border-white/70 bg-white/85 px-6 py-4 shadow-sm flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-slate-900">{c.title}</h4>
+                      <p className="text-sm text-slate-500">{c.member_count}/{c.max_students} students</p>
+                    </div>
+                    <button
+                      onClick={() => startLiveSession(c.id)}
+                      disabled={startingLive}
+                      className="rounded-full bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50">
+                      {startingLive ? 'Starting...' : '🔴 Go Live'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )
       )}
     </div>
   );

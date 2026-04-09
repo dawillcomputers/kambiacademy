@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
+import LiveClassroom from './LiveClassroom';
 
 interface Enrollment {
   course_slug: string; amount_paid: number; created_at: string;
@@ -20,7 +21,7 @@ interface Submission {
   feedback: string | null; status: string; submitted_at: string; assignment_title: string; course_slug: string; max_score: number;
 }
 
-type Tab = 'courses' | 'assignments' | 'submissions' | 'quizzes' | 'materials';
+type Tab = 'courses' | 'assignments' | 'submissions' | 'quizzes' | 'materials' | 'live';
 
 const StudentPanel: React.FC = () => {
   const { user } = useAuth();
@@ -51,6 +52,10 @@ const StudentPanel: React.FC = () => {
   // Materials state
   const [materials, setMaterials] = useState<any[]>([]);
 
+  // Live session state
+  const [liveSessions, setLiveSessions] = useState<any[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+
   useEffect(() => {
     Promise.all([
       api.getEnrollments().then((d) => setEnrollments(d.enrollments)),
@@ -68,6 +73,7 @@ const StudentPanel: React.FC = () => {
       api.getQuizResponses().then((d) => setQuizResponses(d.responses)).catch(() => {});
     }
     if (tab === 'materials') api.getMaterials().then((d) => setMaterials(d.materials)).catch(() => {});
+    if (tab === 'live') api.getLiveSessions().then((d) => setLiveSessions(d.sessions)).catch(() => {});
   }, [tab]);
 
   const getProgressForCourse = (slug: string) => progress.find((p) => p.course_slug === slug);
@@ -137,6 +143,7 @@ const StudentPanel: React.FC = () => {
     { key: 'assignments', label: 'Assignments' },
     { key: 'submissions', label: 'My Submissions' },
     { key: 'quizzes', label: 'Quizzes' },
+    { key: 'live', label: '🔴 Live Classes' },
   ];
 
   return (
@@ -537,6 +544,54 @@ const StudentPanel: React.FC = () => {
             </>
           )}
         </section>
+      )}
+
+      {/* LIVE CLASSES TAB */}
+      {tab === 'live' && (
+        activeSessionId ? (
+          <LiveClassroom sessionId={activeSessionId} onLeave={() => { setActiveSessionId(null); api.getLiveSessions().then((d) => setLiveSessions(d.sessions)).catch(() => {}); }} />
+        ) : (
+          <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+            <h2 className="font-display text-2xl font-bold text-slate-950 mb-6">Live Classes</h2>
+            {liveSessions.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-400">
+                    <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" /><rect x="2" y="6" width="14" height="12" rx="2" />
+                  </svg>
+                </div>
+                <p className="text-slate-500 font-medium">No live sessions right now</p>
+                <p className="text-sm text-slate-400 mt-1">When your teacher starts a live class, it will appear here.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {liveSessions.map((s: any) => (
+                  <div key={s.id} className="rounded-2xl border border-red-200 bg-red-50/50 px-6 py-4 shadow-sm">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="relative flex h-2 w-2">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                          </span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-red-600">Live Now</span>
+                        </div>
+                        <h3 className="font-semibold text-slate-900">{s.title || s.class_title}</h3>
+                        <p className="text-sm text-slate-500 mt-1">{s.class_title} &middot; {s.member_count || 0} members</p>
+                        <p className="text-xs text-slate-400 mt-1">Started: {new Date(s.started_at).toLocaleString()}</p>
+                      </div>
+                      <button
+                        onClick={() => setActiveSessionId(s.id)}
+                        className="rounded-full bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700">
+                        Join Now
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )
       )}
     </div>
   );

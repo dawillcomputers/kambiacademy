@@ -279,4 +279,32 @@ export const api = {
   // Audit log
   getAuditLog: (userId?: number) =>
     request<{ log: any[] }>(userId ? `/api/admin/audit-log?user_id=${userId}` : '/api/admin/audit-log'),
+
+  // Live sessions
+  getLiveSessions: () =>
+    request<{ sessions: any[] }>('/api/live-sessions'),
+
+  getLiveSession: (id: number) =>
+    request<{ session: any; participants: any[]; messages: any[] }>(`/api/live-sessions?id=${id}`),
+
+  startLiveSession: (classId: number, title?: string) =>
+    request<{ id: number; message: string }>('/api/live-sessions', {
+      method: 'POST',
+      body: JSON.stringify({ class_id: classId, title }),
+    }),
+
+  endLiveSession: (sessionId: number) =>
+    request<{ message: string }>('/api/live-sessions', {
+      method: 'PATCH',
+      body: JSON.stringify({ session_id: sessionId }),
+    }),
+
+  getLiveMessages: (sessionId: number, afterId?: number) =>
+    request<{ messages: any[] }>(`/api/live-messages?session_id=${sessionId}&after=${afterId || 0}`),
+
+  sendLiveMessage: (sessionId: number, text: string) =>
+    request<any>('/api/live-messages', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId, text }),
+    }),
 };
