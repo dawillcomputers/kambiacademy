@@ -7,6 +7,7 @@ import Button from './Button';
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -19,10 +20,14 @@ const Login: React.FC = () => {
     setLoading(true);
     try {
       const loggedInUser = await login(email, password);
-      if (loggedInUser?.role === 'admin') {
+      if (loggedInUser?.mustChangePassword) {
+        navigate('/change-password', { replace: true });
+      } else if (loggedInUser?.role === 'admin') {
         navigate('/admin', { replace: true });
+      } else if (loggedInUser?.role === 'teacher') {
+        navigate('/tutor', { replace: true });
       } else {
-        const redirect = searchParams.get('redirect') || '/courses';
+        const redirect = searchParams.get('redirect') || '/student';
         navigate(redirect, { replace: true });
       }
     } catch (err: any) {
@@ -79,18 +84,22 @@ const Login: React.FC = () => {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
               </label>
-              <div className="mt-1">
+              <div className="mt-1 relative">
                 <input
                   id="password"
                   name="password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="appearance-none block w-full px-4 py-3 pr-16 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   placeholder="Enter your password"
                 />
+                <button type="button" onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 hover:text-gray-700 font-medium">
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
               </div>
             </div>
             {error && <p className="text-sm text-red-600 font-bold">{error}</p>}

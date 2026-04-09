@@ -13,13 +13,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const user = await env.DB.prepare(
-    'SELECT id, name, email, password_hash, role FROM users WHERE email = ?',
+    'SELECT id, name, email, password_hash, role, status, must_change_password FROM users WHERE email = ?',
   )
     .bind(email)
-    .first<{ id: number; name: string; email: string; password_hash: string; role: string }>();
+    .first<{ id: number; name: string; email: string; password_hash: string; role: string; status: string; must_change_password: number }>();
 
   if (!user || !(await verifyPassword(password, user.password_hash))) {
     return Response.json({ error: 'Invalid email or password.' }, { status: 401 });
+  }
+
+  if (user.status === 'suspended') {
+    return Response.json({ error: 'Your account has been suspended. Contact support.' }, { status: 403 });
+  }
+
+  if (user.status === 'pending') {
+    return Response.json({ error: 'Your account is pending approval.' }, { status: 403 });
   }
 
   const token = generateToken();
@@ -33,6 +41,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   return Response.json({
     token,
-    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    user: {
+      id: user.id, name: user.name, email: user.email, role: user.role,
+      status: user.status, mustChangePassword: !!user.must_change_password,
+    },
   });
 };

@@ -94,4 +94,77 @@ export const api = {
 
   toggleLike: (slug: string) =>
     request<{ liked: boolean }>(`/api/courses/${slug}/like`, { method: 'POST' }),
+
+  // Admin
+  adminGetStats: () => request<any>('/api/admin/stats'),
+
+  adminGetUsers: () =>
+    request<{ users: any[] }>('/api/admin/users'),
+
+  adminManageUser: (userId: number, action: string, extra?: Record<string, any>) =>
+    request<any>('/api/admin/users', {
+      method: 'PATCH',
+      body: JSON.stringify({ userId, action, ...extra }),
+    }),
+
+  adminGetCourses: () =>
+    request<{ courses: any[] }>('/api/admin/courses'),
+
+  adminManageCourse: (courseId: number, status: 'approved' | 'rejected', notes?: string) =>
+    request<any>('/api/admin/courses', {
+      method: 'PATCH',
+      body: JSON.stringify({ courseId, status, notes }),
+    }),
+
+  adminGetSettings: () =>
+    request<{ settings: Record<string, string> }>('/api/admin/settings'),
+
+  adminUpdateSetting: (key: string, value: string) =>
+    request<any>('/api/admin/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ key, value }),
+    }),
+
+  // Tutor
+  tutorGetCourses: () =>
+    request<{ courses: any[] }>('/api/tutor/courses'),
+
+  tutorCreateCourse: (data: { title: string; description: string; level?: string; price?: number; duration_label?: string; category?: string }) =>
+    request<any>('/api/tutor/courses', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  tutorGetClasses: () =>
+    request<{ classes: any[] }>('/api/tutor/classes'),
+
+  tutorCreateClass: (data: { title: string; description?: string; max_students?: number }) =>
+    request<any>('/api/tutor/classes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Invite
+  getInviteInfo: (code: string) =>
+    request<{ class: any }>(`/api/invite/${encodeURIComponent(code)}`),
+
+  joinClass: (code: string) =>
+    request<any>(`/api/invite/${encodeURIComponent(code)}`, { method: 'POST' }),
+
+  // Progress
+  getProgress: (slug?: string) =>
+    request<any>(slug ? `/api/progress?slug=${encodeURIComponent(slug)}` : '/api/progress'),
+
+  saveProgress: (data: { course_slug: string; module_index?: number; section_id?: string; progress_pct?: number }) =>
+    request<any>('/api/progress', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Auth
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ message: string }>('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
 };

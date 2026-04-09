@@ -47,12 +47,12 @@ export async function getAuthUser(request: Request, db: D1Database) {
   const token = authHeader.slice(7);
   const row = await db
     .prepare(
-      `SELECT u.id, u.name, u.email, u.role FROM users u
+      `SELECT u.id, u.name, u.email, u.role, u.status, u.must_change_password FROM users u
        JOIN user_sessions s ON u.id = s.user_id
        WHERE s.token = ? AND s.expires_at > datetime('now')`,
     )
     .bind(token)
-    .first<{ id: number; name: string; email: string; role: string }>();
+    .first<{ id: number; name: string; email: string; role: string; status: string; must_change_password: number }>();
 
   return row;
 }

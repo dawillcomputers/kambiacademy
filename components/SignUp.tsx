@@ -8,28 +8,50 @@ const SignUp: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [role, setRole] = useState<'student' | 'teacher'>('student');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signup } = useAuth();
   const navigate = useNavigate();
 
+  const checks = {
+    length: password.length >= 8,
+    upper: /[A-Z]/.test(password),
+    lower: /[a-z]/.test(password),
+    digit: /\d/.test(password),
+    special: /[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/~`]/.test(password),
+  };
+
+  const allValid = Object.values(checks).every(Boolean);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (!allValid) {
+      setError('Password does not meet all requirements.');
       return;
     }
     setLoading(true);
     try {
-      await signup(name, email, password);
-      navigate('/courses', { replace: true });
+      const u = await signup(name, email, password, role);
+      if (u?.role === 'teacher') {
+        navigate('/tutor', { replace: true });
+      } else {
+        navigate('/student', { replace: true });
+      }
     } catch (err: any) {
       setError(err.message || 'Could not create account.');
     } finally {
       setLoading(false);
     }
   };
+
+  const Check = ({ ok, label }: { ok: boolean; label: string }) => (
+    <span className={`text-xs flex items-center gap-1 ${ok ? 'text-green-600' : 'text-slate-400'}`}>
+      {ok ? '✓' : '○'} {label}
+    </span>
+  );
 
   return (
     <div className="flex items-center justify-center py-12 bg-slate-50 min-h-[70vh] px-4">
@@ -90,18 +112,50 @@ const SignUp: React.FC = () => {
               <label htmlFor="password" className="block text-xs font-black text-slate-400 mb-2 ml-1 uppercase tracking-widest">
                 Create Password
               </label>
-              <div className="mt-1">
+              <div className="mt-1 relative">
                 <input 
                   id="password" 
                   name="password" 
-                  type="password" 
+                  type={showPassword ? 'text' : 'password'} 
                   required 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
-                  className="appearance-none block w-full px-6 py-4 border border-slate-200 rounded-2xl shadow-sm placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-blue-700 font-bold text-lg" 
-                  placeholder="Min. 6 characters"
+                  className="appearance-none block w-full px-6 py-4 pr-16 border border-slate-200 rounded-2xl shadow-sm placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-blue-700 font-bold text-lg" 
+                  placeholder="Min. 8 characters"
                 />
+                <button type="button" onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500 hover:text-slate-700 font-medium">
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
               </div>
+              {password && (
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                  <Check ok={checks.length} label="8+ chars" />
+                  <Check ok={checks.upper} label="Uppercase" />
+                  <Check ok={checks.lower} label="Lowercase" />
+                  <Check ok={checks.digit} label="Number" />
+                  <Check ok={checks.special} label="Symbol" />
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-black text-slate-400 mb-2 ml-1 uppercase tracking-widest">
+                I want to
+              </label>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setRole('student')}
+                  className={`flex-1 py-3 rounded-2xl text-sm font-bold border-2 transition-all ${role === 'student' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+                  Learn (Student)
+                </button>
+                <button type="button" onClick={() => setRole('teacher')}
+                  className={`flex-1 py-3 rounded-2xl text-sm font-bold border-2 transition-all ${role === 'teacher' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+                  Teach (Tutor)
+                </button>
+              </div>
+              {role === 'teacher' && (
+                <p className="text-xs text-amber-600 mt-1">Tutor accounts require admin approval.</p>
+              )}
             </div>
 
             {error && <p className="text-sm text-red-600 font-bold">{error}</p>}

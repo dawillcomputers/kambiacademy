@@ -5,13 +5,15 @@ export interface AuthUser {
   name: string;
   email: string;
   role: 'student' | 'teacher' | 'admin';
+  status?: string;
+  mustChangePassword?: boolean;
 }
 
 interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
-  signup: (name: string, email: string, password: string) => Promise<AuthUser>;
+  signup: (name: string, email: string, password: string, role?: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
 
@@ -69,10 +71,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return data.user;
   }, []);
 
-  const signup = useCallback(async (name: string, email: string, password: string): Promise<AuthUser> => {
+  const signup = useCallback(async (name: string, email: string, password: string, role?: string): Promise<AuthUser> => {
     const data = await authFetch('/api/auth/signup', {
       method: 'POST',
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, role }),
     });
     localStorage.setItem('auth_token', data.token);
     setUser(data.user);

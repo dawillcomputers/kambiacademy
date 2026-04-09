@@ -13,6 +13,10 @@ import Home from './components/Home';
 import Login from './components/Login';
 import SignUp from './components/SignUp';
 import AdminPanel from './components/AdminPanel';
+import TutorPanel from './components/TutorPanel';
+import StudentPanel from './components/StudentPanel';
+import ChangePassword from './components/ChangePassword';
+import JoinClass from './components/JoinClass';
 import { api } from './lib/api';
 import { AuthProvider, useAuth } from './lib/auth';
 import { BrandingContent, SiteData } from './types';
@@ -73,6 +77,24 @@ const RequireAdmin: React.FC<{ children: React.ReactElement }> = ({ children }) 
 
   if (isLoading) return <LoadingState />;
   if (!user || user.role !== 'admin') return <Navigate to="/" replace />;
+
+  return children;
+};
+
+const RequireTutor: React.FC<{ children: React.ReactElement }> = ({ children }) => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return <LoadingState />;
+  if (!user || user.role !== 'teacher') return <Navigate to="/" replace />;
+
+  return children;
+};
+
+const RequireChangePassword: React.FC<{ children: React.ReactElement }> = ({ children }) => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return <LoadingState />;
+  if (!user) return <Navigate to="/login" replace />;
 
   return children;
 };
@@ -143,6 +165,10 @@ const AppShell: React.FC = () => {
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<SignUp />} />
               <Route path="/admin" element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
+              <Route path="/tutor" element={<RequireTutor><TutorPanel /></RequireTutor>} />
+              <Route path="/student" element={<RequireAuth><StudentPanel /></RequireAuth>} />
+              <Route path="/change-password" element={<RequireChangePassword><ChangePassword /></RequireChangePassword>} />
+              <Route path="/join/:code" element={<JoinClass />} />
               <Route path="/" element={<Home siteData={siteData} />} />
               <Route path="/about" element={<About about={siteData.about} instructors={siteData.instructors} stats={siteData.stats} />} />
               <Route path="/contact" element={<Contact contact={siteData.contact} />} />

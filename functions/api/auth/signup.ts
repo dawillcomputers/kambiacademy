@@ -4,21 +4,31 @@ interface Env {
   DB: D1Database;
 }
 
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/~`])/;
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const body = await request.json<{
     name?: string;
     email?: string;
     password?: string;
+    role?: string;
   }>();
 
   const { name, email, password } = body;
+  const role = body.role === 'teacher' ? 'teacher' : 'student';
 
   if (!name || !email || !password) {
     return Response.json({ error: 'name, email, and password are required.' }, { status: 400 });
   }
 
-  if (password.length < 6) {
-    return Response.json({ error: 'Password must be at least 6 characters.' }, { status: 400 });
+  if (password.length < 8) {
+    return Response.json({ error: 'Password must be at least 8 characters.' }, { status: 400 });
+  }
+
+  if (!PASSWORD_REGEX.test(password)) {
+    return Response.json({
+      error: 'Password must include uppercase, lowercase, number, and special character.',
+    }, { status: 400 });
   }
 
   const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
@@ -26,11 +36,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: 'An account with this email already exists.' }, { status: 409 });
   }
 
+  const status = role === 'teacher' ? 'pending' : 'active';
   const passwordHash = await hashPassword(password);
   const result = await env.DB.prepare(
-    'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)',
+    'INSERT INTO users (name, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?)',
   )
-    .bind(name, email, passwordHash, 'student')
+    .bind(name, email, passwordHash, role, status)
     .run();
 
   const userId = result.meta.last_row_id;
@@ -44,7 +55,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     .run();
 
   return Response.json(
-    { token, user: { id: userId, name, email, role: 'student' } },
+    { token, user: { id: userId, name, email, role, status, mustChangePassword: false } },
     { status: 201 },
   );
 };
