@@ -80,6 +80,12 @@ const Header: React.FC<HeaderProps> = ({ branding }) => {
         <div className="hidden items-center gap-3 lg:flex">
           {user ? (
             <>
+              <Link
+                to={user.role === 'admin' ? '/admin' : user.role === 'teacher' ? '/tutor' : '/student'}
+                className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+              >
+                Dashboard
+              </Link>
               <span className="text-sm font-semibold text-slate-700">{user.name}</span>
               <button
                 onClick={() => { logout(); navigate('/'); }}
@@ -137,12 +143,21 @@ const Header: React.FC<HeaderProps> = ({ branding }) => {
             ))}
 
             {user ? (
-              <button
-                onClick={() => { logout(); navigate('/'); setIsMenuOpen(false); }}
-                className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-center text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-              >
-                Sign out ({user.name})
-              </button>
+              <>
+                <Link
+                  to={user.role === 'admin' ? '/admin' : user.role === 'teacher' ? '/tutor' : '/student'}
+                  onClick={() => setIsMenuOpen(false)}
+                  className="mt-2 rounded-2xl bg-indigo-600 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-indigo-700"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  onClick={() => { logout(); navigate('/'); setIsMenuOpen(false); }}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-center text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                >
+                  Sign out ({user.name})
+                </button>
+              </>
             ) : (
               <>
                 <Link to="/login" onClick={() => setIsMenuOpen(false)} className="mt-2 rounded-2xl bg-white px-4 py-3 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-100">
