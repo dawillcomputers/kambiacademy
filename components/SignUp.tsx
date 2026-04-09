@@ -36,7 +36,10 @@ const SignUp: React.FC = () => {
     setLoading(true);
     try {
       const u = await signup(name, email, password, role);
-      if (u?.role === 'teacher') {
+      const redirect = searchParams.get('redirect');
+      if (redirect) {
+        navigate(redirect, { replace: true });
+      } else if (u?.role === 'teacher') {
         navigate('/tutor', { replace: true });
       } else {
         navigate('/student', { replace: true });
@@ -65,7 +68,7 @@ const SignUp: React.FC = () => {
             </h2>
             <p className="mt-3 text-slate-500 font-medium">
               Already have an account?{' '}
-              <Link to="/login" className="font-bold text-indigo-600 hover:text-indigo-500 transition-colors underline">
+              <Link to={`/login${searchParams.get('redirect') ? `?redirect=${encodeURIComponent(searchParams.get('redirect')!)}` : ''}`} className="font-bold text-indigo-600 hover:text-indigo-500 transition-colors underline">
                 Sign in
               </Link>
             </p>

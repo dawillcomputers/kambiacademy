@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
 
-type Tab = 'courses' | 'classes' | 'create-course' | 'create-class' | 'assignments' | 'submissions' | 'quizzes' | 'create-quiz' | 'quiz-results';
+type Tab = 'courses' | 'classes' | 'create-course' | 'create-class' | 'assignments' | 'submissions' | 'quizzes' | 'create-quiz' | 'quiz-results' | 'materials';
 
 interface TutorCourse {
   id: number; title: string; slug?: string; description: string; level: string; price: number;
@@ -76,6 +76,16 @@ const TutorPanel: React.FC = () => {
     { question_text: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_option: 'a', points: 1 },
   ]);
 
+  // Materials state
+  const [materials, setMaterials] = useState<any[]>([]);
+  const [matCourse, setMatCourse] = useState('');
+  const [matTitle, setMatTitle] = useState('');
+  const [matDesc, setMatDesc] = useState('');
+  const [matType, setMatType] = useState<'file' | 'youtube'>('file');
+  const [matFile, setMatFile] = useState<File | null>(null);
+  const [matYoutubeUrl, setMatYoutubeUrl] = useState('');
+  const [uploading, setUploading] = useState(false);
+
   useEffect(() => {
     if (tab === 'courses') api.tutorGetCourses().then((d) => setCourses(d.courses)).catch(() => {});
     if (tab === 'classes') api.tutorGetClasses().then((d) => setClasses(d.classes)).catch(() => {});
@@ -89,6 +99,10 @@ const TutorPanel: React.FC = () => {
       api.tutorGetCourses().then((d) => setCourses(d.courses)).catch(() => {});
     }
     if (tab === 'quiz-results') api.getQuizResponses().then((d) => setQuizResponses(d.responses)).catch(() => {});
+    if (tab === 'materials') {
+      api.getMaterials().then((d) => setMaterials(d.materials)).catch(() => {});
+      api.tutorGetCourses().then((d) => setCourses(d.courses)).catch(() => {});
+    }
   }, [tab]);
 
   const submitCourse = async (e: React.FormEvent) => {
@@ -176,9 +190,44 @@ const TutorPanel: React.FC = () => {
     } catch (e: any) { setErr(e.message); }
   };
 
+  const uploadMaterial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(''); setErr(''); setUploading(true);
+    try {
+      await api.uploadMaterial({
+        course_slug: matCourse,
+        title: matTitle,
+        description: matDesc || undefined,
+        type: matType,
+        youtube_url: matType === 'youtube' ? matYoutubeUrl : undefined,
+        file: matType === 'file' ? matFile || undefined : undefined,
+      });
+      setMsg('Material uploaded!');
+      setMatTitle(''); setMatDesc(''); setMatFile(null); setMatYoutubeUrl('');
+      api.getMaterials().then((d) => setMaterials(d.materials)).catch(() => {});
+    } catch (e: any) { setErr(e.message); }
+    finally { setUploading(false); }
+  };
+
+  const deleteMaterial = async (id: number) => {
+    if (!confirm('Delete this material?')) return;
+    try {
+      await api.deleteMaterial(id);
+      setMaterials(materials.filter((m) => m.id !== id));
+      setMsg('Material deleted.');
+    } catch (e: any) { setErr(e.message); }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
   const tabs: { key: Tab; label: string }[] = [
     { key: 'courses', label: 'My Courses' },
     { key: 'create-course', label: 'Submit Course' },
+    { key: 'materials', label: 'Materials' },
     { key: 'assignments', label: 'Assignments' },
     { key: 'submissions', label: 'Grade Submissions' },
     { key: 'quizzes', label: 'Quizzes' },
@@ -671,6 +720,105 @@ const TutorPanel: React.FC = () => {
               ))}
             </div>
           )}
+        </section>
+      )}
+
+      {/* MATERIALS TAB */}
+      {tab === 'materials' && (
+        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+          <h2 className="font-display text-2xl font-bold text-slate-950 mb-6">Course Materials</h2>
+
+          {/* Existing materials */}
+          {materials.length > 0 && (
+            <div className="space-y-4 mb-8">
+              {materials.map((m: any) => (
+                <div key={m.id} className="rounded-2xl border border-white/70 bg-white/85 px-6 py-4 shadow-sm">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{m.type === 'youtube' ? '🎬' : m.mime_type?.startsWith('image/') ? '🖼️' : m.mime_type?.startsWith('video/') ? '🎥' : m.mime_type === 'application/pdf' ? '📄' : '📎'}</span>
+                        <h3 className="font-semibold text-slate-900">{m.title}</h3>
+                      </div>
+                      {m.description && <p className="text-sm text-slate-500 mt-1">{m.description}</p>}
+                      <div className="mt-2 flex gap-3 text-xs text-slate-400">
+                        <span className="capitalize">Course: {m.course_slug.replace(/-/g, ' ')}</span>
+                        <span className="capitalize">{m.type}</span>
+                        {m.file_size && <span>{formatFileSize(m.file_size)}</span>}
+                        {m.file_name && <span>{m.file_name}</span>}
+                        <span>{new Date(m.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => deleteMaterial(m.id)}
+                      className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Upload form */}
+          <h3 className="font-display text-xl font-bold text-slate-950 mb-4">Upload Material</h3>
+          <form onSubmit={uploadMaterial} className="max-w-lg space-y-4">
+            <div>
+              <label className="block text-sm text-slate-600 mb-1">Course *</label>
+              <select value={matCourse} onChange={(e) => setMatCourse(e.target.value)} required
+                className="w-full rounded-xl border border-slate-200 px-4 py-2 text-slate-900">
+                <option value="">Select a course...</option>
+                {courses.filter(c => c.status === 'approved').map((c) => (
+                  <option key={c.id} value={c.slug || c.title.toLowerCase().replace(/\s+/g, '-')}>{c.title}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-slate-600 mb-1">Title *</label>
+              <input value={matTitle} onChange={(e) => setMatTitle(e.target.value)} required
+                className="w-full rounded-xl border border-slate-200 px-4 py-2 text-slate-900"
+                placeholder="e.g. Week 1 - Introduction PDF" />
+            </div>
+            <div>
+              <label className="block text-sm text-slate-600 mb-1">Description</label>
+              <textarea value={matDesc} onChange={(e) => setMatDesc(e.target.value)} rows={2}
+                className="w-full rounded-xl border border-slate-200 px-4 py-2 text-slate-900" />
+            </div>
+            <div>
+              <label className="block text-sm text-slate-600 mb-1">Type</label>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setMatType('file')}
+                  className={`flex-1 py-2 rounded-xl text-sm font-semibold border-2 transition ${matType === 'file' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-500'}`}>
+                  📎 File Upload
+                </button>
+                <button type="button" onClick={() => setMatType('youtube')}
+                  className={`flex-1 py-2 rounded-xl text-sm font-semibold border-2 transition ${matType === 'youtube' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 text-slate-500'}`}>
+                  🎬 YouTube Video
+                </button>
+              </div>
+            </div>
+
+            {matType === 'file' && (
+              <div>
+                <label className="block text-sm text-slate-600 mb-1">File (PDF, DOC, images, videos — max 100MB)</label>
+                <input type="file" onChange={(e) => setMatFile(e.target.files?.[0] || null)} required
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.webp,.mp4,.webm,.mov"
+                  className="w-full text-sm text-slate-600 file:mr-4 file:rounded-full file:border-0 file:bg-amber-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-amber-700 hover:file:bg-amber-100" />
+              </div>
+            )}
+
+            {matType === 'youtube' && (
+              <div>
+                <label className="block text-sm text-slate-600 mb-1">YouTube URL *</label>
+                <input value={matYoutubeUrl} onChange={(e) => setMatYoutubeUrl(e.target.value)} required
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2 text-slate-900" />
+              </div>
+            )}
+
+            <button type="submit" disabled={uploading}
+              className="rounded-full bg-amber-600 px-6 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50">
+              {uploading ? 'Uploading...' : 'Upload Material'}
+            </button>
+          </form>
         </section>
       )}
     </div>

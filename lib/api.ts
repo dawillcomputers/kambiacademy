@@ -235,6 +235,47 @@ export const api = {
       body: JSON.stringify({ quiz_id: quizId, answers }),
     }),
 
+  // Materials
+  getMaterials: (courseSlug?: string) =>
+    request<{ materials: any[] }>(courseSlug ? `/api/materials?course=${encodeURIComponent(courseSlug)}` : '/api/materials'),
+
+  uploadMaterial: (data: { course_slug: string; title: string; description?: string; type: 'file' | 'youtube'; youtube_url?: string; file?: File }) => {
+    if (data.type === 'file' && data.file) {
+      const formData = new FormData();
+      formData.set('course_slug', data.course_slug);
+      formData.set('title', data.title);
+      if (data.description) formData.set('description', data.description);
+      formData.set('type', 'file');
+      formData.set('file', data.file);
+      const token = localStorage.getItem('auth_token');
+      return fetch(`${apiBaseUrl}/api/materials`, {
+        method: 'POST',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: formData,
+      }).then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error((d as any).error || 'Upload failed');
+        return d;
+      });
+    }
+    return request<any>('/api/materials', {
+      method: 'POST',
+      body: JSON.stringify({
+        course_slug: data.course_slug,
+        title: data.title,
+        description: data.description,
+        type: 'youtube',
+        youtube_url: data.youtube_url,
+      }),
+    });
+  },
+
+  deleteMaterial: (id: number) =>
+    request<any>(`/api/materials?id=${id}`, { method: 'DELETE' }),
+
+  getMaterialDownloadUrl: (id: number) =>
+    `${apiBaseUrl}/api/materials/download?id=${id}`,
+
   // Audit log
   getAuditLog: (userId?: number) =>
     request<{ log: any[] }>(userId ? `/api/admin/audit-log?user_id=${userId}` : '/api/admin/audit-log'),

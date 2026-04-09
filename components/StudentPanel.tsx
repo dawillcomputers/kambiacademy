@@ -20,7 +20,7 @@ interface Submission {
   feedback: string | null; status: string; submitted_at: string; assignment_title: string; course_slug: string; max_score: number;
 }
 
-type Tab = 'courses' | 'assignments' | 'submissions' | 'quizzes';
+type Tab = 'courses' | 'assignments' | 'submissions' | 'quizzes' | 'materials';
 
 const StudentPanel: React.FC = () => {
   const { user } = useAuth();
@@ -48,6 +48,9 @@ const StudentPanel: React.FC = () => {
   const [quizSubmitting, setQuizSubmitting] = useState(false);
   const [quizResult, setQuizResult] = useState<{ score: number; max_score: number; percentage: number } | null>(null);
 
+  // Materials state
+  const [materials, setMaterials] = useState<any[]>([]);
+
   useEffect(() => {
     Promise.all([
       api.getEnrollments().then((d) => setEnrollments(d.enrollments)),
@@ -64,11 +67,23 @@ const StudentPanel: React.FC = () => {
       api.getQuizzes().then((d) => setQuizzes(d.quizzes)).catch(() => {});
       api.getQuizResponses().then((d) => setQuizResponses(d.responses)).catch(() => {});
     }
+    if (tab === 'materials') api.getMaterials().then((d) => setMaterials(d.materials)).catch(() => {});
   }, [tab]);
 
   const getProgressForCourse = (slug: string) => progress.find((p) => p.course_slug === slug);
   const submittedIds = new Set(submissions.map((s) => s.assignment_id));
   const completedQuizIds = new Set(quizResponses.map((r: any) => r.quiz_id));
+
+  const getYouTubeId = (url: string) => {
+    const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    return m ? m[1] : null;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
 
   const openQuiz = async (quiz: any) => {
     try {
@@ -118,6 +133,7 @@ const StudentPanel: React.FC = () => {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'courses', label: 'My Courses' },
+    { key: 'materials', label: 'Materials' },
     { key: 'assignments', label: 'Assignments' },
     { key: 'submissions', label: 'My Submissions' },
     { key: 'quizzes', label: 'Quizzes' },
@@ -329,6 +345,82 @@ const StudentPanel: React.FC = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* MATERIALS TAB */}
+      {tab === 'materials' && (
+        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+          <h2 className="font-display text-2xl font-bold text-slate-950 mb-6">Course Materials</h2>
+          {materials.length === 0 ? (
+            <p className="text-sm text-slate-400">No materials available yet. Enroll in a course to see materials.</p>
+          ) : (
+            <div className="space-y-4">
+              {materials.map((m: any) => {
+                const isYouTube = m.type === 'youtube' && m.youtube_url;
+                const ytId = isYouTube ? getYouTubeId(m.youtube_url) : null;
+                const isImage = m.mime_type?.startsWith('image/');
+                const isVideo = m.mime_type?.startsWith('video/');
+                const token = localStorage.getItem('auth_token');
+                const downloadUrl = `${api.getMaterialDownloadUrl(m.id)}&token=${token || ''}`;
+
+                return (
+                  <div key={m.id} className="rounded-2xl border border-white/70 bg-white/85 px-6 py-4 shadow-sm">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{isYouTube ? '🎬' : isImage ? '🖼️' : isVideo ? '🎥' : m.mime_type === 'application/pdf' ? '📄' : '📎'}</span>
+                          <h3 className="font-semibold text-slate-900">{m.title}</h3>
+                        </div>
+                        {m.description && <p className="text-sm text-slate-500 mt-1">{m.description}</p>}
+                        <div className="mt-1 flex gap-3 text-xs text-slate-400">
+                          <span className="capitalize">{m.course_slug.replace(/-/g, ' ')}</span>
+                          {m.file_size && <span>{formatFileSize(m.file_size)}</span>}
+                          <span>{new Date(m.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      {!isYouTube && (
+                        <a href={downloadUrl} target="_blank" rel="noopener noreferrer"
+                          className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700">
+                          {isImage || m.mime_type === 'application/pdf' ? 'View' : 'Download'}
+                        </a>
+                      )}
+                    </div>
+
+                    {/* YouTube embed */}
+                    {ytId && (
+                      <div className="mt-3 aspect-video rounded-xl overflow-hidden bg-black">
+                        <iframe
+                          src={`https://www.youtube.com/embed/${ytId}`}
+                          title={m.title}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          className="w-full h-full"
+                        />
+                      </div>
+                    )}
+
+                    {/* Image preview */}
+                    {isImage && (
+                      <div className="mt-3">
+                        <img src={downloadUrl} alt={m.title} className="max-h-64 rounded-xl object-contain" />
+                      </div>
+                    )}
+
+                    {/* Video player */}
+                    {isVideo && !isYouTube && (
+                      <div className="mt-3 rounded-xl overflow-hidden bg-black">
+                        <video controls className="w-full max-h-96">
+                          <source src={downloadUrl} type={m.mime_type} />
+                          Your browser does not support the video tag.
+                        </video>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>

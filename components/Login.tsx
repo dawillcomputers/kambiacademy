@@ -14,14 +14,21 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Redirect already-logged-in users to their dashboard
+  // Redirect already-logged-in users — respect ?redirect param first
   useEffect(() => {
     if (user) {
-      if (user.role === 'admin') navigate('/admin', { replace: true });
-      else if (user.role === 'teacher') navigate('/tutor', { replace: true });
-      else navigate('/student', { replace: true });
+      const redirect = searchParams.get('redirect');
+      if (redirect) {
+        navigate(redirect, { replace: true });
+      } else if (user.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else if (user.role === 'teacher') {
+        navigate('/tutor', { replace: true });
+      } else {
+        navigate('/student', { replace: true });
+      }
     }
-  }, [user, navigate]);
+  }, [user, navigate, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,7 +71,7 @@ const Login: React.FC = () => {
             <h2 className="text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
             <p className="mt-2 text-sm text-gray-600">
               Or{' '}
-              <Link to="/signup" className="font-medium text-indigo-600 hover:text-indigo-500 underline">
+              <Link to={`/signup${searchParams.get('redirect') ? `?redirect=${encodeURIComponent(searchParams.get('redirect')!)}` : ''}`} className="font-medium text-indigo-600 hover:text-indigo-500 underline">
                 create a new account
               </Link>
             </p>

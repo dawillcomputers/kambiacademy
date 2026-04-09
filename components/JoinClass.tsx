@@ -67,9 +67,14 @@ const JoinClass: React.FC = () => {
           {!user ? (
             <div className="mt-6">
               <p className="text-sm text-slate-500 mb-3">You need an account to join this class.</p>
-              <Link to={`/login?redirect=/join/${code}`} className="rounded-full bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
-                Sign in to join
-              </Link>
+              <div className="flex gap-3">
+                <Link to={`/login?redirect=${encodeURIComponent(`/join/${code}`)}`} className="rounded-full bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                  Sign in to join
+                </Link>
+                <Link to={`/signup?redirect=${encodeURIComponent(`/join/${code}`)}`} className="rounded-full border border-indigo-200 px-6 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-50">
+                  Create account
+                </Link>
+              </div>
             </div>
           ) : (
             <button onClick={handleJoin} disabled={joining}
