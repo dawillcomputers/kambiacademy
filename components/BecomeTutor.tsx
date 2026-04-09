@@ -1,14 +1,9 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from './Button';
 import Card from './Card';
 import { ClockIcon, DollarSignIcon, GlobeIcon, SupportIcon } from './icons/Icons';
-
-interface BecomeTutorProps {
-    onSignUpClick: () => void;
-    onBack: () => void;
-    canGoBack: boolean;
-}
 
 const tutorFaqData = [
     {
@@ -43,8 +38,9 @@ const FaqItem: React.FC<{
     </div>
 );
 
-const BecomeTutor: React.FC<BecomeTutorProps> = ({ onSignUpClick, onBack, canGoBack }) => {
+const BecomeTutor: React.FC = () => {
     const [openFaq, setOpenFaq] = useState<number | null>(null);
+    const navigate = useNavigate();
     
     const handleToggle = (index: number) => {
         setOpenFaq(openFaq === index ? null : index);
@@ -62,11 +58,6 @@ const BecomeTutor: React.FC<BecomeTutorProps> = ({ onSignUpClick, onBack, canGoB
     
   return (
     <div>
-        {canGoBack && (
-            <div className="mb-6">
-                <Button variant="secondary" onClick={onBack}>&larr; Back</Button>
-            </div>
-        )}
         <div className="space-y-16">
           <header className="text-center py-16 bg-white rounded-2xl shadow-xl bg-gradient-to-br from-indigo-50 via-white to-sky-50">
             <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600 mb-4">
@@ -75,7 +66,7 @@ const BecomeTutor: React.FC<BecomeTutorProps> = ({ onSignUpClick, onBack, canGoB
             <p className="text-lg text-slate-600 max-w-3xl mx-auto mb-8">
               Join Kambi Academy as an instructor and inspire the next generation of tech talent. Turn your passion into a rewarding teaching career.
             </p>
-            <Button onClick={onSignUpClick} size="large">Start Your Application</Button>
+            <Button onClick={() => navigate('/signup')} size="large">Start Your Application</Button>
           </header>
 
           <section className="text-center max-w-5xl mx-auto">
@@ -134,7 +125,7 @@ const BecomeTutor: React.FC<BecomeTutorProps> = ({ onSignUpClick, onBack, canGoB
           <section className="text-center bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl shadow-xl p-8 md:p-12">
               <h3 className="text-3xl font-extrabold text-white mb-4">Ready to Inspire?</h3>
               <p className="text-lg text-sky-100 max-w-2xl mx-auto mb-8">Your journey to becoming an online instructor starts here. Join us and shape the future of tech education.</p>
-               <Button onClick={onSignUpClick} size="large" variant="secondary" className="bg-white text-indigo-600 hover:bg-slate-100">
+               <Button onClick={() => navigate('/signup')} size="large" variant="secondary" className="bg-white text-indigo-600 hover:bg-slate-100">
                 Apply Now
               </Button>
           </section>

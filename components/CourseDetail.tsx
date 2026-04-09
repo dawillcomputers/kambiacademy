@@ -1,6 +1,8 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import {
   formatDuration,
   formatSessionDate,
@@ -21,6 +23,41 @@ interface CourseDetailProps {
 
 const CourseDetail: React.FC<CourseDetailProps> = ({ course, instructor, relatedCourses, sessions }) => {
   const tone = getCourseTone(course.tone);
+  const { user } = useAuth();
+  const [stats, setStats] = useState({ views: 0, likes: 0, userLiked: false });
+  const [enrolled, setEnrolled] = useState(false);
+  const [enrolling, setEnrolling] = useState(false);
+
+  useEffect(() => {
+    api.recordView(course.slug).catch(() => {});
+    api.getCourseStats(course.slug).then(setStats).catch(() => {});
+    if (user) {
+      api.getEnrollments().then((data) => {
+        setEnrolled(data.enrollments.some((e) => e.course_slug === course.slug));
+      }).catch(() => {});
+    }
+  }, [course.slug, user]);
+
+  const handleLike = async () => {
+    try {
+      const result = await api.toggleLike(course.slug);
+      setStats((prev) => ({
+        ...prev,
+        likes: result.liked ? prev.likes + 1 : Math.max(0, prev.likes - 1),
+        userLiked: result.liked,
+      }));
+    } catch {}
+  };
+
+  const handleEnroll = async () => {
+    setEnrolling(true);
+    try {
+      await api.enroll(course.slug);
+      setEnrolled(true);
+    } catch {} finally {
+      setEnrolling(false);
+    }
+  };
 
   return (
     <article className="space-y-10">
@@ -40,10 +77,20 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, instructor, related
               <p className="mt-4 max-w-3xl text-lg leading-8 text-white/85">{course.summary}</p>
               <p className="mt-5 max-w-3xl text-sm leading-7 text-white/78">{course.description}</p>
 
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link to="/contact" className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100">
-                  Speak to admissions
-                </Link>
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                {enrolled ? (
+                  <span className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-5 py-3 text-sm font-semibold text-white">
+                    ✓ Enrolled
+                  </span>
+                ) : (
+                  <button
+                    onClick={handleEnroll}
+                    disabled={enrolling}
+                    className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                  >
+                    {enrolling ? 'Enrolling...' : `Enroll Now — ${course.priceLabel}`}
+                  </button>
+                )}
                 {course.syllabusUrl ? (
                   <a
                     href={course.syllabusUrl}
@@ -54,6 +101,15 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, instructor, related
                     Download syllabus
                   </a>
                 ) : null}
+                <button
+                  onClick={handleLike}
+                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${stats.userLiked ? 'border-rose-300 bg-rose-500/20 text-white' : 'border-white/25 text-white hover:border-white/45 hover:bg-white/5'}`}
+                >
+                  {stats.userLiked ? '♥' : '♡'} {stats.likes}
+                </button>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 px-4 py-2 text-sm text-white/75">
+                  👁 {stats.views} views
+                </span>
               </div>
             </div>
 
@@ -134,8 +190,8 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, instructor, related
               <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Live Sessions</p>
               <h2 className="mt-3 font-display text-3xl font-bold text-slate-950">Join the mentor-led delivery sessions attached to this course.</h2>
             </div>
-            <Link to="/ndovera-meet" className={`${secondaryLinkClass} hidden lg:inline-flex`}>
-              Open Ndovera Meet
+            <Link to="/courses" className={`${secondaryLinkClass} hidden lg:inline-flex`}>
+              All Courses
             </Link>
           </div>
 

@@ -1,6 +1,7 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { api } from '../lib/api';
 import { getCourseTone } from '../lib/site';
 import { Course, CourseLevel, Instructor } from '../types';
 
@@ -14,6 +15,15 @@ const levels: Array<CourseLevel | 'All'> = ['All', 'Foundation', 'Intermediate',
 const CourseList: React.FC<CourseListProps> = ({ courses, instructors }) => {
     const [levelFilter, setLevelFilter] = useState<CourseLevel | 'All'>('All');
     const [query, setQuery] = useState('');
+    const [statsMap, setStatsMap] = useState<Record<string, { views: number; likes: number }>>({}); 
+
+    useEffect(() => {
+        courses.forEach((course) => {
+            api.getCourseStats(course.slug)
+                .then((s) => setStatsMap((prev) => ({ ...prev, [course.slug]: { views: s.views, likes: s.likes } })))
+                .catch(() => {});
+        });
+    }, [courses]);
 
     const instructorMap = useMemo(
         () => new Map(instructors.map((instructor) => [instructor.id, instructor])),
@@ -46,7 +56,7 @@ const CourseList: React.FC<CourseListProps> = ({ courses, instructors }) => {
                         <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Programs</p>
                         <h1 className="mt-3 font-display text-4xl font-bold text-slate-950 sm:text-5xl">Choose the cohort that matches your current operating level.</h1>
                         <p className="mt-4 max-w-3xl text-base leading-8 text-slate-600">
-                            Every course is built for live delivery, clear outcomes, and mentor-led practice with Ndovera Meet baked into the workflow.
+                            Every course is built for live delivery, clear outcomes, and mentor-led practice with Auralis live classrooms baked into the workflow.
                         </p>
                     </div>
 
@@ -150,6 +160,13 @@ const CourseList: React.FC<CourseListProps> = ({ courses, instructors }) => {
                                         View details
                                     </Link>
                                 </div>
+
+                                {statsMap[course.slug] && (
+                                    <div className="flex items-center gap-4 text-xs text-slate-400 pt-3">
+                                        <span>👁 {statsMap[course.slug].views} views</span>
+                                        <span>♥ {statsMap[course.slug].likes} likes</span>
+                                    </div>
+                                )}
                             </div>
                         </article>
                     );

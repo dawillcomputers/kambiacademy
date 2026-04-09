@@ -1,61 +1,50 @@
 
 import React, { useState } from 'react';
-import { User } from '../types';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../lib/auth';
 import Button from './Button';
 
-interface SignUpProps {
-  onSignUp: (user: User) => void;
-  onSwitchToLogin: () => void;
-  defaultRole: 'student' | 'teacher';
-}
-
-const SignUp: React.FC<SignUpProps> = ({ onSignUp, onSwitchToLogin, defaultRole }) => {
+const SignUp: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { signup } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newUserId = `u${Date.now()}`;
-    const newUser: User = {
-      id: newUserId,
-      name,
-      email,
-      role: defaultRole,
-      ...(defaultRole === 'teacher' && {
-          status: 'active',
-          earnings: { total: 0, paidOut: 0 },
-          bio: 'Newly registered instructor ready to share their knowledge!',
-          profileImageUrl: `https://i.pravatar.cc/150?u=${newUserId}`
-      }),
-      ...(defaultRole === 'student' && {
-          enrolledCourses: []
-      })
-    };
-    onSignUp(newUser);
+    setError('');
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await signup(name, email, password);
+      navigate('/', { replace: true });
+    } catch (err: any) {
+      setError(err.message || 'Could not create account.');
+    } finally {
+      setLoading(false);
+    }
   };
-
-  const isTeacher = defaultRole === 'teacher';
 
   return (
     <div className="flex items-center justify-center py-12 bg-slate-50 min-h-[70vh] px-4">
       <div className="mx-auto w-full max-w-6xl flex bg-white shadow-2xl rounded-3xl overflow-hidden border border-slate-100">
         
-        {/* Right Form Side (Moved to left on desktop if you want, but sticking to split) */}
         <div className="w-full lg:w-1/2 py-12 px-8 sm:px-12">
           <div className="mb-10 text-center">
             <h2 className="text-4xl font-black text-gray-900 tracking-tight">
-              {isTeacher ? 'Instructor Application' : 'Create Student Account'}
+              Create Your Account
             </h2>
             <p className="mt-3 text-slate-500 font-medium">
-              {isTeacher 
-                ? 'Join our elite circle of educators and start earning.' 
-                : 'Already have an account? '}
-              {!isTeacher && (
-                <button onClick={onSwitchToLogin} className="font-bold text-indigo-600 hover:text-indigo-500 transition-colors underline">
-                  Sign in
-                </button>
-              )}
+              Already have an account?{' '}
+              <Link to="/login" className="font-bold text-indigo-600 hover:text-indigo-500 transition-colors underline">
+                Sign in
+              </Link>
             </p>
           </div>
           
@@ -110,31 +99,23 @@ const SignUp: React.FC<SignUpProps> = ({ onSignUp, onSwitchToLogin, defaultRole 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
                   className="appearance-none block w-full px-6 py-4 border border-slate-200 rounded-2xl shadow-sm placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-blue-700 font-bold text-lg" 
-                  placeholder="Min. 8 characters"
+                  placeholder="Min. 6 characters"
                 />
               </div>
             </div>
+
+            {error && <p className="text-sm text-red-600 font-bold">{error}</p>}
 
             <div className="pt-6">
               <Button 
                 type="submit" 
                 className="w-full py-5 text-xl font-black rounded-2xl shadow-2xl shadow-indigo-200 transform active:scale-95 transition-all"
+                disabled={loading}
               >
-                {isTeacher ? 'Submit Application' : 'Create Account'}
+                {loading ? 'Creating account...' : 'Create Account'}
               </Button>
             </div>
           </form>
-
-          {isTeacher && (
-             <div className="mt-8 pt-8 border-t border-slate-100 text-center">
-                <p className="text-sm text-slate-500">
-                  Already have an instructor account?{' '}
-                  <button onClick={onSwitchToLogin} className="font-bold text-indigo-600 hover:text-indigo-800 underline underline-offset-4">
-                    Sign in here
-                  </button>
-                </p>
-             </div>
-          )}
         </div>
 
         {/* Right Image Side */}

@@ -12,7 +12,6 @@ interface FooterProps {
 const quickLinks = [
   { label: 'About', to: '/about' },
   { label: 'Courses', to: '/courses' },
-  { label: 'Ndovera Meet', to: '/ndovera-meet' },
   { label: 'Teach', to: '/teach' },
   { label: 'FAQ', to: '/faq' },
   { label: 'Contact', to: '/contact' },

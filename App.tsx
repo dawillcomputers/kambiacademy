@@ -10,8 +10,10 @@ import Faq from './components/Faq';
 import Footer from './components/Footer';
 import Header from './components/Header';
 import Home from './components/Home';
-import LiveClassroom from './components/LiveClassroom';
+import Login from './components/Login';
+import SignUp from './components/SignUp';
 import { api } from './lib/api';
+import { AuthProvider, useAuth } from './lib/auth';
 import { BrandingContent, SiteData } from './types';
 
 const fallbackBranding: BrandingContent = {
@@ -54,6 +56,16 @@ const ErrorState: React.FC<{ message: string; onRetry: () => void }> = ({ messag
     </button>
   </section>
 );
+
+const RequireAuth: React.FC<{ children: React.ReactElement }> = ({ children }) => {
+  const { user, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) return <LoadingState />;
+  if (!user) return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname)}`} replace />;
+
+  return children;
+};
 
 const CourseDetailRoute: React.FC<{ siteData: SiteData }> = ({ siteData }) => {
   const { slug } = useParams<{ slug: string }>();
@@ -118,14 +130,15 @@ const AppShell: React.FC = () => {
             <ErrorState message={error} onRetry={loadSiteData} />
           ) : (
             <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<SignUp />} />
               <Route path="/" element={<Home siteData={siteData} />} />
               <Route path="/about" element={<About about={siteData.about} instructors={siteData.instructors} stats={siteData.stats} />} />
               <Route path="/contact" element={<Contact contact={siteData.contact} />} />
               <Route path="/courses" element={<CourseList courses={siteData.courses} instructors={siteData.instructors} />} />
-              <Route path="/courses/:slug" element={<CourseDetailRoute siteData={siteData} />} />
+              <Route path="/courses/:slug" element={<RequireAuth><CourseDetailRoute siteData={siteData} /></RequireAuth>} />
               <Route path="/faq" element={<Faq faqs={siteData.faqs} />} />
-              <Route path="/teach" element={<BecomeTutor tutorProgram={siteData.tutorProgram} />} />
-              <Route path="/ndovera-meet" element={<LiveClassroom meet={siteData.meet} sessions={siteData.sessions} courses={siteData.courses} />} />
+              <Route path="/teach" element={<BecomeTutor />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           )}
@@ -138,8 +151,10 @@ const AppShell: React.FC = () => {
 
 const App: React.FC = () => (
   <BrowserRouter>
-    <ScrollToTop />
-    <AppShell />
+    <AuthProvider>
+      <ScrollToTop />
+      <AppShell />
+    </AuthProvider>
   </BrowserRouter>
 );
 

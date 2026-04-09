@@ -24,11 +24,13 @@ const parseErrorMessage = async (response: Response): Promise<string> => {
 };
 
 const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
+  const token = localStorage.getItem('auth_token');
   const response = await fetch(resolveUrl(path), {
     ...init,
     headers: {
       Accept: 'application/json',
       ...(init?.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
   });
@@ -74,4 +76,22 @@ export const api = {
       body,
     });
   },
+
+  enroll: (courseSlug: string) =>
+    request<{ message: string }>('/api/enroll', {
+      method: 'POST',
+      body: JSON.stringify({ courseSlug }),
+    }),
+
+  getEnrollments: () =>
+    request<{ enrollments: Array<{ course_slug: string; amount_paid: number; created_at: string }> }>('/api/enrollments'),
+
+  getCourseStats: (slug: string) =>
+    request<{ views: number; likes: number; userLiked: boolean }>(`/api/courses/${slug}/stats`),
+
+  recordView: (slug: string) =>
+    request<{ message: string }>(`/api/courses/${slug}/view`, { method: 'POST' }),
+
+  toggleLike: (slug: string) =>
+    request<{ liked: boolean }>(`/api/courses/${slug}/like`, { method: 'POST' }),
 };

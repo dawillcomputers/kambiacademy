@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../lib/auth';
 import { primaryLinkClass } from '../lib/site';
 import { BrandingContent } from '../types';
 
@@ -11,7 +12,6 @@ interface HeaderProps {
 const navItems = [
   { label: 'About', to: '/about' },
   { label: 'Courses', to: '/courses' },
-  { label: 'Ndovera Meet', to: '/ndovera-meet' },
   { label: 'Teach', to: '/teach' },
   { label: 'FAQ', to: '/faq' },
   { label: 'Contact', to: '/contact' },
@@ -49,6 +49,8 @@ const ActionLink: React.FC<{
 
 const Header: React.FC<HeaderProps> = ({ branding }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/60 bg-white/80 backdrop-blur-xl">
@@ -75,13 +77,27 @@ const Header: React.FC<HeaderProps> = ({ branding }) => {
           ))}
         </nav>
 
-        <div className="hidden lg:block">
-          <ActionLink
-            href={branding.primaryCta.href}
-            label={branding.primaryCta.label}
-            external={branding.primaryCta.external}
-            className={`${primaryLinkClass} shadow-lg shadow-slate-200`}
-          />
+        <div className="hidden items-center gap-3 lg:flex">
+          {user ? (
+            <>
+              <span className="text-sm font-semibold text-slate-700">{user.name}</span>
+              <button
+                onClick={() => { logout(); navigate('/'); }}
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                Sign out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-white hover:text-slate-950">
+                Sign in
+              </Link>
+              <Link to="/signup" className={`${primaryLinkClass} shadow-lg shadow-slate-200`}>
+                Sign up
+              </Link>
+            </>
+          )}
         </div>
 
         <button
@@ -120,13 +136,23 @@ const Header: React.FC<HeaderProps> = ({ branding }) => {
               </NavLink>
             ))}
 
-            <ActionLink
-              href={branding.primaryCta.href}
-              label={branding.primaryCta.label}
-              external={branding.primaryCta.external}
-              onClick={() => setIsMenuOpen(false)}
-              className={`${primaryLinkClass} mt-2 w-full`}
-            />
+            {user ? (
+              <button
+                onClick={() => { logout(); navigate('/'); setIsMenuOpen(false); }}
+                className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-center text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+              >
+                Sign out ({user.name})
+              </button>
+            ) : (
+              <>
+                <Link to="/login" onClick={() => setIsMenuOpen(false)} className="mt-2 rounded-2xl bg-white px-4 py-3 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-100">
+                  Sign in
+                </Link>
+                <Link to="/signup" onClick={() => setIsMenuOpen(false)} className={`${primaryLinkClass} mt-2 w-full`}>
+                  Sign up
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -82,10 +82,14 @@ const Home: React.FC<HomeProps> = ({ siteData }) => {
                       <p className="text-sm font-semibold text-white">{session.title}</p>
                       <p className="mt-1 text-sm text-slate-300">{formatSessionDate(session.startsAt)}</p>
                       <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-400">
-                        <span>{session.platformLabel}</span>
-                        <Link to="/ndovera-meet" className="font-semibold text-sky-300 transition hover:text-sky-200">
-                          View room
-                        </Link>
+                        <span>Auralis Live</span>
+                        {session.courseSlug ? (
+                          <Link to={`/courses/${session.courseSlug}`} className="font-semibold text-sky-300 transition hover:text-sky-200">
+                            View course
+                          </Link>
+                        ) : (
+                          <span className="font-semibold text-sky-300">Open session</span>
+                        )}
                       </div>
                     </div>
                   ))
@@ -214,14 +218,14 @@ const Home: React.FC<HomeProps> = ({ siteData }) => {
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-sky-200">Ready to move</p>
           <h2 className="mt-3 font-display text-3xl font-bold">Choose a program, meet your instructor, and join the next live session.</h2>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
-            Kambi Academy pairs production-ready course pages with Ndovera Meet so admissions, delivery, and follow-up happen in one flow.
+            Kambi Academy pairs production-ready course pages with Auralis live classrooms so admissions, delivery, and follow-up happen in one flow.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link to="/courses" className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100">
               Explore all programs
             </Link>
-            <Link to="/contact" className="inline-flex items-center justify-center rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/40 hover:bg-white/5">
-              Talk to admissions
+            <Link to="/signup" className="inline-flex items-center justify-center rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/40 hover:bg-white/5">
+              Sign up now
             </Link>
           </div>
         </div>

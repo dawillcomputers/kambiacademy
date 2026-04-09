@@ -1,26 +1,30 @@
 
 import React, { useState } from 'react';
-import { User } from '../types';
-import { MOCK_USERS } from '../constants';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../lib/auth';
 import Button from './Button';
 
-interface LoginProps {
-  onLogin: (user: User) => void;
-  onSwitchToSignUp: () => void;
-}
-
-const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToSignUp }) => {
+const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const user = MOCK_USERS.find(u => u.email === email);
-    if (user) { // In a real app, you'd check the password
-      onLogin(user);
-    } else {
-      setError('Invalid email or password.');
+    setError('');
+    setLoading(true);
+    try {
+      await login(email, password);
+      const redirect = searchParams.get('redirect') || '/';
+      navigate(redirect, { replace: true });
+    } catch (err: any) {
+      setError(err.message || 'Invalid email or password.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -42,9 +46,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToSignUp }) => {
             <h2 className="text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
             <p className="mt-2 text-sm text-gray-600">
               Or{' '}
-              <button onClick={onSwitchToSignUp} className="font-medium text-indigo-600 hover:text-indigo-500 underline">
+              <Link to="/signup" className="font-medium text-indigo-600 hover:text-indigo-500 underline">
                 create a new account
-              </button>
+              </Link>
             </p>
           </div>
           <form className="space-y-6" onSubmit={handleSubmit}>
@@ -68,7 +72,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToSignUp }) => {
             </div>
 
             <div>
-              <label htmlFor="password"className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
               </label>
               <div className="mt-1">
@@ -87,8 +91,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToSignUp }) => {
             </div>
             {error && <p className="text-sm text-red-600 font-bold">{error}</p>}
             <div>
-              <Button type="submit" className="w-full py-4 text-lg">
-                Sign in
+              <Button type="submit" className="w-full py-4 text-lg" disabled={loading}>
+                {loading ? 'Signing in...' : 'Sign in'}
               </Button>
             </div>
           </form>
