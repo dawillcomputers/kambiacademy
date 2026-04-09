@@ -10,7 +10,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  const [usersResult, enrollmentsResult, contactsResult, tutorAppsResult, courseLikesResult, courseViewsResult, recentUsersResult, recentEnrollmentsResult] = await Promise.all([
+  const [usersResult, enrollmentsResult, contactsResult, tutorAppsResult, courseLikesResult, courseViewsResult, recentUsersResult, recentEnrollmentsResult, topCoursesResult, topTeachersResult] = await Promise.all([
     env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>(),
     env.DB.prepare('SELECT COUNT(*) as count, COALESCE(SUM(amount_paid), 0) as revenue FROM enrollments').first<{ count: number; revenue: number }>(),
     env.DB.prepare('SELECT COUNT(*) as count FROM contact_submissions').first<{ count: number }>(),
@@ -22,6 +22,26 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       SELECT e.course_slug, e.amount_paid, e.created_at, u.name as user_name, u.email as user_email
       FROM enrollments e JOIN users u ON e.user_id = u.id
       ORDER BY e.created_at DESC LIMIT 10
+    `).all(),
+    env.DB.prepare(`
+      SELECT e.course_slug, COUNT(*) as enrollment_count, COALESCE(SUM(e.amount_paid), 0) as total_revenue
+      FROM enrollments e
+      GROUP BY e.course_slug
+      ORDER BY total_revenue DESC
+      LIMIT 10
+    `).all(),
+    env.DB.prepare(`
+      SELECT u.id, u.name, u.email,
+        COUNT(DISTINCT e.id) as enrollment_count,
+        COALESCE(SUM(e.amount_paid), 0) as total_revenue,
+        COUNT(DISTINCT tc.id) as course_count
+      FROM users u
+      JOIN tutor_courses tc ON tc.tutor_id = u.id AND tc.status = 'approved'
+      LEFT JOIN enrollments e ON e.course_slug = tc.slug
+      WHERE u.role = 'teacher'
+      GROUP BY u.id
+      ORDER BY total_revenue DESC
+      LIMIT 10
     `).all(),
   ]);
 
@@ -35,5 +55,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     totalViews: courseViewsResult?.total ?? 0,
     recentUsers: recentUsersResult?.results ?? [],
     recentEnrollments: recentEnrollmentsResult?.results ?? [],
+    topCourses: topCoursesResult?.results ?? [],
+    topTeachers: topTeachersResult?.results ?? [],
   });
 };

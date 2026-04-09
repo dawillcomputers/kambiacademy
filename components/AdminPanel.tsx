@@ -13,6 +13,8 @@ interface AdminStats {
   totalViews: number;
   recentUsers: Array<{ id: number; name: string; email: string; role: string; created_at: string }>;
   recentEnrollments: Array<{ course_slug: string; amount_paid: number; created_at: string; user_name: string; user_email: string }>;
+  topCourses: Array<{ course_slug: string; enrollment_count: number; total_revenue: number }>;
+  topTeachers: Array<{ id: number; name: string; email: string; enrollment_count: number; total_revenue: number; course_count: number }>;
 }
 
 interface ManagedUser {
@@ -196,6 +198,53 @@ const AdminPanel: React.FC = () => {
                   <div key={i} className="flex items-center justify-between rounded-2xl border border-white/70 bg-white/85 px-4 py-3 shadow-sm">
                     <div><p className="font-semibold text-slate-900">{e.user_name}</p><p className="text-sm text-slate-500">{e.course_slug}</p></div>
                     <div className="text-right"><p className="font-semibold text-emerald-600">${e.amount_paid}</p><p className="text-xs text-slate-400">{new Date(e.created_at).toLocaleDateString()}</p></div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          {/* TOP SELLING COURSES & TEACHERS */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8 sm:px-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Highest Selling Courses</p>
+              <div className="mt-4 space-y-3">
+                {stats.topCourses.length === 0 ? (
+                  <p className="text-sm text-slate-400">No course sales yet.</p>
+                ) : stats.topCourses.map((c, i) => (
+                  <div key={c.course_slug} className="flex items-center justify-between rounded-2xl border border-white/70 bg-white/85 px-4 py-3 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-slate-200 text-slate-700' : i === 2 ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-500'}`}>
+                        {i + 1}
+                      </span>
+                      <div>
+                        <p className="font-semibold text-slate-900 capitalize">{c.course_slug.replace(/-/g, ' ')}</p>
+                        <p className="text-xs text-slate-400">{c.enrollment_count} enrollments</p>
+                      </div>
+                    </div>
+                    <p className="font-bold text-emerald-600">${c.total_revenue}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8 sm:px-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Top Earning Teachers</p>
+              <div className="mt-4 space-y-3">
+                {stats.topTeachers.length === 0 ? (
+                  <p className="text-sm text-slate-400">No teacher earnings yet.</p>
+                ) : stats.topTeachers.map((t, i) => (
+                  <div key={t.id} className="flex items-center justify-between rounded-2xl border border-white/70 bg-white/85 px-4 py-3 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-slate-200 text-slate-700' : i === 2 ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-500'}`}>
+                        {i + 1}
+                      </span>
+                      <div>
+                        <p className="font-semibold text-slate-900">{t.name}</p>
+                        <p className="text-xs text-slate-400">{t.course_count} courses • {t.enrollment_count} students</p>
+                      </div>
+                    </div>
+                    <p className="font-bold text-emerald-600">${t.total_revenue}</p>
                   </div>
                 ))}
               </div>

@@ -213,6 +213,28 @@ export const api = {
       body: JSON.stringify({ submission_id: submissionId, score, feedback }),
     }),
 
+  // Quizzes
+  getQuizzes: (courseSlug?: string) =>
+    request<{ quizzes: any[] }>(courseSlug ? `/api/quizzes?course=${encodeURIComponent(courseSlug)}` : '/api/quizzes'),
+
+  getQuiz: (id: number) =>
+    request<{ quiz: any; questions: any[] }>(`/api/quizzes?id=${id}`),
+
+  createQuiz: (data: { course_slug: string; title: string; description?: string; time_limit_minutes?: number; questions: Array<{ question_text: string; option_a: string; option_b: string; option_c: string; option_d: string; correct_option: string; points?: number }> }) =>
+    request<any>('/api/quizzes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getQuizResponses: (quizId?: number) =>
+    request<{ responses: any[] }>(quizId ? `/api/quiz-responses?quiz_id=${quizId}` : '/api/quiz-responses'),
+
+  submitQuizResponse: (quizId: number, answers: Array<{ question_id: number; selected_option: string }>) =>
+    request<any>('/api/quiz-responses', {
+      method: 'POST',
+      body: JSON.stringify({ quiz_id: quizId, answers }),
+    }),
+
   // Audit log
   getAuditLog: (userId?: number) =>
     request<{ log: any[] }>(userId ? `/api/admin/audit-log?user_id=${userId}` : '/api/admin/audit-log'),

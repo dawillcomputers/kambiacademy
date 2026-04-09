@@ -20,7 +20,7 @@ interface Submission {
   feedback: string | null; status: string; submitted_at: string; assignment_title: string; course_slug: string; max_score: number;
 }
 
-type Tab = 'courses' | 'assignments' | 'submissions';
+type Tab = 'courses' | 'assignments' | 'submissions' | 'quizzes';
 
 const StudentPanel: React.FC = () => {
   const { user } = useAuth();
@@ -39,6 +39,15 @@ const StudentPanel: React.FC = () => {
   const [submitFile, setSubmitFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Quiz state
+  const [quizzes, setQuizzes] = useState<any[]>([]);
+  const [quizResponses, setQuizResponses] = useState<any[]>([]);
+  const [activeQuiz, setActiveQuiz] = useState<any | null>(null);
+  const [activeQuestions, setActiveQuestions] = useState<any[]>([]);
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
+  const [quizSubmitting, setQuizSubmitting] = useState(false);
+  const [quizResult, setQuizResult] = useState<{ score: number; max_score: number; percentage: number } | null>(null);
+
   useEffect(() => {
     Promise.all([
       api.getEnrollments().then((d) => setEnrollments(d.enrollments)),
@@ -51,10 +60,40 @@ const StudentPanel: React.FC = () => {
   useEffect(() => {
     if (tab === 'assignments') api.getAssignments().then((d) => setAssignments(d.assignments)).catch(() => {});
     if (tab === 'submissions') api.getSubmissions().then((d) => setSubmissions(d.submissions)).catch(() => {});
+    if (tab === 'quizzes') {
+      api.getQuizzes().then((d) => setQuizzes(d.quizzes)).catch(() => {});
+      api.getQuizResponses().then((d) => setQuizResponses(d.responses)).catch(() => {});
+    }
   }, [tab]);
 
   const getProgressForCourse = (slug: string) => progress.find((p) => p.course_slug === slug);
   const submittedIds = new Set(submissions.map((s) => s.assignment_id));
+  const completedQuizIds = new Set(quizResponses.map((r: any) => r.quiz_id));
+
+  const openQuiz = async (quiz: any) => {
+    try {
+      const data = await api.getQuiz(quiz.id);
+      setActiveQuiz(data.quiz);
+      setActiveQuestions(data.questions);
+      setQuizAnswers({});
+      setQuizResult(null);
+    } catch (e: any) { setErr(e.message); }
+  };
+
+  const submitQuiz = async () => {
+    if (!activeQuiz) return;
+    setQuizSubmitting(true); setErr('');
+    try {
+      const answers = Object.entries(quizAnswers).map(([qId, opt]) => ({
+        question_id: parseInt(qId),
+        selected_option: opt,
+      }));
+      const result = await api.submitQuizResponse(activeQuiz.id, answers);
+      setQuizResult({ score: result.score, max_score: result.max_score, percentage: result.percentage });
+      api.getQuizResponses().then((d) => setQuizResponses(d.responses)).catch(() => {});
+    } catch (e: any) { setErr(e.message); }
+    finally { setQuizSubmitting(false); }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +120,7 @@ const StudentPanel: React.FC = () => {
     { key: 'courses', label: 'My Courses' },
     { key: 'assignments', label: 'Assignments' },
     { key: 'submissions', label: 'My Submissions' },
+    { key: 'quizzes', label: 'Quizzes' },
   ];
 
   return (
@@ -290,6 +330,119 @@ const StudentPanel: React.FC = () => {
                 </div>
               ))}
             </div>
+          )}
+        </section>
+      )}
+
+      {/* QUIZZES TAB */}
+      {tab === 'quizzes' && (
+        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+          <h2 className="font-display text-2xl font-bold text-slate-950 mb-6">Quizzes</h2>
+
+          {/* Active Quiz / Taking a Quiz */}
+          {activeQuiz && !quizResult && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-display text-xl font-bold text-slate-900">{activeQuiz.title}</h3>
+                  {activeQuiz.description && <p className="text-sm text-slate-500 mt-1">{activeQuiz.description}</p>}
+                  {activeQuiz.time_limit_minutes && (
+                    <p className="text-xs text-amber-600 mt-1">⏱ Time limit: {activeQuiz.time_limit_minutes} minutes</p>
+                  )}
+                </div>
+                <button onClick={() => { setActiveQuiz(null); setActiveQuestions([]); }}
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                  Cancel
+                </button>
+              </div>
+
+              {activeQuestions.map((q: any, idx: number) => (
+                <div key={q.id} className="rounded-2xl border border-slate-200 bg-white/85 p-5">
+                  <p className="font-semibold text-slate-900 mb-3">
+                    <span className="text-slate-400 text-sm mr-2">Q{idx + 1}.</span>
+                    {q.question_text}
+                    <span className="text-xs text-slate-400 ml-2">({q.points} pt{q.points > 1 ? 's' : ''})</span>
+                  </p>
+                  <div className="space-y-2">
+                    {['a', 'b', 'c', 'd'].map((opt) => (
+                      <label key={opt}
+                        className={`flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer transition ${quizAnswers[q.id] === opt ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                        <input type="radio" name={`q-${q.id}`} value={opt}
+                          checked={quizAnswers[q.id] === opt}
+                          onChange={() => setQuizAnswers({ ...quizAnswers, [q.id]: opt })}
+                          className="accent-emerald-600" />
+                        <span className="text-xs font-bold text-slate-400 uppercase">{opt}.</span>
+                        <span className="text-sm text-slate-700">{q[`option_${opt}`]}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <button onClick={submitQuiz} disabled={quizSubmitting || Object.keys(quizAnswers).length === 0}
+                className="rounded-full bg-emerald-600 px-8 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                {quizSubmitting ? 'Submitting...' : 'Submit Quiz'}
+              </button>
+            </div>
+          )}
+
+          {/* Quiz Result */}
+          {quizResult && (
+            <div className="text-center py-8">
+              <div className="mx-auto w-32 h-32 rounded-full border-8 border-emerald-100 flex items-center justify-center mb-4">
+                <span className="font-display text-3xl font-bold text-emerald-600">{quizResult.percentage}%</span>
+              </div>
+              <h3 className="font-display text-xl font-bold text-slate-900">Quiz Complete!</h3>
+              <p className="text-slate-500 mt-1">You scored {quizResult.score} out of {quizResult.max_score}</p>
+              <button onClick={() => { setActiveQuiz(null); setActiveQuestions([]); setQuizResult(null); }}
+                className="mt-4 rounded-full bg-emerald-600 px-6 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                Back to Quizzes
+              </button>
+            </div>
+          )}
+
+          {/* Available Quizzes List */}
+          {!activeQuiz && !quizResult && (
+            <>
+              {quizzes.length === 0 ? (
+                <p className="text-sm text-slate-400">No quizzes available yet. Enroll in a course to see quizzes.</p>
+              ) : (
+                <div className="space-y-4">
+                  {quizzes.map((q: any) => {
+                    const done = completedQuizIds.has(q.id);
+                    const resp = quizResponses.find((r: any) => r.quiz_id === q.id);
+                    return (
+                      <div key={q.id} className="rounded-2xl border border-white/70 bg-white/85 px-6 py-4 shadow-sm">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-semibold text-slate-900">{q.title}</h3>
+                            {q.description && <p className="text-sm text-slate-500 mt-1">{q.description}</p>}
+                            <div className="mt-2 flex gap-3 text-xs text-slate-400">
+                              <span className="capitalize">Course: {q.course_slug.replace(/-/g, ' ')}</span>
+                              {q.time_limit_minutes && <span>⏱ {q.time_limit_minutes} min</span>}
+                              <span>{q.question_count || 0} questions</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            {done ? (
+                              <div>
+                                <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">Completed</span>
+                                {resp && <p className="mt-2 text-lg font-bold text-slate-900">{resp.score}/{resp.max_score}</p>}
+                              </div>
+                            ) : (
+                              <button onClick={() => openQuiz(q)}
+                                className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700">
+                                Take Quiz
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </section>
       )}

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
 
-type Tab = 'courses' | 'classes' | 'create-course' | 'create-class' | 'assignments' | 'submissions';
+type Tab = 'courses' | 'classes' | 'create-course' | 'create-class' | 'assignments' | 'submissions' | 'quizzes' | 'create-quiz' | 'quiz-results';
 
 interface TutorCourse {
   id: number; title: string; slug?: string; description: string; level: string; price: number;
@@ -62,6 +62,20 @@ const TutorPanel: React.FC = () => {
   const [gradeFeedback, setGradeFeedback] = useState('');
   const [grading, setGrading] = useState(false);
 
+  // Quiz state
+  const [quizzes, setQuizzes] = useState<any[]>([]);
+  const [quizResponses, setQuizResponses] = useState<any[]>([]);
+  const [selectedQuizId, setSelectedQuizId] = useState<number | null>(null);
+
+  // Quiz creation form
+  const [quizCourse, setQuizCourse] = useState('');
+  const [quizTitle, setQuizTitle] = useState('');
+  const [quizDesc, setQuizDesc] = useState('');
+  const [quizTimeLimit, setQuizTimeLimit] = useState('');
+  const [quizQuestions, setQuizQuestions] = useState<Array<{ question_text: string; option_a: string; option_b: string; option_c: string; option_d: string; correct_option: string; points: number }>>([
+    { question_text: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_option: 'a', points: 1 },
+  ]);
+
   useEffect(() => {
     if (tab === 'courses') api.tutorGetCourses().then((d) => setCourses(d.courses)).catch(() => {});
     if (tab === 'classes') api.tutorGetClasses().then((d) => setClasses(d.classes)).catch(() => {});
@@ -70,6 +84,11 @@ const TutorPanel: React.FC = () => {
       api.tutorGetCourses().then((d) => setCourses(d.courses)).catch(() => {});
     }
     if (tab === 'submissions') api.getSubmissions().then((d) => setSubmissions(d.submissions)).catch(() => {});
+    if (tab === 'quizzes' || tab === 'create-quiz') {
+      api.getQuizzes().then((d) => setQuizzes(d.quizzes)).catch(() => {});
+      api.tutorGetCourses().then((d) => setCourses(d.courses)).catch(() => {});
+    }
+    if (tab === 'quiz-results') api.getQuizResponses().then((d) => setQuizResponses(d.responses)).catch(() => {});
   }, [tab]);
 
   const submitCourse = async (e: React.FormEvent) => {
@@ -126,11 +145,45 @@ const TutorPanel: React.FC = () => {
     finally { setGrading(false); }
   };
 
+  const addQuestion = () => {
+    setQuizQuestions([...quizQuestions, { question_text: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_option: 'a', points: 1 }]);
+  };
+
+  const removeQuestion = (idx: number) => {
+    if (quizQuestions.length <= 1) return;
+    setQuizQuestions(quizQuestions.filter((_, i) => i !== idx));
+  };
+
+  const updateQuestion = (idx: number, field: string, value: string | number) => {
+    setQuizQuestions(quizQuestions.map((q, i) => i === idx ? { ...q, [field]: value } : q));
+  };
+
+  const createQuiz = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(''); setErr('');
+    try {
+      await api.createQuiz({
+        course_slug: quizCourse,
+        title: quizTitle,
+        description: quizDesc || undefined,
+        time_limit_minutes: quizTimeLimit ? parseInt(quizTimeLimit) : undefined,
+        questions: quizQuestions,
+      });
+      setMsg('Quiz created successfully!');
+      setQuizTitle(''); setQuizDesc(''); setQuizTimeLimit('');
+      setQuizQuestions([{ question_text: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_option: 'a', points: 1 }]);
+      setTab('quizzes');
+    } catch (e: any) { setErr(e.message); }
+  };
+
   const tabs: { key: Tab; label: string }[] = [
     { key: 'courses', label: 'My Courses' },
     { key: 'create-course', label: 'Submit Course' },
     { key: 'assignments', label: 'Assignments' },
     { key: 'submissions', label: 'Grade Submissions' },
+    { key: 'quizzes', label: 'Quizzes' },
+    { key: 'create-quiz', label: 'Create Quiz' },
+    { key: 'quiz-results', label: 'Quiz Results' },
     { key: 'classes', label: 'Private Classes' },
     { key: 'create-class', label: 'Create Class' },
   ];
@@ -445,6 +498,177 @@ const TutorPanel: React.FC = () => {
                   </div>
                 </form>
               </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* QUIZZES LIST */}
+      {tab === 'quizzes' && (
+        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+          <h2 className="font-display text-2xl font-bold text-slate-950 mb-6">My Quizzes</h2>
+          {quizzes.length === 0 ? (
+            <p className="text-sm text-slate-400">You haven't created any quizzes yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {quizzes.map((q: any) => (
+                <div key={q.id} className="rounded-2xl border border-white/70 bg-white/85 px-6 py-4 shadow-sm">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-semibold text-slate-900">{q.title}</h3>
+                      {q.description && <p className="text-sm text-slate-500 mt-1">{q.description}</p>}
+                      <div className="mt-2 flex gap-3 text-xs text-slate-400">
+                        <span className="capitalize">Course: {q.course_slug.replace(/-/g, ' ')}</span>
+                        {q.time_limit_minutes && <span>Time: {q.time_limit_minutes} min</span>}
+                        <span>{q.question_count || 0} questions</span>
+                        <span>Created: {new Date(q.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* CREATE QUIZ */}
+      {tab === 'create-quiz' && (
+        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+          <h2 className="font-display text-2xl font-bold text-slate-950 mb-6">Create a Quiz</h2>
+          <form onSubmit={createQuiz} className="space-y-6">
+            <div className="max-w-lg space-y-4">
+              <div>
+                <label className="block text-sm text-slate-600 mb-1">Course *</label>
+                <select value={quizCourse} onChange={(e) => setQuizCourse(e.target.value)} required
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2 text-slate-900">
+                  <option value="">Select a course...</option>
+                  {courses.filter(c => c.status === 'approved').map((c) => (
+                    <option key={c.id} value={c.slug || c.title.toLowerCase().replace(/\s+/g, '-')}>{c.title}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-600 mb-1">Quiz Title *</label>
+                <input value={quizTitle} onChange={(e) => setQuizTitle(e.target.value)} required
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2 text-slate-900" />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-600 mb-1">Description</label>
+                <textarea value={quizDesc} onChange={(e) => setQuizDesc(e.target.value)} rows={2}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2 text-slate-900" />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-600 mb-1">Time Limit (minutes, optional)</label>
+                <input type="number" min="1" value={quizTimeLimit} onChange={(e) => setQuizTimeLimit(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2 text-slate-900" placeholder="No limit" />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-display text-xl font-bold text-slate-950">Questions</h3>
+                <button type="button" onClick={addQuestion}
+                  className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200">
+                  + Add Question
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {quizQuestions.map((q, idx) => (
+                  <div key={idx} className="rounded-2xl border border-slate-200 bg-white/85 p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-semibold text-slate-700">Question {idx + 1}</span>
+                      {quizQuestions.length > 1 && (
+                        <button type="button" onClick={() => removeQuestion(idx)}
+                          className="text-xs text-red-500 hover:text-red-700 font-medium">Remove</button>
+                      )}
+                    </div>
+                    <div className="space-y-3">
+                      <input value={q.question_text} onChange={(e) => updateQuestion(idx, 'question_text', e.target.value)}
+                        required placeholder="Enter your question..."
+                        className="w-full rounded-xl border border-slate-200 px-4 py-2 text-slate-900" />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-500 w-4">A</span>
+                          <input value={q.option_a} onChange={(e) => updateQuestion(idx, 'option_a', e.target.value)}
+                            required placeholder="Option A"
+                            className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-500 w-4">B</span>
+                          <input value={q.option_b} onChange={(e) => updateQuestion(idx, 'option_b', e.target.value)}
+                            required placeholder="Option B"
+                            className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-500 w-4">C</span>
+                          <input value={q.option_c} onChange={(e) => updateQuestion(idx, 'option_c', e.target.value)}
+                            required placeholder="Option C"
+                            className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-500 w-4">D</span>
+                          <input value={q.option_d} onChange={(e) => updateQuestion(idx, 'option_d', e.target.value)}
+                            required placeholder="Option D"
+                            className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Correct Answer</label>
+                          <select value={q.correct_option} onChange={(e) => updateQuestion(idx, 'correct_option', e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900">
+                            <option value="a">A</option><option value="b">B</option>
+                            <option value="c">C</option><option value="d">D</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Points</label>
+                          <input type="number" min="1" value={q.points}
+                            onChange={(e) => updateQuestion(idx, 'points', parseInt(e.target.value) || 1)}
+                            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button type="submit" className="rounded-full bg-amber-600 px-6 py-2 text-sm font-semibold text-white hover:bg-amber-700">
+              Create Quiz
+            </button>
+          </form>
+        </section>
+      )}
+
+      {/* QUIZ RESULTS */}
+      {tab === 'quiz-results' && (
+        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+          <h2 className="font-display text-2xl font-bold text-slate-950 mb-6">Quiz Results</h2>
+          {quizResponses.length === 0 ? (
+            <p className="text-sm text-slate-400">No quiz submissions yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {quizResponses.map((r: any) => (
+                <div key={r.id} className="rounded-2xl border border-white/70 bg-white/85 px-6 py-4 shadow-sm">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-semibold text-slate-900">{r.student_name}</h3>
+                      <p className="text-sm text-slate-500 mt-1">Quiz: {r.quiz_title}</p>
+                      <div className="mt-1 flex gap-3 text-xs text-slate-400">
+                        <span className="capitalize">{(r.course_slug || '').replace(/-/g, ' ')}</span>
+                        <span>Submitted: {new Date(r.submitted_at).toLocaleString()}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-slate-900">{r.score}/{r.max_score}</p>
+                      <p className="text-xs text-slate-400">{r.max_score > 0 ? Math.round((r.score / r.max_score) * 100) : 0}%</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </section>
