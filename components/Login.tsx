@@ -18,9 +18,13 @@ const Login: React.FC = () => {
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
-      const redirect = searchParams.get('redirect') || '/courses';
-      navigate(redirect, { replace: true });
+      const loggedInUser = await login(email, password);
+      if (loggedInUser?.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        const redirect = searchParams.get('redirect') || '/courses';
+        navigate(redirect, { replace: true });
+      }
     } catch (err: any) {
       setError(err.message || 'Invalid email or password.');
     } finally {

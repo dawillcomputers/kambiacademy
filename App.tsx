@@ -12,6 +12,7 @@ import Header from './components/Header';
 import Home from './components/Home';
 import Login from './components/Login';
 import SignUp from './components/SignUp';
+import AdminPanel from './components/AdminPanel';
 import { api } from './lib/api';
 import { AuthProvider, useAuth } from './lib/auth';
 import { BrandingContent, SiteData } from './types';
@@ -63,6 +64,15 @@ const RequireAuth: React.FC<{ children: React.ReactElement }> = ({ children }) =
 
   if (isLoading) return <LoadingState />;
   if (!user) return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname)}`} replace />;
+
+  return children;
+};
+
+const RequireAdmin: React.FC<{ children: React.ReactElement }> = ({ children }) => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return <LoadingState />;
+  if (!user || user.role !== 'admin') return <Navigate to="/" replace />;
 
   return children;
 };
@@ -132,6 +142,7 @@ const AppShell: React.FC = () => {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<SignUp />} />
+              <Route path="/admin" element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
               <Route path="/" element={<Home siteData={siteData} />} />
               <Route path="/about" element={<About about={siteData.about} instructors={siteData.instructors} stats={siteData.stats} />} />
               <Route path="/contact" element={<Contact contact={siteData.contact} />} />

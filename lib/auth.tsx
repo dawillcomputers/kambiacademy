@@ -10,16 +10,16 @@ export interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
+  signup: (name: string, email: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   isLoading: true,
-  login: async () => {},
-  signup: async () => {},
+  login: async () => ({} as AuthUser),
+  signup: async () => ({} as AuthUser),
   logout: async () => {},
 });
 
@@ -59,22 +59,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .finally(() => setIsLoading(false));
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string): Promise<AuthUser> => {
     const data = await authFetch('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
     localStorage.setItem('auth_token', data.token);
     setUser(data.user);
+    return data.user;
   }, []);
 
-  const signup = useCallback(async (name: string, email: string, password: string) => {
+  const signup = useCallback(async (name: string, email: string, password: string): Promise<AuthUser> => {
     const data = await authFetch('/api/auth/signup', {
       method: 'POST',
       body: JSON.stringify({ name, email, password }),
     });
     localStorage.setItem('auth_token', data.token);
     setUser(data.user);
+    return data.user;
   }, []);
 
   const logout = useCallback(async () => {
