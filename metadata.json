@@ -1,0 +1,8 @@
+{
+  "name": "Kambi Academy",
+  "description": "A Cloudflare-ready digital academy with live cohort programs, production course pages, admissions workflows, and Ndovera Meet for mentor-led sessions.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

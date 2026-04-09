@@ -1,0 +1,32 @@
+{
+  "name": "kambi-academy",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
+    "cf:typegen": "wrangler types",
+    "dev:api": "wrangler pages dev dist --port 8788",
+    "cf:dev": "npm run build && wrangler pages dev dist",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "db:seed:local": "wrangler d1 execute DB --local --file=./seed/production.sql",
+    "db:seed:remote": "wrangler d1 execute DB --remote --file=./seed/production.sql",
+    "deploy:pages": "npm run build; wrangler pages deploy dist --project-name kambiacademy"
+  },
+  "dependencies": {
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "react-router-dom": "^7.2.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260409.0",
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0",
+    "wrangler": "^4.12.0"
+  }
+}
