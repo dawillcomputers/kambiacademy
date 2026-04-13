@@ -1,4 +1,4 @@
-import { getAuthUser } from '../_shared/auth';
+import { getAuthUser, requireSubscription } from '../_shared/auth';
 
 interface Env {
   DB: D1Database;
@@ -59,6 +59,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
   if (!user || user.role !== 'teacher') {
     return Response.json({ error: 'Only tutors can upload materials.' }, { status: 403 });
+  }
+
+  const subscriptionError = await requireSubscription(request, env.DB);
+  if (subscriptionError) {
+    return subscriptionError;
   }
 
   const contentType = request.headers.get('Content-Type') || '';
@@ -135,6 +140,11 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
   if (!user || user.role !== 'teacher') {
     return Response.json({ error: 'Only tutors can delete materials.' }, { status: 403 });
+  }
+
+  const subscriptionError = await requireSubscription(request, env.DB);
+  if (subscriptionError) {
+    return subscriptionError;
   }
 
   const url = new URL(request.url);

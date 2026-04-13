@@ -144,6 +144,24 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // Tutor subscriptions and billing
+  getTeacherSubscription: () =>
+    request<{ platform: any; liveClass: any }>('/api/subscriptions/current'),
+
+  createTeacherSubscription: (planType: 'monthly' | 'yearly', subscriptionType: 'platform' | 'live_class' = 'platform', paymentGateway = 'flutterwave') =>
+    request<any>('/api/subscriptions', {
+      method: 'POST',
+      body: JSON.stringify({ planType, subscriptionType, paymentGateway }),
+    }),
+
+  getTeacherSubscriptionHistory: (subscriptionType: 'platform' | 'live_class' = 'platform') =>
+    request<any>(`/api/subscriptions/history?type=${subscriptionType}`),
+
+  cancelTeacherSubscription: (subscriptionId: string, subscriptionType: 'platform' | 'live_class' = 'platform') =>
+    request<any>(`/api/subscriptions/${encodeURIComponent(subscriptionId)}/cancel?type=${subscriptionType}`, {
+      method: 'PATCH',
+    }),
+
   // Invite
   getInviteInfo: (code: string) =>
     request<{ class: any }>(`/api/invite/${encodeURIComponent(code)}`),

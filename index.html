@@ -4,16 +4,57 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kambi Academy | Ndovera Meet</title>
+    <title>Kambi Academy | Kambi-Auralis Meet</title>
     <meta
       name="description"
-      content="Kambi Academy delivers live digital skills programs backed by Cloudflare infrastructure and Ndovera Meet for mentor-led workshops."
+      content="Kambi Academy delivers live digital skills programs backed by Cloudflare infrastructure and Kambi-Auralis Meet for mentor-led workshops."
     />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/index.css" />
+    <meta name="theme-color" content="#667eea">
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icon-192x192.png">
   </head>
   <body class="antialiased">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
+    <script type="module">
+      if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('SW registered: ', registration);
+
+              registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                if (newWorker) {
+                  newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                      if (confirm('New content is available. Reload to update?')) {
+                        window.location.reload();
+                      }
+                    }
+                  });
+                }
+              });
+            })
+            .catch((registrationError) => {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+
+      window.addEventListener('online', () => {
+        console.log('Back online - syncing data...');
+        if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
+          navigator.serviceWorker.ready.then(registration => {
+            registration.sync.register('background-sync');
+          });
+        }
+      });
+
+      window.addEventListener('offline', () => {
+        console.log('Gone offline');
+      });
+    </script>
   </body>
 </html>

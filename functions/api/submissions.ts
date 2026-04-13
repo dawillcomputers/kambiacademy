@@ -1,4 +1,4 @@
-import { getAuthUser } from '../_shared/auth';
+import { getAuthUser, requireSubscription } from '../_shared/auth';
 
 interface Env {
   DB: D1Database;
@@ -113,6 +113,11 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
   if (!user || user.role !== 'teacher') {
     return Response.json({ error: 'Only tutors can grade submissions.' }, { status: 403 });
+  }
+
+  const subscriptionError = await requireSubscription(request, env.DB);
+  if (subscriptionError) {
+    return subscriptionError;
   }
 
   const body = await request.json<{ submission_id?: number; score?: number; feedback?: string }>();

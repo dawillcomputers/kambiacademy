@@ -1,4 +1,4 @@
-import { getAuthUser } from '../../_shared/auth';
+import { getAuthUser, requireSubscription } from '../../_shared/auth';
 
 interface Env {
   DB: D1Database;
@@ -9,6 +9,22 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const admin = await getAuthUser(request, env.DB);
   if (!admin || admin.role !== 'admin') {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  // Check subscription for admin
+  const hasSubscription = await checkSubscription(admin, env.DB);
+  if (!hasSubscription) {
+    const accountAge = Date.now() - new Date(admin.created_at).getTime();
+    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+    if (accountAge > sevenDays) {
+      return Response.json({ error: 'Subscription required. Please pay to continue accessing admin console.', requiresPayment: true }, { status: 402 });
+    }
+  }
+
+  // Check subscription for admin access (enforce after one week of non-payment)
+  const subscriptionError = await requireSubscription(request, env.DB);
+  if (subscriptionError) {
+    return subscriptionError;
   }
 
   const { results } = await env.DB.prepare(
@@ -23,6 +39,22 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
   const admin = await getAuthUser(request, env.DB);
   if (!admin || admin.role !== 'admin') {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  // Check subscription for admin
+  const hasSubscription = await checkSubscription(admin, env.DB);
+  if (!hasSubscription) {
+    const accountAge = Date.now() - new Date(admin.created_at).getTime();
+    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+    if (accountAge > sevenDays) {
+      return Response.json({ error: 'Subscription required. Please pay to continue accessing admin console.', requiresPayment: true }, { status: 402 });
+    }
+  }
+
+  // Check subscription for admin access (enforce after one week of non-payment)
+  const subscriptionError = await requireSubscription(request, env.DB);
+  if (subscriptionError) {
+    return subscriptionError;
   }
 
   const body = await request.json<{

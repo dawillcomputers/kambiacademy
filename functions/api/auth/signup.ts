@@ -15,7 +15,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }>();
 
   const { name, email, password } = body;
-  const role = body.role === 'teacher' ? 'teacher' : 'student';
+  const role = body.role === 'teacher' ? 'teacher' : body.role === 'admin' ? 'admin' : 'student';
 
   if (!name || !email || !password) {
     return Response.json({ error: 'name, email, and password are required.' }, { status: 400 });
@@ -37,11 +37,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const status = role === 'teacher' ? 'pending' : 'active';
+  const mustChangePassword = role === 'admin' ? 1 : 0; // Superadmin must change password on first login
   const passwordHash = await hashPassword(password);
   const result = await env.DB.prepare(
-    'INSERT INTO users (name, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?)',
+    'INSERT INTO users (name, email, password_hash, role, status, must_change_password) VALUES (?, ?, ?, ?, ?, ?)',
   )
-    .bind(name, email, passwordHash, role, status)
+    .bind(name, email, passwordHash, role, status, mustChangePassword)
     .run();
 
   const userId = result.meta.last_row_id;
@@ -55,7 +56,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     .run();
 
   return Response.json(
-    { token, user: { id: userId, name, email, role, status, mustChangePassword: false } },
+    { token, user: { id: userId, name, email, role, status, mustChangePassword: !!mustChangePassword } },
     { status: 201 },
   );
 };

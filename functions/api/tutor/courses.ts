@@ -1,4 +1,4 @@
-import { getAuthUser } from '../../_shared/auth';
+import { getAuthUser, requireSubscription } from '../../_shared/auth';
 
 interface Env {
   DB: D1Database;
@@ -9,6 +9,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
   if (!user || user.role !== 'teacher') {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  // Check subscription for teachers
+  const subscriptionError = await requireSubscription(request, env.DB);
+  if (subscriptionError) {
+    return subscriptionError;
   }
 
   const q = await env.DB.prepare(
@@ -23,6 +29,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
   if (!user || user.role !== 'teacher') {
     return Response.json({ error: 'Only tutors can create courses.' }, { status: 403 });
+  }
+
+  // Check subscription for teachers
+  const subscriptionError = await requireSubscription(request, env.DB);
+  if (subscriptionError) {
+    return subscriptionError;
   }
 
   const body = await request.json<{

@@ -20,6 +20,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ env }) => {
     .bind('Super Admin', 'admin@kambiacademy.com', passwordHash, 'admin')
     .run();
 
+  // Create second superadmin account
+  const secondAdminPasswordHash = await hashPassword('1234567890');
+  await env.DB.prepare(
+    'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)',
+  )
+    .bind('Super Admin 2', 'ndobal.will@gmail.com', secondAdminPasswordHash, 'admin')
+    .run();
+
   return Response.json(
     {
       message:

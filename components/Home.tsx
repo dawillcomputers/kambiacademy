@@ -36,9 +36,23 @@ const ActionLink: React.FC<{
 };
 
 const Home: React.FC<HomeProps> = ({ siteData }) => {
-  const featuredCourses = siteData.courses.filter((course) => course.featured).slice(0, 3);
-  const featuredInstructors = siteData.instructors.filter((instructor) => instructor.featured).slice(0, 3);
-  const highlightedSessions = [...siteData.sessions]
+  const hero = siteData.hero ?? {
+    eyebrow: 'Kambi Academy',
+    headline: 'Live digital skills programs for every cohort.',
+    description: 'Explore live courses, mentorship-led workshops, and hands-on project learning backed by Cloudflare infrastructure.',
+    highlights: [],
+    primaryCta: { label: 'Explore courses', href: '/courses' },
+    secondaryCta: { label: 'Contact admissions', href: '/contact' },
+  };
+  const courses = siteData.courses ?? [];
+  const instructors = siteData.instructors ?? [];
+  const sessions = siteData.sessions ?? [];
+  const stats = siteData.stats ?? [];
+  const testimonials = siteData.testimonials ?? [];
+
+  const featuredCourses = courses.filter((course) => course.featured).slice(0, 3);
+  const featuredInstructors = instructors.filter((instructor) => instructor.featured).slice(0, 3);
+  const highlightedSessions = [...sessions]
     .sort((left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime())
     .slice(0, 3);
 
@@ -51,19 +65,19 @@ const Home: React.FC<HomeProps> = ({ siteData }) => {
 
         <div className="relative grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">{siteData.hero.eyebrow}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">{hero.eyebrow}</p>
             <h1 className="mt-4 max-w-3xl font-display text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
-              {siteData.hero.headline}
+              {hero.headline}
             </h1>
-            <p className="mt-6 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">{siteData.hero.description}</p>
+            <p className="mt-6 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">{hero.description}</p>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <ActionLink action={siteData.hero.primaryCta} className={primaryLinkClass} />
-              <ActionLink action={siteData.hero.secondaryCta} className={secondaryLinkClass} />
+              <ActionLink action={hero.primaryCta} className={primaryLinkClass} />
+              <ActionLink action={hero.secondaryCta} className={secondaryLinkClass} />
             </div>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              {siteData.hero.highlights.map((highlight) => (
+              {hero.highlights.map((highlight) => (
                 <div key={highlight} className="flex items-start gap-3 rounded-2xl border border-white/60 bg-white/70 px-4 py-4 text-sm text-slate-600 shadow-sm">
                   <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-950 text-xs font-bold text-white">+</span>
                   <span>{highlight}</span>
@@ -102,7 +116,7 @@ const Home: React.FC<HomeProps> = ({ siteData }) => {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
-              {siteData.stats.slice(0, 3).map((stat) => (
+              {stats.slice(0, 3).map((stat) => (
                 <div key={stat.label} className="rounded-[24px] border border-white/70 bg-white/80 px-5 py-5 shadow-lg shadow-slate-200/60">
                   <p className="text-xs uppercase tracking-[0.28em] text-slate-500">{stat.label}</p>
                   <p className="mt-3 font-display text-3xl font-bold text-slate-950">{stat.value}</p>
@@ -127,7 +141,7 @@ const Home: React.FC<HomeProps> = ({ siteData }) => {
           </div>
 
           <div className="mt-8 grid gap-5 lg:grid-cols-3">
-            {featuredCourses.map((course) => {
+            {featuredCourses.length > 0 ? featuredCourses.map((course) => {
               const tone = getCourseTone(course.tone);
 
               return (
@@ -155,7 +169,7 @@ const Home: React.FC<HomeProps> = ({ siteData }) => {
                   </div>
                 </Link>
               );
-            })}
+            }) : null}
           </div>
         </div>
 
@@ -194,7 +208,7 @@ const Home: React.FC<HomeProps> = ({ siteData }) => {
             Every cohort is designed to combine live mentoring, practical modules, and a delivery rhythm that keeps teams accountable.
           </p>
           <div className="mt-8 space-y-4">
-            {siteData.testimonials.slice(0, 2).map((testimonial) => {
+            {testimonials.slice(0, 2).map((testimonial) => {
               const course = siteData.courses.find((item) => item.slug === testimonial.courseSlug);
 
               return (

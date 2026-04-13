@@ -42,6 +42,9 @@ export interface AboutContent {
   headline: string;
   narrative: string;
   principles: Principle[];
+  videoUrl?: string;
+  videoThumbnail?: string;
+  videoDescription?: string;
 }
 
 export interface ContactContent {

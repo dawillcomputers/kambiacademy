@@ -1,4 +1,4 @@
-import { getAuthUser } from '../_shared/auth';
+import { getAuthUser, requireSubscription } from '../_shared/auth';
 
 interface Env { DB: D1Database }
 
@@ -92,6 +92,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       return Response.json({ error: 'Only teachers can start live sessions' }, { status: 403 });
     }
 
+    // Check live class subscription for teachers
+    const subscriptionError = await requireSubscription(request, db, 'live_class');
+    if (subscriptionError) {
+      return subscriptionError;
+    }
+
     const body = await request.json<{ class_id: number; title?: string }>();
     if (!body.class_id) return Response.json({ error: 'class_id is required' }, { status: 400 });
 
@@ -121,6 +127,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   if (request.method === 'PATCH') {
     if (user.role !== 'teacher') {
       return Response.json({ error: 'Only teachers can end live sessions' }, { status: 403 });
+    }
+
+    // Check live class subscription for teachers
+    const subscriptionError = await requireSubscription(request, db, 'live_class');
+    if (subscriptionError) {
+      return subscriptionError;
     }
 
     const body = await request.json<{ session_id: number }>();

@@ -26,7 +26,7 @@ interface TutorCourse {
   category: string; status: string; tutor_name?: string; tutor_email?: string; created_at: string;
 }
 
-type Tab = 'overview' | 'users' | 'courses' | 'settings' | 'audit-log';
+type Tab = 'overview' | 'users' | 'courses' | 'settings' | 'audit-log' | 'subscription';
 
 interface AuditLogEntry {
   id: number; user_name: string; changed_by_name: string; old_role: string; new_role: string; reason: string; created_at: string;
@@ -59,11 +59,21 @@ const AdminPanel: React.FC = () => {
   // Audit log
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
 
+  // Subscription state
+  const [subscriptions, setSubscriptions] = useState<{ platform: any; liveClass: any } | null>(null);
+  const [subscriptionHistory, setSubscriptionHistory] = useState<any[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
+  const [selectedSubscriptionType, setSelectedSubscriptionType] = useState<'platform' | 'live_class'>('platform');
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+
   useEffect(() => {
     api.adminGetStats()
       .then(setStats)
       .catch((err: any) => setError(err.message))
       .finally(() => setLoading(false));
+    api.getTeacherSubscription()
+      .then((d) => setSubscriptions(d))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -71,7 +81,23 @@ const AdminPanel: React.FC = () => {
     if (tab === 'courses') api.adminGetCourses().then((d) => setCourses(d.courses)).catch(() => {});
     if (tab === 'settings') api.adminGetSettings().then((d) => setSettings(d.settings)).catch(() => {});
     if (tab === 'audit-log') api.getAuditLog().then((d) => setAuditLog(d.log)).catch(() => {});
+    if (tab === 'subscription') {
+      setSubscriptionLoading(true);
+      api.getTeacherSubscription()
+        .then((d) => setSubscriptions(d))
+        .catch((error) => setActionMsg(error.message || String(error)))
+        .finally(() => setSubscriptionLoading(false));
+    }
   }, [tab]);
+
+  // Separate effect for subscription history to avoid dependency issues
+  useEffect(() => {
+    if (tab === 'subscription') {
+      api.getTeacherSubscriptionHistory(selectedSubscriptionType)
+        .then((d) => setSubscriptionHistory(d.payments || []))
+        .catch(() => {});
+    }
+  }, [tab, selectedSubscriptionType]);
 
   const doAction = async (userId: number, action: string, extra?: any) => {
     setActionMsg('');
@@ -108,6 +134,20 @@ const AdminPanel: React.FC = () => {
     } catch (e: any) { setActionMsg(e.message); }
   };
 
+  const handleSubscribe = async () => {
+    setActionMsg('');
+    try {
+      const res = await api.createTeacherSubscription(selectedPlan, selectedSubscriptionType);
+      setActionMsg(`${selectedSubscriptionType === 'live_class' ? 'Live class' : 'Platform'} subscription created successfully. Redirecting to payment...`);
+      // Redirect to payment URL
+      if (res.payment_url) {
+        window.location.href = res.payment_url;
+      }
+    } catch (e: any) {
+      setActionMsg(e.message || 'Failed to create subscription');
+    }
+  };
+
   if (loading) {
     return (
       <div className="section-shell surface-ring rounded-[32px] border border-white/60 px-6 py-16 text-center">
@@ -131,6 +171,7 @@ const AdminPanel: React.FC = () => {
     { key: 'courses', label: 'Course Approval' },
     { key: 'audit-log', label: 'Audit Log' },
     { key: 'settings', label: 'Settings' },
+    { key: 'subscription', label: 'Subscription' },
   ];
 
   return (
@@ -420,6 +461,164 @@ const AdminPanel: React.FC = () => {
               </table>
             )}
           </div>
+        </section>
+      )}
+
+      {/* SUBSCRIPTION TAB */}
+      {tab === 'subscription' && (
+        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Subscription Management</p>
+          <h2 className="mt-2 font-display text-2xl font-bold text-slate-950">Admin Subscription Status</h2>
+
+          {subscriptionLoading ? (
+            <div className="mt-6 flex items-center justify-center py-8">
+              <div className="text-sm text-slate-500">Loading subscription status...</div>
+            </div>
+          ) : (
+            <div className="mt-6 space-y-6">
+              {/* Subscription Type Selector */}
+              <div className="rounded-2xl border border-white/70 bg-white/85 px-6 py-5 shadow-sm">
+                <h3 className="font-semibold text-slate-900 mb-4">Subscription Type</h3>
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setSelectedSubscriptionType('platform')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                      selectedSubscriptionType === 'platform'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    Platform Access ($4/month)
+                  </button>
+                  <button
+                    onClick={() => setSelectedSubscriptionType('live_class')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                      selectedSubscriptionType === 'live_class'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    Live Classes ($2/month)
+                  </button>
+                </div>
+              </div>
+
+              {/* Current Subscription Status */}
+              <div className="rounded-2xl border border-white/70 bg-white/85 px-6 py-5 shadow-sm">
+                <h3 className="font-semibold text-slate-900 mb-4">
+                  Current {selectedSubscriptionType === 'live_class' ? 'Live Class' : 'Platform'} Subscription
+                </h3>
+                {subscriptions && subscriptions[selectedSubscriptionType]?.subscription ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-600">Status:</span>
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        subscriptions[selectedSubscriptionType].subscription.status === 'active' ? 'bg-green-100 text-green-700' :
+                        subscriptions[selectedSubscriptionType].subscription.status === 'expired' ? 'bg-red-100 text-red-700' :
+                        'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {subscriptions[selectedSubscriptionType].subscription.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-600">Plan:</span>
+                      <span className="font-medium text-slate-900">
+                        {subscriptions[selectedSubscriptionType].subscription.plan_type}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-600">Expires:</span>
+                      <span className="font-medium text-slate-900">
+                        {new Date(subscriptions[selectedSubscriptionType].subscription.endDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-600">Payment Method:</span>
+                      <span className="font-medium text-slate-900">
+                        {subscriptions[selectedSubscriptionType].subscription.paymentGateway}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-slate-500 mb-4">
+                      No active {selectedSubscriptionType === 'live_class' ? 'live class' : 'platform'} subscription found
+                    </p>
+                    {subscriptions && subscriptions[selectedSubscriptionType]?.requiresSubscription && (
+                      <button
+                        onClick={() => {
+                          setSelectedPlan('monthly');
+                          handleSubscribe();
+                        }}
+                        className="rounded-full bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                        Subscribe Now
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Subscription Plans */}
+              <div className="rounded-2xl border border-white/70 bg-white/85 px-6 py-5 shadow-sm">
+                <h3 className="font-semibold text-slate-900 mb-4">Available Plans</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <h4 className="font-semibold text-slate-900">Monthly Plan</h4>
+                    <p className="text-2xl font-bold text-indigo-600 mt-1">
+                      ${selectedSubscriptionType === 'live_class' ? '2' : '4'}
+                      <span className="text-sm font-normal text-slate-500">/month</span>
+                    </p>
+                    <button
+                      onClick={() => {
+                        setSelectedPlan('monthly');
+                        handleSubscribe();
+                      }}
+                      className="mt-3 w-full rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                      Subscribe Monthly
+                    </button>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <h4 className="font-semibold text-slate-900">Yearly Plan</h4>
+                    <p className="text-2xl font-bold text-indigo-600 mt-1">
+                      ${selectedSubscriptionType === 'live_class' ? '24' : '44'}
+                      <span className="text-sm font-normal text-slate-500">/year</span>
+                    </p>
+                    <button
+                      onClick={() => {
+                        setSelectedPlan('yearly');
+                        handleSubscribe();
+                      }}
+                      className="mt-3 w-full rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                      Subscribe Yearly
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment History */}
+              <div className="rounded-2xl border border-white/70 bg-white/85 px-6 py-5 shadow-sm">
+                <h3 className="font-semibold text-slate-900 mb-4">Payment History</h3>
+                {subscriptionHistory.length === 0 ? (
+                  <p className="text-sm text-slate-400">No payment history available.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {subscriptionHistory.map((payment, i) => (
+                      <div key={i} className="flex items-center justify-between rounded-xl border border-slate-100 bg-white px-4 py-3">
+                        <div>
+                          <p className="font-medium text-slate-900">{payment.plan_type} Plan</p>
+                          <p className="text-sm text-slate-500">{new Date(payment.created_at).toLocaleDateString()}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-emerald-600">${payment.amount}</p>
+                          <p className="text-xs text-slate-400">{payment.payment_gateway}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </section>
       )}
 

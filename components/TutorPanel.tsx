@@ -4,7 +4,7 @@ import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
 import LiveClassroom from './LiveClassroom';
 
-type Tab = 'courses' | 'classes' | 'create-course' | 'create-class' | 'assignments' | 'submissions' | 'quizzes' | 'create-quiz' | 'quiz-results' | 'materials' | 'live';
+type Tab = 'courses' | 'classes' | 'create-course' | 'create-class' | 'assignments' | 'submissions' | 'quizzes' | 'create-quiz' | 'quiz-results' | 'materials' | 'live' | 'billing';
 
 interface TutorCourse {
   id: number; title: string; slug?: string; description: string; level: string; price: number;
@@ -86,6 +86,11 @@ const TutorPanel: React.FC = () => {
   const [matFile, setMatFile] = useState<File | null>(null);
   const [matYoutubeUrl, setMatYoutubeUrl] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [subscription, setSubscription] = useState<any | null>(null);
+  const [subscriptionHistory, setSubscriptionHistory] = useState<any[]>([]);
+  const [platformFees, setPlatformFees] = useState<{ monthly: number; yearly: number; effectiveDate: string } | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
+  const [billingLoading, setBillingLoading] = useState(false);
 
   // Live session state
   const [liveSessions, setLiveSessions] = useState<any[]>([]);
@@ -112,6 +117,20 @@ const TutorPanel: React.FC = () => {
     if (tab === 'live') {
       api.getLiveSessions().then((d) => setLiveSessions(d.sessions)).catch(() => {});
       api.tutorGetClasses().then((d) => setClasses(d.classes)).catch(() => {});
+    }
+    if (tab === 'billing') {
+      setBillingLoading(true);
+      api.getTeacherSubscription()
+        .then((d) => {
+          setSubscription(d.subscription || null);
+          setPlatformFees(d.platformFees || null);
+          setSelectedPlan(d.subscription?.planType || 'monthly');
+        })
+        .catch((error) => setErr(error.message || String(error)))
+        .finally(() => setBillingLoading(false));
+      api.getTeacherSubscriptionHistory()
+        .then((d) => setSubscriptionHistory(d.payments || []))
+        .catch(() => {});
     }
   }, [tab]);
 
@@ -167,6 +186,52 @@ const TutorPanel: React.FC = () => {
       api.getSubmissions().then((d) => setSubmissions(d.submissions));
     } catch (e: any) { setErr(e.message); }
     finally { setGrading(false); }
+  };
+
+  const subscribeToPlan = async (planType: 'monthly' | 'yearly') => {
+    setMsg(''); setErr(''); setBillingLoading(true);
+    try {
+      const response = await api.createTeacherSubscription(planType, 'flutterwave');
+      setMsg(`Subscription ${planType} plan activated. You will be billed $${response.amount.toFixed(2)}.`);
+      setSubscription(response);
+      setSelectedPlan(planType);
+      setSubscriptionHistory((current) => [
+        {
+          id: response.transactionRef,
+          subscriptionId: response.subscriptionId,
+          amount: response.amount,
+          currency: 'USD',
+          status: 'success',
+          paymentGateway: response.paymentGateway,
+          transactionRef: response.transactionRef,
+          paymentDate: response.startDate,
+          createdAt: response.startDate,
+        },
+        ...current,
+      ]);
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
+  const cancelSubscription = async () => {
+    if (!subscription?.id) {
+      setErr('No active subscription to cancel.');
+      return;
+    }
+    setMsg(''); setErr(''); setBillingLoading(true);
+    try {
+      await api.cancelTeacherSubscription(subscription.id);
+      setMsg('Subscription cancelled successfully.');
+      setSubscription(null);
+      setSubscriptionHistory((prev) => prev.map((item) => item.subscriptionId === subscription.id ? { ...item, status: 'cancelled' } : item));
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setBillingLoading(false);
+    }
   };
 
   const addQuestion = () => {
@@ -247,6 +312,7 @@ const TutorPanel: React.FC = () => {
   const tabs: { key: Tab; label: string }[] = [
     { key: 'courses', label: 'My Courses' },
     { key: 'create-course', label: 'Submit Course' },
+    { key: 'billing', label: 'Billing' },
     { key: 'materials', label: 'Materials' },
     { key: 'assignments', label: 'Assignments' },
     { key: 'submissions', label: 'Grade Submissions' },
@@ -413,6 +479,100 @@ const TutorPanel: React.FC = () => {
               Create Class
             </button>
           </form>
+        </section>
+      )}
+
+      {/* BILLING TAB */}
+      {tab === 'billing' && (
+        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+          <h2 className="font-display text-2xl font-bold text-slate-950 mb-6">Billing & Subscription</h2>
+          {billingLoading ? (
+            <p className="text-sm text-slate-500">Loading billing details…</p>
+          ) : (
+            <div className="space-y-6">
+              <div className="rounded-3xl border border-slate-200 bg-white/90 p-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="font-semibold text-slate-900">Platform Management Fee</h3>
+                    <p className="text-sm text-slate-500 mt-1">Teacher subscriptions are managed separately from student payments and are required for continued tutor access after <strong>May 12, 2026</strong>.</p>
+                  </div>
+                  <div className="space-y-2 text-right">
+                    <p className="text-sm text-slate-500">Gateway</p>
+                    <p className="text-sm font-semibold text-slate-900">flutterwave_v3</p>
+                  </div>
+                </div>
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Monthly Plan</p>
+                    <p className="mt-3 text-3xl font-bold text-slate-950">${platformFees?.monthly ?? 4}</p>
+                    <p className="mt-2 text-sm text-slate-500">Billed monthly through the teacher gateway.</p>
+                  </div>
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Yearly Plan</p>
+                    <p className="mt-3 text-3xl font-bold text-slate-950">${platformFees?.yearly ?? 44}</p>
+                    <p className="mt-2 text-sm text-slate-500">Billed yearly through the teacher gateway.</p>
+                  </div>
+                </div>
+                <p className="mt-4 text-xs text-slate-500">Effective date: <strong>{platformFees?.effectiveDate ? new Date(platformFees.effectiveDate).toLocaleDateString() : 'May 12, 2026'}</strong></p>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white/90 p-6">
+                <h3 className="font-semibold text-slate-900">Subscription Status</h3>
+                {subscription ? (
+                  <div className="mt-4 space-y-2 text-sm text-slate-600">
+                    <p><strong>Status:</strong> {subscription.status || 'active'}</p>
+                    <p><strong>Plan:</strong> {subscription.planType || selectedPlan}</p>
+                    {subscription.startDate && <p><strong>Started:</strong> {new Date(subscription.startDate).toLocaleDateString()}</p>}
+                    {subscription.endsAt && <p><strong>Renews / ends:</strong> {new Date(subscription.endsAt).toLocaleDateString()}</p>}
+                    {subscription.paymentGateway && <p><strong>Payment gateway:</strong> {subscription.paymentGateway}</p>}
+                  </div>
+                ) : (
+                  <p className="mt-4 text-sm text-slate-500">No active subscription found. Please select a plan below to maintain access to tutor features.</p>
+                )}
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white/90 p-6">
+                <h3 className="font-semibold text-slate-900">Manage Your Plan</h3>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <button type="button" onClick={() => { setSelectedPlan('monthly'); subscribeToPlan('monthly'); }}
+                    className={`rounded-full px-5 py-3 text-sm font-semibold ${selectedPlan === 'monthly' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                    Subscribe Monthly
+                  </button>
+                  <button type="button" onClick={() => { setSelectedPlan('yearly'); subscribeToPlan('yearly'); }}
+                    className={`rounded-full px-5 py-3 text-sm font-semibold ${selectedPlan === 'yearly' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                    Subscribe Yearly
+                  </button>
+                </div>
+                {subscription && (
+                  <button type="button" onClick={cancelSubscription}
+                    className="mt-4 rounded-full bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-700">
+                    Cancel Subscription
+                  </button>
+                )}
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white/90 p-6">
+                <h3 className="font-semibold text-slate-900">Payment History</h3>
+                {subscriptionHistory.length === 0 ? (
+                  <p className="mt-4 text-sm text-slate-500">No subscription payments recorded yet.</p>
+                ) : (
+                  <div className="mt-4 space-y-3">
+                    {subscriptionHistory.map((payment) => (
+                      <div key={payment.id || payment.transactionRef} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex flex-col gap-1 text-sm text-slate-700">
+                          <span><strong>Amount:</strong> ${payment.amount.toFixed?.() ?? payment.amount}</span>
+                          <span><strong>Status:</strong> {payment.status}</span>
+                          {payment.paymentDate && <span><strong>Date:</strong> {new Date(payment.paymentDate).toLocaleDateString()}</span>}
+                          {payment.paymentGateway && <span><strong>Gateway:</strong> {payment.paymentGateway}</span>}
+                          {payment.transactionRef && <span><strong>Ref:</strong> {payment.transactionRef}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </section>
       )}
 

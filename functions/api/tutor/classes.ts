@@ -1,4 +1,4 @@
-import { getAuthUser } from '../../_shared/auth';
+import { getAuthUser, requireSubscription } from '../../_shared/auth';
 
 interface Env {
   DB: D1Database;
@@ -20,6 +20,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
+  const subscriptionError = await requireSubscription(request, env.DB);
+  if (subscriptionError) {
+    return subscriptionError;
+  }
+
   const q = await env.DB.prepare(`
     SELECT pc.*, (SELECT COUNT(*) FROM private_class_members WHERE class_id = pc.id) as member_count
     FROM private_classes pc WHERE pc.tutor_id = ? ORDER BY pc.created_at DESC
@@ -33,6 +38,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
   if (!user || user.role !== 'teacher') {
     return Response.json({ error: 'Only tutors can create private classes.' }, { status: 403 });
+  }
+
+  const subscriptionError = await requireSubscription(request, env.DB);
+  if (subscriptionError) {
+    return subscriptionError;
   }
 
   const body = await request.json<{

@@ -10,6 +10,7 @@ interface HeaderProps {
 }
 
 const navItems = [
+  { label: 'Home', to: '/' },
   { label: 'About', to: '/about' },
   { label: 'Courses', to: '/courses' },
   { label: 'Teach', to: '/teach' },

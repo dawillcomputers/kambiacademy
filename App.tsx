@@ -17,13 +17,21 @@ import TutorPanel from './components/TutorPanel';
 import StudentPanel from './components/StudentPanel';
 import ChangePassword from './components/ChangePassword';
 import JoinClass from './components/JoinClass';
+// New teacher dashboard components
+import TeacherDashboard from './src/pages/dashboard/teacher/index';
+import TeacherCourses from './src/pages/dashboard/teacher/courses';
+import TeacherMaterials from './src/pages/dashboard/teacher/materials';
+import TeacherAssignments from './src/pages/dashboard/teacher/assignments';
+import TeacherQuizzes from './src/pages/dashboard/teacher/quizzes';
+import TeacherClasses from './src/pages/dashboard/teacher/classes';
+import TeacherLive from './src/pages/dashboard/teacher/live';
 import { api } from './lib/api';
 import { AuthProvider, useAuth } from './lib/auth';
 import { BrandingContent, SiteData } from './types';
 
 const fallbackBranding: BrandingContent = {
   name: 'Kambi Academy',
-  strapline: 'Live digital skills programs powered by Ndovera Meet.',
+  strapline: 'Live digital skills programs powered by Kambi-Auralis Meet.',
   primaryCta: { label: 'Explore courses', href: '/courses' },
   secondaryCta: { label: 'Contact admissions', href: '/contact' },
 };
@@ -126,6 +134,53 @@ const CourseDetailRoute: React.FC<{ siteData: SiteData }> = ({ siteData }) => {
   );
 };
 
+const defaultSiteData: SiteData = {
+  branding: fallbackBranding,
+  hero: {
+    eyebrow: 'Kambi Academy',
+    headline: 'Live digital skills programs for every cohort.',
+    description: 'Explore live courses, mentorship-led workshops, and hands-on project learning backed by Cloudflare infrastructure.',
+    highlights: ['Live mentoring', 'Practical project work', 'Cohort accountability'],
+    primaryCta: { label: 'Explore courses', href: '/courses' },
+    secondaryCta: { label: 'Contact admissions', href: '/contact' },
+  },
+  stats: [],
+  about: {
+    headline: 'Build practical capabilities for modern teams.',
+    narrative: 'Kambi Academy delivers cohort-based programs with live mentorship, project practice, and real-world outcomes.',
+    principles: [],
+    videoUrl: '',
+    videoThumbnail: '',
+    videoDescription: '',
+  },
+  contact: {
+    headline: 'Get in touch',
+    description: 'Reach out to book a demo, ask about admissions, or discuss your learning needs.',
+    responseTime: 'Within 24 hours',
+    primaryEmail: 'hello@kambiacademy.com',
+    partnerEmail: 'partners@kambiacademy.com',
+    location: 'Remote-first',
+    hours: 'Mon-Fri, 9am-5pm GMT',
+  },
+  tutorProgram: {
+    headline: 'Teach with real-world impact.',
+    description: 'Become a mentor and deliver live programs for learners ready to grow.',
+    benefits: [],
+    reviewSteps: [],
+  },
+  meet: {
+    name: 'Kambi-Auralis Meet',
+    headline: 'Host your live sessions with secure, scalable conferencing.',
+    description: 'Access live class tools and collaboration workflows for every cohort.',
+    features: [],
+  },
+  instructors: [],
+  courses: [],
+  testimonials: [],
+  faqs: [],
+  sessions: [],
+};
+
 const AppShell: React.FC = () => {
   const [siteData, setSiteData] = useState<SiteData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -149,17 +204,45 @@ const AppShell: React.FC = () => {
     void loadSiteData();
   }, [loadSiteData]);
 
-  const branding = siteData?.branding ?? fallbackBranding;
+  const resolvedSiteData: SiteData = siteData
+    ? {
+        ...defaultSiteData,
+        ...siteData,
+        branding: { ...defaultSiteData.branding, ...(siteData.branding ?? {}) },
+        hero: { ...defaultSiteData.hero, ...(siteData.hero ?? {}) },
+        about: { ...defaultSiteData.about, ...(siteData.about ?? {}) },
+        contact: { ...defaultSiteData.contact, ...(siteData.contact ?? {}) },
+        tutorProgram: { ...defaultSiteData.tutorProgram, ...(siteData.tutorProgram ?? {}) },
+        meet: { ...defaultSiteData.meet, ...(siteData.meet ?? {}) },
+        stats: siteData.stats ?? defaultSiteData.stats,
+        instructors: siteData.instructors ?? defaultSiteData.instructors,
+        courses: siteData.courses ?? defaultSiteData.courses,
+        testimonials: siteData.testimonials ?? defaultSiteData.testimonials,
+        faqs: siteData.faqs ?? defaultSiteData.faqs,
+        sessions: siteData.sessions ?? defaultSiteData.sessions,
+      }
+    : defaultSiteData;
+
+  const branding = resolvedSiteData.branding;
 
   return (
     <div className="app-shell flex min-h-screen flex-col text-slate-950">
       <Header branding={branding} />
+      {error && !isLoading && (
+        <div className="flex items-center justify-between gap-4 bg-amber-50 px-4 py-2 text-xs text-amber-700 sm:px-6">
+          <span>⚠ API unavailable — showing default content. {error}</span>
+          <button
+            onClick={loadSiteData}
+            className="shrink-0 rounded-full bg-amber-100 px-3 py-1 font-semibold hover:bg-amber-200"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <main className="relative flex-1">
         <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
           {isLoading ? (
             <LoadingState />
-          ) : error || !siteData ? (
-            <ErrorState message={error} onRetry={loadSiteData} />
           ) : (
             <Routes>
               <Route path="/login" element={<Login />} />
@@ -169,19 +252,27 @@ const AppShell: React.FC = () => {
               <Route path="/student" element={<RequireAuth><StudentPanel /></RequireAuth>} />
               <Route path="/change-password" element={<RequireChangePassword><ChangePassword /></RequireChangePassword>} />
               <Route path="/join/:code" element={<JoinClass />} />
-              <Route path="/" element={<Home siteData={siteData} />} />
-              <Route path="/about" element={<About about={siteData.about} instructors={siteData.instructors} stats={siteData.stats} />} />
-              <Route path="/contact" element={<Contact contact={siteData.contact} />} />
-              <Route path="/courses" element={<CourseList courses={siteData.courses} instructors={siteData.instructors} />} />
-              <Route path="/courses/:slug" element={<RequireAuth><CourseDetailRoute siteData={siteData} /></RequireAuth>} />
-              <Route path="/faq" element={<Faq faqs={siteData.faqs} />} />
+              {/* New Teacher Dashboard Routes */}
+              <Route path="/teacher" element={<RequireTutor><TeacherDashboard /></RequireTutor>} />
+              <Route path="/teacher/courses" element={<RequireTutor><TeacherCourses /></RequireTutor>} />
+              <Route path="/teacher/materials" element={<RequireTutor><TeacherMaterials /></RequireTutor>} />
+              <Route path="/teacher/assignments" element={<RequireTutor><TeacherAssignments /></RequireTutor>} />
+              <Route path="/teacher/quizzes" element={<RequireTutor><TeacherQuizzes /></RequireTutor>} />
+              <Route path="/teacher/classes" element={<RequireTutor><TeacherClasses /></RequireTutor>} />
+              <Route path="/teacher/live" element={<RequireTutor><TeacherLive /></RequireTutor>} />
+              <Route path="/" element={<Home siteData={resolvedSiteData} />} />
+              <Route path="/about" element={<About about={resolvedSiteData.about} instructors={resolvedSiteData.instructors} stats={resolvedSiteData.stats} />} />
+              <Route path="/contact" element={<Contact contact={resolvedSiteData.contact} />} />
+              <Route path="/courses" element={<CourseList courses={resolvedSiteData.courses} instructors={resolvedSiteData.instructors} />} />
+              <Route path="/courses/:slug" element={<RequireAuth><CourseDetailRoute siteData={resolvedSiteData} /></RequireAuth>} />
+              <Route path="/faq" element={<Faq faqs={resolvedSiteData.faqs} />} />
               <Route path="/teach" element={<BecomeTutor />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           )}
         </div>
       </main>
-      <Footer branding={branding} contact={siteData?.contact ?? null} />
+      <Footer branding={branding} contact={resolvedSiteData.contact} />
     </div>
   );
 };
