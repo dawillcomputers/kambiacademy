@@ -76,6 +76,7 @@ const RequireAuth: React.FC<{ children: React.ReactElement }> = ({ children }) =
 
   if (isLoading) return <LoadingState />;
   if (!user) return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname)}`} replace />;
+  if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
 
   return children;
 };
@@ -85,6 +86,7 @@ const RequireAdmin: React.FC<{ children: React.ReactElement }> = ({ children }) 
 
   if (isLoading) return <LoadingState />;
   if (!user || user.role !== 'admin') return <Navigate to="/" replace />;
+  if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
 
   return children;
 };
@@ -94,6 +96,7 @@ const RequireTutor: React.FC<{ children: React.ReactElement }> = ({ children }) 
 
   if (isLoading) return <LoadingState />;
   if (!user || user.role !== 'teacher' || user.status !== 'active') return <Navigate to="/" replace />;
+  if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
 
   return children;
 };
@@ -103,6 +106,12 @@ const RequireChangePassword: React.FC<{ children: React.ReactElement }> = ({ chi
 
   if (isLoading) return <LoadingState />;
   if (!user) return <Navigate to="/login" replace />;
+  if (!user.mustChangePassword) {
+    // User doesn't need to change password, redirect to appropriate dashboard
+    if (user.role === 'admin') return <Navigate to="/admin" replace />;
+    if (user.role === 'teacher') return <Navigate to="/tutor" replace />;
+    return <Navigate to="/student" replace />;
+  }
 
   return children;
 };
