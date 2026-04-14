@@ -418,6 +418,26 @@ const AdminPanel: React.FC = () => {
                 Save Revenue Split
               </button>
             </div>
+            <div className="rounded-2xl border border-white/70 bg-white/85 px-6 py-5 shadow-sm">
+              <h3 className="font-semibold text-slate-900 mb-4">Student Feature Access</h3>
+              <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <input
+                  type="checkbox"
+                  checked={settings.student_materials_enabled === 'true'}
+                  onChange={(e) => setSettings((s) => ({ ...s, student_materials_enabled: e.target.checked ? 'true' : 'false' }))}
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <div>
+                  <p className="font-semibold text-slate-900">Allow student materials</p>
+                  <p className="text-sm text-slate-500">Show the student materials page when enabled.</p>
+                </div>
+              </label>
+              <button
+                onClick={() => saveSetting('student_materials_enabled', settings.student_materials_enabled === 'true' ? 'false' : 'true')}
+                className="mt-4 rounded-full bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                Save feature setting
+              </button>
+            </div>
           </div>
         </section>
       )}

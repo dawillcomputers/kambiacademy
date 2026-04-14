@@ -126,7 +126,7 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, instructor, related
                     <p className="mt-2 font-semibold text-white">{course.durationLabel}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.24em] text-white/55">Cohort Size</p>
+                    <p className="text-xs uppercase tracking-[0.24em] text-white/55">Group Size</p>
                     <p className="mt-2 font-semibold text-white">{course.cohortSize}</p>
                   </div>
                 </div>

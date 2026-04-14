@@ -122,9 +122,9 @@ const TutorPanel: React.FC = () => {
       setBillingLoading(true);
       api.getTeacherSubscription()
         .then((d) => {
-          setSubscription(d.subscription || null);
-          setPlatformFees(d.platformFees || null);
-          setSelectedPlan(d.subscription?.planType || 'monthly');
+          setSubscription(d.platform || null);
+          setPlatformFees(d.liveClass || null);
+          setSelectedPlan(d.platform?.planType || 'monthly');
         })
         .catch((error) => setErr(error.message || String(error)))
         .finally(() => setBillingLoading(false));
@@ -191,7 +191,7 @@ const TutorPanel: React.FC = () => {
   const subscribeToPlan = async (planType: 'monthly' | 'yearly') => {
     setMsg(''); setErr(''); setBillingLoading(true);
     try {
-      const response = await api.createTeacherSubscription(planType, 'flutterwave');
+      const response = await api.createTeacherSubscription(planType, 'platform');
       setMsg(`Subscription ${planType} plan activated. You will be billed $${response.amount.toFixed(2)}.`);
       setSubscription(response);
       setSelectedPlan(planType);

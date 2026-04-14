@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
+import DashboardLayout from '../layout/DashboardLayout';
 import { User, Course, Enrollment, CourseStatus, AppSettings, Report, Message, Submission, View, Expense, Testimonial } from '../../types';
 import Card from '../Card';
 import Button from '../Button';
@@ -226,9 +227,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     )
   }
 
-  return (
-    <div>
-       <div className="flex justify-between items-center mb-6">
+    return (
+        <DashboardLayout>
+            <div>
+             <div className="flex justify-between items-center mb-6">
             <h2 className="text-3xl font-bold">Admin Dashboard</h2>
             {canGoBack && (
                 <Button variant="secondary" onClick={onBack}>
@@ -336,8 +338,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {activeTab === 'users' && (
-        <div className="text-slate-800">
+            {activeTab === 'users' && (
+                <div className="text-slate-800"> 
             <div className="flex space-x-2 border-b mb-4">
                 <button onClick={() => setUserTab('teachers')} className={`px-4 py-2 font-semibold ${userTab === 'teachers' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-500'}`}>Teachers ({teachers.length})</button>
                 <button onClick={() => setUserTab('students')} className={`px-4 py-2 font-semibold ${userTab === 'students' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-500'}`}>Students ({students.length})</button>
@@ -399,11 +401,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {courses.map(course => (
                         <tr key={course.id} className="border-t">
                             <td className="p-4 font-medium">{course.title}</td>
-                            <td className="p-4">{course.instructor}</td>
-                            <td className="p-4">${course.price.toFixed(2)}</td>
-                            <td className="p-4"><StatusBadge status={course.status} /></td>
+                            <td className="p-4">{course.instructor || 'TBA'}</td>
+                            <td className="p-4">${(course.price || 0).toFixed(2)}</td>
+                            <td className="p-4"><StatusBadge status={course.status || CourseStatus.Pending} /></td>
                             <td className="p-4 space-x-2">
-                                {course.status === CourseStatus.Pending && (
+                                {(course.status || CourseStatus.Pending) === CourseStatus.Pending && (
                                     <>
                                         <Button size="small" onClick={() => onUpdateCourse({...course, status: CourseStatus.Approved})}>Approve</Button>
                                         <Button size="small" variant="danger" onClick={() => onUpdateCourse({...course, status: CourseStatus.Rejected})}>Reject</Button>
@@ -489,7 +491,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <div>
                             <p className="italic text-slate-600 mb-4 text-sm">"{t.quote}"</p>
                             <div className="flex items-center space-x-3 mb-6">
-                                <img src={t.avatar} className="w-10 h-10 rounded-full bg-slate-200" alt="" />
+                                <img src={t.avatar || `https://i.pravatar.cc/150?u=${t.id}`} className="w-10 h-10 rounded-full bg-slate-200" alt="" />
                                 <div>
                                     <p className="font-bold text-sm">{t.name}</p>
                                     <p className="text-xs text-slate-500">{t.course}</p>
@@ -622,7 +624,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <DocumentViewerModal documentUrl={documentToView} onClose={() => setDocumentToView(null)} />
       )}
     </div>
-  );
+        </DashboardLayout>
+    );
 };
 
 export default AdminDashboard;

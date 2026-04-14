@@ -54,9 +54,9 @@ const CourseList: React.FC<CourseListProps> = ({ courses, instructors }) => {
                 <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                     <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Programs</p>
-                        <h1 className="mt-3 font-display text-4xl font-bold text-slate-950 sm:text-5xl">Choose the cohort that matches your current operating level.</h1>
+                        <h1 className="mt-3 font-display text-4xl font-bold text-slate-950 sm:text-5xl">Pick the program that fits your skill level.</h1>
                         <p className="mt-4 max-w-3xl text-base leading-8 text-slate-600">
-                            Every course is built for live delivery, clear outcomes, and mentor-led practice with Auralis live classrooms baked into the workflow.
+                            Every course is built for live learning, clear goals, and teacher-led practice with Auralis live classrooms included.
                         </p>
                     </div>
 

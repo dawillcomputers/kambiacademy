@@ -58,25 +58,29 @@ const Header: React.FC<HeaderProps> = ({ branding }) => {
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4 sm:px-6 lg:px-8">
         <Link to="/" className="min-w-0 transition hover:opacity-90">
           <p className="font-display text-xl font-bold text-slate-950 sm:text-2xl">{branding.name}</p>
-          <p className="hidden truncate text-sm text-slate-500 md:block">{branding.strapline}</p>
+          {user ? null : (
+            <p className="hidden truncate text-sm text-slate-500 md:block">{branding.strapline}</p>
+          )}
         </Link>
 
-        <nav className="hidden items-center gap-1 lg:flex">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                [
-                  'rounded-full px-4 py-2 text-sm font-semibold transition',
-                  isActive ? 'bg-slate-950 text-white' : 'text-slate-600 hover:bg-white hover:text-slate-950',
-                ].join(' ')
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
+        {!user && (
+          <nav className="hidden items-center gap-1 lg:flex">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  [
+                    'rounded-full px-4 py-2 text-sm font-semibold transition',
+                    isActive ? 'bg-slate-950 text-white' : 'text-slate-600 hover:bg-white hover:text-slate-950',
+                  ].join(' ')
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        )}
 
         <div className="hidden items-center gap-3 lg:flex">
           {user ? (

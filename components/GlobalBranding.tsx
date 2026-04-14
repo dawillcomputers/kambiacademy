@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-interface BrandingSettings {
-  logoUrl: string;
-  primaryColor: string;
-  secondaryColor: string;
-  accentColor: string;
-  fontFamily: string;
-}
+import { BrandingSettings } from '../types';
 
 interface GlobalBrandingProps {
   onSettingsChange?: (settings: BrandingSettings) => void;
@@ -33,7 +26,7 @@ export default function GlobalBranding({ onSettingsChange }: GlobalBrandingProps
     try {
       const response = await fetch('/api/admin/branding');
       if (response.ok) {
-        const data = await response.json();
+        const data = (await response.json()) as BrandingSettings;
         setSettings(data);
         onSettingsChange?.(data);
       }
@@ -54,7 +47,7 @@ export default function GlobalBranding({ onSettingsChange }: GlobalBrandingProps
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = (await response.json()) as { url: string };
         const newSettings = { ...settings, logoUrl: data.url };
         setSettings(newSettings);
         onSettingsChange?.(newSettings);

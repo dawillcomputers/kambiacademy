@@ -14,7 +14,7 @@ import Login from './components/Login';
 import SignUp from './components/SignUp';
 import AdminPanel from './components/AdminPanel';
 import TutorPanel from './components/TutorPanel';
-import StudentPanel from './components/StudentPanel';
+import StudentDashboard from './src/pages/dashboard/student/StudentDashboard';
 import ChangePassword from './components/ChangePassword';
 import JoinClass from './components/JoinClass';
 // New teacher dashboard components
@@ -138,16 +138,16 @@ const defaultSiteData: SiteData = {
   branding: fallbackBranding,
   hero: {
     eyebrow: 'Kambi Academy',
-    headline: 'Live digital skills programs for every cohort.',
+    headline: 'Live digital skills programs for every learner.',
     description: 'Explore live courses, mentorship-led workshops, and hands-on project learning backed by Cloudflare infrastructure.',
-    highlights: ['Live mentoring', 'Practical project work', 'Cohort accountability'],
+    highlights: ['Live mentoring', 'Practical project work', 'Team learning that works'],
     primaryCta: { label: 'Explore courses', href: '/courses' },
     secondaryCta: { label: 'Contact admissions', href: '/contact' },
   },
   stats: [],
   about: {
-    headline: 'Build practical capabilities for modern teams.',
-    narrative: 'Kambi Academy delivers cohort-based programs with live mentorship, project practice, and real-world outcomes.',
+    headline: 'Build practical skills for real work.',
+    narrative: 'Kambi Academy delivers live programs with mentors, hands-on practice, and real outcomes.',
     principles: [],
     videoUrl: '',
     videoThumbnail: '',
@@ -171,7 +171,7 @@ const defaultSiteData: SiteData = {
   meet: {
     name: 'Kambi-Auralis Meet',
     headline: 'Host your live sessions with secure, scalable conferencing.',
-    description: 'Access live class tools and collaboration workflows for every cohort.',
+    description: 'Access live class tools and collaboration workflows for every live session.',
     features: [],
   },
   instructors: [],
@@ -249,7 +249,7 @@ const AppShell: React.FC = () => {
               <Route path="/signup" element={<SignUp />} />
               <Route path="/admin" element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
               <Route path="/tutor" element={<RequireTutor><TutorPanel /></RequireTutor>} />
-              <Route path="/student" element={<RequireAuth><StudentPanel /></RequireAuth>} />
+              <Route path="/student/*" element={<RequireAuth><StudentDashboard /></RequireAuth>} />
               <Route path="/change-password" element={<RequireChangePassword><ChangePassword /></RequireChangePassword>} />
               <Route path="/join/:code" element={<JoinClass />} />
               {/* New Teacher Dashboard Routes */}

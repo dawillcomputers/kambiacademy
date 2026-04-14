@@ -5,8 +5,13 @@ import Button from './Button';
 import ButtonRow from './ButtonRow';
 import Modal from './Modal';
 
+interface PaymentModalCourse {
+  title: string;
+  price: number;
+}
+
 interface PaymentModalProps {
-  course: Course;
+  course: PaymentModalCourse;
   onClose: () => void;
   onConfirm: () => void;
   moneyBackGuaranteeDays: number;
@@ -36,16 +41,16 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ course, onClose, onConfirm,
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="card-number" className="block text-sm font-medium text-gray-700">Card Number</label>
-          <input type="text" id="card-number" placeholder="**** **** **** 1234" required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"/>
+          <input type="text" id="card-number" placeholder="**** **** **** 1234" required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-black"/>
         </div>
         <div className="grid grid-cols-3 gap-4">
             <div>
                 <label htmlFor="expiry" className="block text-sm font-medium text-gray-700">Expiry</label>
-                <input type="text" id="expiry" placeholder="MM / YY" required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"/>
+                <input type="text" id="expiry" placeholder="MM / YY" required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-black"/>
             </div>
             <div className="col-span-2">
                 <label htmlFor="cvc" className="block text-sm font-medium text-gray-700">CVC</label>
-                <input type="text" id="cvc" placeholder="123" required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"/>
+                <input type="text" id="cvc" placeholder="123" required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-black"/>
             </div>
         </div>
         <ButtonRow alignment="right" className="pt-4">

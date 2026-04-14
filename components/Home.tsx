@@ -37,7 +37,7 @@ const ActionLink: React.FC<{
 const Home: React.FC<HomeProps> = ({ siteData }) => {
   const hero = siteData.hero ?? {
     eyebrow: 'Kambi Academy',
-    headline: 'Live digital skills programs for every cohort.',
+    headline: 'Live digital skills programs for every learner.',
     description: 'Explore live courses, mentorship-led workshops, and hands-on project learning backed by Cloudflare infrastructure.',
     highlights: [],
     primaryCta: { label: 'Explore courses', href: '/courses' },
@@ -132,7 +132,7 @@ const Home: React.FC<HomeProps> = ({ siteData }) => {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Featured Courses</p>
-              <h2 className="mt-3 font-display text-3xl font-bold text-slate-950">Launch with cohort-based programs built for real outcomes.</h2>
+              <h2 className="mt-3 font-display text-3xl font-bold text-slate-950">Launch live programs built for real outcomes.</h2>
             </div>
             <Link to="/courses" className="text-sm font-semibold text-slate-950 transition hover:text-slate-700">
               See all courses
@@ -202,23 +202,19 @@ const Home: React.FC<HomeProps> = ({ siteData }) => {
       <section className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
         <div className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8 sm:px-8">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Learner Signals</p>
-          <h2 className="mt-3 font-display text-3xl font-bold text-slate-950">What learners remember after the cohort ends.</h2>
+          <h2 className="mt-3 font-display text-3xl font-bold text-slate-950">What learners remember after live learning ends.</h2>
           <p className="mt-4 text-sm leading-7 text-slate-600">
-            Every cohort is designed to combine live mentoring, practical modules, and a delivery rhythm that keeps teams accountable.
+            Each program mixes live mentoring, hands-on lessons, and a steady pace that helps learners finish strong.
           </p>
           <div className="mt-8 space-y-4">
             {testimonials.slice(0, 2).map((testimonial) => {
-              const course = siteData.courses.find((item) => item.slug === testimonial.courseSlug);
-
               return (
                 <div key={testimonial.id} className="rounded-[24px] border border-white/70 bg-white/85 p-5 shadow-lg shadow-slate-200/40">
                   <p className="text-base leading-7 text-slate-700">&ldquo;{testimonial.quote}&rdquo;</p>
                   <div className="mt-4">
                     <p className="font-semibold text-slate-950">{testimonial.name}</p>
                     <p className="text-sm text-slate-500">
-                      {testimonial.role}
-                      {testimonial.organization ? `, ${testimonial.organization}` : ''}
-                      {course ? ` · ${course.title}` : ''}
+                      {testimonial.course ? `${testimonial.course}` : ''}
                     </p>
                   </div>
                 </div>

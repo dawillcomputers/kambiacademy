@@ -28,7 +28,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, courses, subm
   const [showModal, setShowModal] = useState<null | 'createCourse' | 'withdraw' | 'grade'>(null);
   const [gradingTarget, setGradingTarget] = useState<Submission | null>(null);
   const [gradeInput, setGradeInput] = useState('');
-  const [newCourse, setNewCourse] = useState({ title: '', description: '', level: CourseLevel.Beginner, price: 49.99 });
+  const [newCourse, setNewCourse] = useState({ title: '', description: '', level: 'Foundation' as CourseLevel, price: 49.99 });
   const [profile, setProfile] = useState({ 
       name: user.name, 
       bio: user.bio || '', 
@@ -55,7 +55,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, courses, subm
   const handleCreateCourse = () => {
     onCreateCourse(newCourse);
     setShowModal(null);
-    setNewCourse({ title: '', description: '', level: CourseLevel.Beginner, price: 49.99 });
+    setNewCourse({ title: '', description: '', level: 'Foundation' as CourseLevel, price: 49.99 });
   };
 
   const handleProfileUpdate = (e: React.FormEvent) => {
@@ -124,7 +124,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, courses, subm
                 <Card key={course.id} className="p-4 flex flex-col sm:flex-row justify-between sm:items-center">
                     <div className="flex-grow">
                         <div className="flex items-center space-x-3">
-                             <StatusBadge status={course.status} />
+                             <StatusBadge status={course.status || CourseStatus.Pending} />
                              <h4 className="font-bold text-lg">{course.title}</h4>
                         </div>
                         <div className="flex items-center space-x-4 text-sm text-slate-500 mt-1">
@@ -234,7 +234,9 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, courses, subm
                     <div>
                         <label className="block text-sm font-medium text-slate-700">Level</label>
                         <select value={newCourse.level} onChange={e => setNewCourse({...newCourse, level: e.target.value as CourseLevel})} className="w-full p-2 border rounded mt-1">
-                            {Object.values(CourseLevel).map(l => <option key={l} value={l}>{l}</option>)}
+                            <option value="Foundation">Foundation</option>
+                            <option value="Intermediate">Intermediate</option>
+                            <option value="Advanced">Advanced</option>
                         </select>
                     </div>
                     <div>

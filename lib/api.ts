@@ -12,7 +12,7 @@ const resolveUrl = (path: string) => `${apiBaseUrl}${path}`;
 
 const parseErrorMessage = async (response: Response): Promise<string> => {
   try {
-    const payload = await response.json();
+    const payload = (await response.json()) as any;
     if (typeof payload?.error === 'string') {
       return payload.error;
     }
@@ -124,6 +124,9 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ key, value }),
     }),
+
+  getSettings: () =>
+    request<{ settings: Record<string, string> }>('/api/settings'),
 
   // Tutor
   tutorGetCourses: () =>
@@ -324,5 +327,15 @@ export const api = {
     request<any>('/api/live-messages', {
       method: 'POST',
       body: JSON.stringify({ session_id: sessionId, text }),
+    }),
+
+  // Profile
+  getProfile: () =>
+    request<{ profile: { name: string; email: string; bio?: string; avatar_url?: string } }>('/api/profile'),
+
+  updateProfile: (data: { name?: string; bio?: string; avatar_url?: string }) =>
+    request<{ success: boolean }>('/api/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
     }),
 };

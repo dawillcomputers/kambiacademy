@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import DashboardLayout from '../layout/DashboardLayout';
 import { User, Course, Quiz, Submission, View } from '../../types';
 import Card from '../Card';
 import Button from '../Button';
@@ -192,7 +193,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, courses, subm
   };
 
   return (
-    <div className="text-slate-800">
+    <DashboardLayout>
+      <div className="text-slate-800">
       <div className="flex justify-between items-center mb-6">
         <div>
             <h2 className="text-3xl font-bold">Student Dashboard</h2>
@@ -224,10 +226,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, courses, subm
                 {enrolledCourses.length > 0 ? (
                   enrolledCourses.map(course => (
                     <Card key={course.id} >
-                      <img src={course.imageUrl} alt={course.title} className="w-full h-40 object-cover cursor-pointer" onClick={() => onSelectCourse(course)}/>
+                      <img src={course.imageUrl || 'https://via.placeholder.com/400x200'} alt={course.title} className="w-full h-40 object-cover cursor-pointer" onClick={() => onSelectCourse(course)}/>
                       <div className="p-4">
                         <h4 className="font-bold text-lg">{course.title}</h4>
-                        <p className="text-sm text-slate-500">{course.instructor}</p>
+                        <p className="text-sm text-slate-500">{course.instructor || 'Instructor TBA'}</p>
                         <Button 
                             size="small" 
                             variant="danger" 
@@ -313,7 +315,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, courses, subm
               </div>
           </Modal>
       )}
-    </div>
+      </div>
+    </DashboardLayout>
   );
 };
 
