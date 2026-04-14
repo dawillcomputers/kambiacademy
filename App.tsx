@@ -31,7 +31,7 @@ import { BrandingContent, SiteData } from './types';
 
 const fallbackBranding: BrandingContent = {
   name: 'Kambi Academy',
-  strapline: 'Live digital skills programs powered by Kambi-Auralis Meet.',
+  strapline: 'Live digital skills programs with expert mentorship and interactive learning.',
   primaryCta: { label: 'Explore courses', href: '/courses' },
   secondaryCta: { label: 'Contact admissions', href: '/contact' },
 };
@@ -50,7 +50,7 @@ const LoadingState: React.FC = () => (
   <section className="section-shell surface-ring rounded-[32px] border border-white/60 px-6 py-20 text-center sm:px-10">
     <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-slate-900" />
     <p className="mt-6 text-lg font-semibold text-slate-900">Loading live academy content...</p>
-    <p className="mt-2 text-sm text-slate-500">Fetching production data from the Cloudflare API.</p>
+    <p className="mt-2 text-sm text-slate-500">Fetching production data from our secure API.</p>
   </section>
 );
 
@@ -59,7 +59,7 @@ const ErrorState: React.FC<{ message: string; onRetry: () => void }> = ({ messag
     <p className="text-sm font-semibold uppercase tracking-[0.28em] text-rose-500">Backend unavailable</p>
     <h1 className="mt-4 font-display text-3xl font-bold text-slate-950">The site API is not responding yet.</h1>
     <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-      {message || 'Check the Cloudflare Pages Function, D1 bindings, and database seed before retrying.'}
+      {message || 'Please check your internet connection and try again. If the problem persists, contact our support team.'}
     </p>
     <button
       onClick={onRetry}
@@ -139,7 +139,7 @@ const defaultSiteData: SiteData = {
   hero: {
     eyebrow: 'Kambi Academy',
     headline: 'Live digital skills programs for every learner.',
-    description: 'Explore live courses, mentorship-led workshops, and hands-on project learning backed by Cloudflare infrastructure.',
+    description: 'Explore live courses, mentorship-led workshops, and hands-on project learning with industry experts.',
     highlights: ['Live mentoring', 'Practical project work', 'Team learning that works'],
     primaryCta: { label: 'Explore courses', href: '/courses' },
     secondaryCta: { label: 'Contact admissions', href: '/contact' },
@@ -169,7 +169,7 @@ const defaultSiteData: SiteData = {
     reviewSteps: [],
   },
   meet: {
-    name: 'Kambi-Auralis Meet',
+    name: 'Kambi Academy Live',
     headline: 'Host your live sessions with secure, scalable conferencing.',
     description: 'Access live class tools and collaboration workflows for every live session.',
     features: [],

@@ -1,6 +1,6 @@
 {
   "name": "Kambi Academy",
-  "description": "A Cloudflare-ready digital academy with live cohort programs, production course pages, admissions workflows, and Kambi-Auralis Meet for mentor-led sessions.",
+  "description": "A digital academy with live cohort programs, interactive course pages, admissions workflows, and live mentor-led sessions.",
   "requestFramePermissions": [
     "camera",
     "microphone"
