@@ -6,7 +6,7 @@ import { useAuth } from '../lib/auth';
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/~`])/;
 
 const ChangePassword: React.FC = () => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -35,6 +35,7 @@ const ChangePassword: React.FC = () => {
     setLoading(true);
     try {
       await api.changePassword(currentPassword, newPassword);
+      await refreshUser(); // Update user state to reflect password change
       setSuccess('Password changed successfully. Redirecting...');
       setTimeout(() => {
         if (user?.role === 'admin') navigate('/admin');

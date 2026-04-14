@@ -15,6 +15,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<AuthUser>;
   signup: (name: string, email: string, password: string, role?: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -23,6 +24,7 @@ const AuthContext = createContext<AuthContextValue>({
   login: async () => ({} as AuthUser),
   signup: async () => ({} as AuthUser),
   logout: async () => {},
+  refreshUser: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -87,8 +89,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    try {
+      const data = await authFetch('/api/auth/me');
+      setUser(data.user);
+    } catch (error) {
+      localStorage.removeItem('auth_token');
+      setUser(null);
+    }
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, signup, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
