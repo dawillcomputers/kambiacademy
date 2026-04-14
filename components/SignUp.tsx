@@ -39,6 +39,9 @@ const SignUp: React.FC = () => {
       const redirect = searchParams.get('redirect');
       if (redirect) {
         navigate(redirect, { replace: true });
+      } else if (u?.role === 'teacher' && u?.status === 'pending') {
+        // Show pending approval message
+        setError('Your tutor account has been created and is pending admin approval. You will receive an email once approved.');
       } else if (u?.role === 'teacher') {
         navigate('/tutor', { replace: true });
       } else {

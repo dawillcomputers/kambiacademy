@@ -123,7 +123,7 @@ A comprehensive LMS platform featuring live video classes, real-time chat, codin
    npm install
    ```
 
-2. **Environment Setup:**
+2. **Frontend Environment Setup:**
    ```bash
    cp .env.example .env.local
    ```
@@ -133,17 +133,35 @@ A comprehensive LMS platform featuring live video classes, real-time chat, codin
    VITE_SOCKET_URL=your-socket-server-url
    ```
 
-3. **Database Migration:**
+3. **Pages Function Secrets (local only):**
    ```bash
-   npx wrangler d1 migrations apply your-db-name --local
+   cp .dev.vars.example .dev.vars
+   ```
+   Configure your local runtime secrets in `.dev.vars`:
+   ```env
+   LIVEKIT_API_KEY=your-livekit-api-key
+   LIVEKIT_API_SECRET=your-livekit-api-secret
+   FLUTTERWAVE_PUBLIC_KEY=your-flutterwave-public-key
+   FLUTTERWAVE_SECRET_KEY=your-flutterwave-secret-key
+   FLUTTERWAVE_ENCRYPTION_KEY=your-flutterwave-encryption-key
    ```
 
-4. **Development Server:**
+4. **Database Migration:**
+   ```bash
+   npx wrangler d1 migrations apply DB --local
+   ```
+
+5. **Development Server:**
    ```bash
    npm run dev
    ```
 
-5. **Production Build:**
+6. **Pages Functions Dev Server:**
+   ```bash
+   npm run cf:dev
+   ```
+
+7. **Production Build:**
    ```bash
    npm run build
    ```
@@ -214,9 +232,18 @@ The platform includes full PWA support:
 
 ### Cloudflare Pages (Recommended)
 1. Connect your GitHub repository
-2. Set environment variables in Pages settings
+2. Set secrets in Pages settings or with Wrangler:
+   ```bash
+   npx wrangler pages secret put LIVEKIT_API_KEY --project-name kambiacademy
+   npx wrangler pages secret put LIVEKIT_API_SECRET --project-name kambiacademy
+   npx wrangler pages secret put FLUTTERWAVE_PUBLIC_KEY --project-name kambiacademy
+   npx wrangler pages secret put FLUTTERWAVE_SECRET_KEY --project-name kambiacademy
+   npx wrangler pages secret put FLUTTERWAVE_ENCRYPTION_KEY --project-name kambiacademy
+   ```
 3. Configure D1 database and R2 bucket bindings
 4. Deploy automatically on push
+
+Do not store service credentials in `wrangler.jsonc`. Keep local values in `.dev.vars` and remote values in Cloudflare Pages secrets.
 
 ### Environment Variables for Production
 Set these in your deployment provider:

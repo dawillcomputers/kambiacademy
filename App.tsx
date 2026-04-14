@@ -93,7 +93,7 @@ const RequireTutor: React.FC<{ children: React.ReactElement }> = ({ children }) 
   const { user, isLoading } = useAuth();
 
   if (isLoading) return <LoadingState />;
-  if (!user || user.role !== 'teacher') return <Navigate to="/" replace />;
+  if (!user || user.role !== 'teacher' || user.status !== 'active') return <Navigate to="/" replace />;
 
   return children;
 };

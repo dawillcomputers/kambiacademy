@@ -2,6 +2,7 @@
 	"name": "kambiacademy",
 	"pages_build_output_dir": "./dist",
 	"compatibility_date": "2026-04-09",
+	// Configure runtime secrets with `wrangler pages secret put` or a local `.dev.vars` file.
 	"d1_databases": [
 		{
 			"binding": "DB",
@@ -14,12 +15,5 @@
 			"binding": "BUCKET",
 			"bucket_name": "kambi-academi-storage"
 		}
-	],
-	"vars": {
-		"LIVEKIT_API_KEY": "your-livekit-api-key",
-		"LIVEKIT_API_SECRET": "your-livekit-api-secret",
-		"FLUTTERWAVE_PUBLIC_KEY": "FLWPUBK-deceb8a34738a4b56542a9d93cd6fa8a-X",
-		"FLUTTERWAVE_SECRET_KEY": "FLWSECK-ff44b68bfefedb96f9307953e4437bf5-19d83aec3afvt-X",
-		"FLUTTERWAVE_ENCRYPTION_KEY": "ff44b68bfefea653fee198e9"
-	}
+	]
 }
