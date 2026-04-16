@@ -1,12 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
 import { User, Course, Quiz, Submission, View } from '../../types';
 import Card from '../Card';
 import Button from '../Button';
-import { MOCK_QUIZZES } from '../../constants';
 import CodeEditor from '../CodeEditor';
 import Modal from '../Modal';
+import { api } from '../../lib/api';
 
 interface StudentDashboardProps {
   user: User;
@@ -26,6 +26,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, courses, subm
   const [activeTab, setActiveTab] = useState<StudentTabView>('overview');
   const [practiceView, setPracticeView] = useState<PracticeBoardView>('list');
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
   const [score, setScore] = useState(0);
@@ -33,7 +34,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, courses, subm
   const [reportReason, setReportReason] = useState('');
 
   const enrolledCourses = courses.filter(c => user.enrolledCourses?.includes(c.id));
-  const availableQuizzes = MOCK_QUIZZES.filter(q => user.enrolledCourses?.includes(q.courseId));
+  const availableQuizzes = quizzes.filter(q => user.enrolledCourses?.includes(q.courseId));
   
   const assignments = enrolledCourses.flatMap(c => 
     c.assignments.map(a => {
@@ -48,6 +49,12 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, courses, subm
   );
   
   const gradedAssignments = assignments.filter(a => a.submitted && a.grade);
+
+  useEffect(() => {
+    void api.getQuizzes()
+      .then((data) => setQuizzes(data.quizzes || []))
+      .catch(() => setQuizzes([]));
+  }, []);
 
   const startQuiz = (quiz: Quiz) => {
     setActiveQuiz(quiz);
@@ -73,11 +80,52 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, courses, subm
     setPracticeView('results');
   };
 
-  const handleSubmitReport = () => {
+  const handleSubmitReport = async () => {
     if (showReportModal && reportReason) {
-        onCreateReport(showReportModal.instructorId, showReportModal.id, reportReason);
-        setShowReportModal(null);
-        setReportReason('');
+      try {
+        const response = await fetch('/api/complaints', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            teacher_id: showReportModal.instructorId,
+            course_slug: showReportModal.id,
+            complaint_text: reportReason
+          })
+        });
+        if (response.ok) {
+          alert('Complaint submitted successfully. It will be reviewed by an administrator.');
+          setShowReportModal(null);
+          setReportReason('');
+        } else {
+          alert('Failed to submit complaint. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error submitting complaint:', error);
+        alert('An error occurred. Please try again.');
+      }
+    }
+  };
+
+  const handleMarkCompleted = async (courseSlug: string) => {
+    if (confirm('Are you sure you want to mark this course as completed? This action cannot be undone.')) {
+      try {
+        const response = await fetch('/api/enrollments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            course_slug: courseSlug,
+            action: 'complete'
+          })
+        });
+        if (response.ok) {
+          alert('Course marked as completed! Funds may now be available to the teacher.');
+        } else {
+          alert('Failed to mark course as completed. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error marking course complete:', error);
+        alert('An error occurred. Please try again.');
+      }
     }
   };
   
@@ -230,14 +278,23 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, courses, subm
                       <div className="p-4">
                         <h4 className="font-bold text-lg">{course.title}</h4>
                         <p className="text-sm text-slate-500">{course.instructor || 'Instructor TBA'}</p>
-                        <Button 
-                            size="small" 
-                            variant="danger" 
-                            className="mt-4 w-full opacity-60 hover:opacity-100" 
-                            onClick={() => setShowReportModal(course)}
-                        >
-                            Report Teacher
-                        </Button>
+                        <div className="flex space-x-2 mt-4">
+                          <Button 
+                              size="small" 
+                              className="flex-1" 
+                              onClick={() => handleMarkCompleted(course.id)}
+                          >
+                              Mark Completed
+                          </Button>
+                          <Button 
+                              size="small" 
+                              variant="danger" 
+                              className="opacity-60 hover:opacity-100" 
+                              onClick={() => setShowReportModal(course)}
+                          >
+                              Report
+                          </Button>
+                        </div>
                       </div>
                     </Card>
                   ))

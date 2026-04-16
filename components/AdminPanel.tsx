@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
+import { Complaint } from '../types';
 
 interface AdminStats {
   totalUsers: number;
@@ -26,7 +27,7 @@ interface TutorCourse {
   category: string; status: string; tutor_name?: string; tutor_email?: string; created_at: string;
 }
 
-type Tab = 'overview' | 'users' | 'courses' | 'settings' | 'audit-log' | 'subscription';
+type Tab = 'overview' | 'users' | 'courses' | 'complaints' | 'settings' | 'audit-log' | 'subscription';
 
 interface AuditLogEntry {
   id: number; user_name: string; changed_by_name: string; old_role: string; new_role: string; reason: string; created_at: string;
@@ -58,6 +59,7 @@ const AdminPanel: React.FC = () => {
 
   // Audit log
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
 
   // Subscription state
   const [subscriptions, setSubscriptions] = useState<{ platform: any; liveClass: any } | null>(null);
@@ -81,6 +83,7 @@ const AdminPanel: React.FC = () => {
     if (tab === 'courses') api.adminGetCourses().then((d) => setCourses(d.courses)).catch(() => {});
     if (tab === 'settings') api.adminGetSettings().then((d) => setSettings(d.settings)).catch(() => {});
     if (tab === 'audit-log') api.getAuditLog().then((d) => setAuditLog(d.log)).catch(() => {});
+    if (tab === 'complaints') api.adminGetComplaints().then((d) => setComplaints(d.complaints)).catch(() => {});
     if (tab === 'subscription') {
       setSubscriptionLoading(true);
       api.getTeacherSubscription()
@@ -126,6 +129,17 @@ const AdminPanel: React.FC = () => {
     } catch (e: any) { setActionMsg(e.message); }
   };
 
+  const handleComplaintAction = async (complaintId: string, status: 'reviewed' | 'resolved') => {
+    setActionMsg('');
+    try {
+      await api.adminUpdateComplaint(complaintId, status, status === 'resolved' ? 'Complaint resolved by admin.' : 'Marked for further review.');
+      setActionMsg('Complaint status updated.');
+      api.adminGetComplaints().then((d) => setComplaints(d.complaints));
+    } catch (e: any) {
+      setActionMsg(e.message);
+    }
+  };
+
   const saveSetting = async (key: string, value: string) => {
     try {
       await api.adminUpdateSetting(key, value);
@@ -169,6 +183,7 @@ const AdminPanel: React.FC = () => {
     { key: 'overview', label: 'Overview' },
     { key: 'users', label: 'Users' },
     { key: 'courses', label: 'Course Approval' },
+    { key: 'complaints', label: 'Complaints' },
     { key: 'audit-log', label: 'Audit Log' },
     { key: 'settings', label: 'Settings' },
     { key: 'subscription', label: 'Subscription' },
@@ -377,6 +392,53 @@ const AdminPanel: React.FC = () => {
                 )}
               </div>
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* COMPLAINTS TAB */}
+      {tab === 'complaints' && (
+        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Student Complaints</p>
+          <h2 className="mt-2 font-display text-2xl font-bold text-slate-950">Review and Resolve Complaints</h2>
+          <div className="mt-6 overflow-x-auto">
+            {complaints.length === 0 ? (
+              <p className="text-sm text-slate-400">No complaints have been submitted yet.</p>
+            ) : (
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
+                    <th className="py-3 px-2">Student</th>
+                    <th className="py-3 px-2">Teacher</th>
+                    <th className="py-3 px-2">Course</th>
+                    <th className="py-3 px-2">Complaint</th>
+                    <th className="py-3 px-2">AI Recommendation</th>
+                    <th className="py-3 px-2">Status</th>
+                    <th className="py-3 px-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {complaints.map((complaint) => (
+                    <tr key={complaint.id} className="bg-white">
+                      <td className="py-3 px-2 align-top text-slate-900">{complaint.student_name || 'Student'}</td>
+                      <td className="py-3 px-2 align-top text-slate-900">{complaint.teacher_name || 'Teacher'}</td>
+                      <td className="py-3 px-2 align-top text-slate-900">{complaint.course_slug || 'N/A'}</td>
+                      <td className="py-3 px-2 align-top text-slate-500 max-w-[24rem] whitespace-pre-wrap">{complaint.complaint_text}</td>
+                      <td className="py-3 px-2 align-top text-slate-500 max-w-[24rem] whitespace-pre-wrap">{complaint.ai_recommendation || 'No recommendation yet.'}</td>
+                      <td className="py-3 px-2 align-top">
+                        <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${complaint.status === 'resolved' ? 'bg-emerald-100 text-emerald-800' : complaint.status === 'reviewed' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}`}>
+                          {complaint.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-2 align-top space-y-2">
+                        <button onClick={() => handleComplaintAction(complaint.id, 'reviewed')} className="block rounded bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700">Mark Reviewed</button>
+                        <button onClick={() => handleComplaintAction(complaint.id, 'resolved')} className="block rounded bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700">Resolve</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </section>
       )}

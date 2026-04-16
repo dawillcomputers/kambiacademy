@@ -1,4 +1,4 @@
-import { getAuthUser } from '../../_shared/auth';
+import { getAuthUser } from '../_shared/auth';
 
 interface Env {
   DB: D1Database;
@@ -15,7 +15,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     course_id: string;
     teacher_id: number;
     base_amount: number;
-    location_markup_percentage?: number;
     student_country?: string;
   }>();
 
@@ -23,7 +22,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  const locationMarkup = body.location_markup_percentage || 0;
+  // Get student country from profile if not provided
+  let studentCountry = body.student_country;
+  if (!studentCountry) {
+    const profileResult = await env.DB.prepare(
+      'SELECT country FROM user_profiles WHERE user_id = ?'
+    ).bind(user.id).first<{ country: string }>();
+    studentCountry = profileResult?.country || 'Nigeria';
+  }
+
+  // Calculate location markup: 10% for America and Europe
+  const isHighCostRegion = ['USA', 'United States', 'Canada', 'UK', 'United Kingdom', 'Germany', 'France', 'Italy', 'Spain', 'Netherlands', 'Belgium', 'Switzerland', 'Austria', 'Sweden', 'Norway', 'Denmark', 'Finland', 'Ireland', 'Portugal', 'Greece', 'Poland', 'Czech Republic', 'Hungary', 'Slovakia', 'Slovenia', 'Croatia', 'Romania', 'Bulgaria', 'Serbia', 'Bosnia', 'Montenegro', 'Kosovo', 'Albania', 'North Macedonia', 'Malta', 'Cyprus', 'Iceland', 'Luxembourg', 'Liechtenstein', 'Monaco', 'Andorra', 'San Marino', 'Vatican City'].includes(studentCountry);
+  const locationMarkup = isHighCostRegion ? 10 : 0;
+
   const finalAmount = body.base_amount * (1 + locationMarkup / 100);
   const platformFee = finalAmount * 0.80; // Platform gets 80%
   const teacherPayout = finalAmount * 0.20; // Teacher gets 20%
@@ -43,10 +54,31 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       finalAmount,
       platformFee,
       teacherPayout,
-      body.student_country || null
+      studentCountry
     ).run();
 
-    // Update teacher earnings
+    // Update course earnings with hold logic
+    const availablePayout = teacherPayout * 0.7;
+    const heldPayout = teacherPayout * 0.3;
+    await env.DB.prepare(
+      `INSERT INTO course_earnings (teacher_id, course_slug, total_earned, available_balance, held_balance)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(teacher_id, course_slug) DO UPDATE SET
+       total_earned = total_earned + ?,
+       available_balance = available_balance + ?,
+       held_balance = held_balance + ?`
+    ).bind(
+      body.teacher_id,
+      body.course_id,
+      teacherPayout,
+      availablePayout,
+      heldPayout,
+      teacherPayout,
+      availablePayout,
+      heldPayout
+    ).run();
+
+    // Update overall teacher earnings
     await env.DB.prepare(
       `INSERT INTO teacher_earnings (teacher_id, total_earned, available_balance)
        VALUES (?, ?, ?)
@@ -56,9 +88,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     ).bind(
       body.teacher_id,
       teacherPayout,
+      availablePayout,
       teacherPayout,
-      teacherPayout,
-      teacherPayout
+      availablePayout
     ).run();
 
     return Response.json(
@@ -94,6 +126,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       available_balance: number;
     }>();
 
+    // Get total held balance from course earnings
+    const heldResult = await env.DB.prepare(
+      `SELECT SUM(held_balance) as total_held FROM course_earnings WHERE teacher_id = ?`
+    ).bind(user.id).first<{ total_held: number }>();
+
+    const earnings = earningsResult || { total_earned: 0, total_withdrawn: 0, available_balance: 0 };
+    earnings.held_balance = heldResult?.total_held || 0;
+
     // Get recent transactions
     const transactionsResult = await env.DB.prepare(
       `SELECT rt.* FROM revenue_transactions rt
@@ -107,7 +147,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     ).bind(user.id).all();
 
     return Response.json({
-      earnings: earningsResult || { total_earned: 0, total_withdrawn: 0, available_balance: 0 },
+      earnings: earnings,
       transactions: transactionsResult?.results || [],
       withdrawals: withdrawalsResult?.results || []
     });

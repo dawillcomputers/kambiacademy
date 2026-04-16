@@ -225,7 +225,7 @@ export interface User {
   status: 'active' | 'pending' | 'suspended';
   kycStatus?: 'verified' | 'pending' | 'rejected' | 'unverified';
   enrolledCourses?: string[];
-  earnings?: { paidOut: number; pending: number; total?: number };
+  earnings?: { paidOut: number; pending: number; total?: number; available_balance?: number; held_balance?: number };
   bvn?: string;
   nin?: string;
   tin?: string;
@@ -299,6 +299,22 @@ export interface Report {
   reason: string;
   status: 'open' | 'closed' | 'resolved';
   createdAt?: string;
+}
+
+export interface Complaint {
+  id: string;
+  student_id: number;
+  teacher_id?: number;
+  course_slug?: string;
+  complaint_text: string;
+  status: 'pending' | 'reviewed' | 'resolved';
+  ai_recommendation?: string;
+  admin_action?: string;
+  created_at?: string;
+  reviewed_at?: string;
+  resolved_at?: string;
+  student_name?: string;
+  teacher_name?: string;
 }
 
 export interface Message {

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, Routes, Route, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../lib/auth';
 import { api } from '../../../../lib/api';
-import { Course } from '../../../../types';
+import { Course, Submission, Material } from '../../../../types';
 import DashboardLayout from '../../../../components/layout/DashboardLayout';
 import StudentDashboardHome from './index';
 import StudentCourses from './courses';
@@ -17,13 +17,13 @@ import StudentChat from './chat';
 import StudentCourseDetail from './course-detail';
 import StudentAssignmentDetail from './assignment-detail';
 import PaymentModal from '../../../../components/PaymentModal';
-import { MOCK_COURSES, MOCK_SUBMISSIONS, MOCK_MATERIALS } from '../../../../constants';
-import { AuthUser } from '../../../../lib/auth';
 
 const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [courses, setCourses] = useState<Course[]>(MOCK_COURSES);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showMaterialsEnabled, setShowMaterialsEnabled] = useState(false);
@@ -36,6 +36,29 @@ const StudentDashboard: React.FC = () => {
       .catch(() => {
         setShowMaterialsEnabled(false);
       });
+
+    void (async () => {
+      try {
+        const site = await api.getSite();
+        setCourses(site.courses || []);
+      } catch {
+        setCourses([]);
+      }
+
+      try {
+        const submissionResult = await api.getSubmissions();
+        setSubmissions(submissionResult.submissions || []);
+      } catch {
+        setSubmissions([]);
+      }
+
+      try {
+        const materialsResult = await api.getMaterials();
+        setMaterials(materialsResult.materials || []);
+      } catch {
+        setMaterials([]);
+      }
+    })();
   }, []);
 
   if (!user) {
@@ -92,10 +115,6 @@ const StudentDashboard: React.FC = () => {
       return [...currentCourses, course];
     });
 
-    if (!MOCK_COURSES.some((item) => item.id === course.id)) {
-      MOCK_COURSES.push(course);
-    }
-
     if (user.enrolledCourses) {
       if (!user.enrolledCourses.includes(course.id)) {
         user.enrolledCourses.push(course.id);
@@ -116,7 +135,7 @@ const StudentDashboard: React.FC = () => {
             <StudentDashboardHome
               user={user}
               courses={courses}
-              submissions={MOCK_SUBMISSIONS}
+              submissions={submissions}
             />
           }
         />
@@ -149,7 +168,7 @@ const StudentDashboard: React.FC = () => {
               <StudentMaterials
                 user={user}
                 courses={courses}
-                materials={MOCK_MATERIALS}
+                materials={materials}
               />
             ) : (
               <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center">
@@ -170,7 +189,7 @@ const StudentDashboard: React.FC = () => {
             <StudentAssignments
               user={user}
               courses={courses}
-              submissions={MOCK_SUBMISSIONS}
+              submissions={submissions}
             />
           }
         />
@@ -180,7 +199,7 @@ const StudentDashboard: React.FC = () => {
             <StudentAssignmentDetail
               user={user}
               courses={courses}
-              submissions={MOCK_SUBMISSIONS}
+              submissions={submissions}
             />
           }
         />
@@ -189,7 +208,7 @@ const StudentDashboard: React.FC = () => {
           element={
             <StudentSubmissions
               user={user}
-              submissions={MOCK_SUBMISSIONS}
+              submissions={submissions}
               courses={courses}
             />
           }

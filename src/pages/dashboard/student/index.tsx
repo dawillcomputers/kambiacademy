@@ -18,7 +18,7 @@ const StudentDashboardHome: React.FC<StudentDashboardHomeProps> = ({ user, cours
     return courseSubmissions.length > 0 && courseSubmissions.every(s => s.grade);
   });
 
-  const continueLearning = enrolledCourses.slice(0, 3); // Mock data for now
+  const continueLearning = enrolledCourses.slice(0, 3);
 
   return (
     <div className="space-y-8">

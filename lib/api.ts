@@ -125,6 +125,15 @@ export const api = {
       body: JSON.stringify({ key, value }),
     }),
 
+  adminGetComplaints: () =>
+    request<{ complaints: any[] }>('/api/complaints'),
+
+  adminUpdateComplaint: (complaintId: number | string, status: 'pending' | 'reviewed' | 'resolved', adminAction?: string) =>
+    request<any>('/api/complaints', {
+      method: 'PATCH',
+      body: JSON.stringify({ complaint_id: complaintId, status, admin_action: adminAction }),
+    }),
+
   getSettings: () =>
     request<{ settings: Record<string, string> }>('/api/settings'),
 

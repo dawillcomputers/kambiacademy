@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { User, Course, Submission, Enrollment, CourseLevel, CourseStatus, View } from '../../types';
-import { MOCK_USERS } from '../../constants';
 import Card from '../Card';
 import Button from '../Button';
 import Modal from '../Modal';
@@ -50,7 +49,9 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, courses, subm
 
   const totalEarnings = user.earnings?.total ?? 0;
   const paidOut = user.earnings?.paidOut ?? 0;
-  const currentBalance = totalEarnings - paidOut;
+  const availableBalance = user.earnings?.available_balance ?? 0;
+  const heldBalance = user.earnings?.held_balance ?? 0;
+  const currentBalance = availableBalance;
 
   const handleCreateCourse = () => {
     onCreateCourse(newCourse);
@@ -155,11 +156,10 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, courses, subm
                     </thead>
                     <tbody className="divide-y">
                         {teacherSubmissions.length > 0 ? teacherSubmissions.map(s => {
-                            const student = MOCK_USERS.find(u => u.id === s.studentId);
                             const assignment = courses.flatMap(c => c.assignments).find(a => a.id === s.assignmentId);
                             return (
                                 <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="p-4 font-medium">{student?.name}</td>
+                                    <td className="p-4 font-medium">Student #{s.studentId}</td>
                                     <td className="p-4 text-slate-600">{assignment?.title}</td>
                                     <td className="p-4 text-sm text-slate-500">{new Date(s.submittedAt).toLocaleDateString()}</td>
                                     <td className="p-4">
@@ -185,14 +185,15 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, courses, subm
 
       {view === 'earnings' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card className="p-6"><p className="text-sm text-slate-500">Total Earnings</p><p className="text-3xl font-bold">${totalEarnings.toFixed(2)}</p></Card>
             <Card className="p-6"><p className="text-sm text-slate-500">Paid Out</p><p className="text-3xl font-bold text-green-600">${paidOut.toFixed(2)}</p></Card>
             <Card className="p-6">
                 <p className="text-sm text-slate-500">Available Balance</p>
-                <p className="text-3xl font-bold text-blue-600">${currentBalance.toFixed(2)}</p>
-                <Button size="small" className="mt-2 w-full" onClick={() => setShowModal('withdraw')} disabled={currentBalance <= 0}>Withdraw</Button>
+                <p className="text-3xl font-bold text-blue-600">${availableBalance.toFixed(2)}</p>
+                <Button size="small" className="mt-2 w-full" onClick={() => setShowModal('withdraw')} disabled={availableBalance <= 0}>Withdraw</Button>
             </Card>
+            <Card className="p-6"><p className="text-sm text-slate-500">Held Balance</p><p className="text-3xl font-bold text-orange-600">${heldBalance.toFixed(2)}</p><p className="text-xs text-slate-400">Released when students complete courses</p></Card>
           </div>
         </div>
       )}
@@ -252,7 +253,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, courses, subm
       {showModal === 'grade' && gradingTarget && (
         <Modal onClose={() => { setShowModal(null); setGradingTarget(null); }}>
             <h3 className="text-xl font-bold mb-2">Grade Submission</h3>
-            <p className="text-sm text-slate-500 mb-4">Reviewing work for: <span className="font-semibold text-indigo-600">{MOCK_USERS.find(u=>u.id === gradingTarget.studentId)?.name}</span></p>
+            <p className="text-sm text-slate-500 mb-4">Reviewing work for: <span className="font-semibold text-indigo-600">Student #{gradingTarget.studentId}</span></p>
             <div className="mb-4">
                 <p className="text-sm font-medium mb-1">Student Work Content:</p>
                 <div className="max-h-60 overflow-y-auto">

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User } from '../../../../types';
 import Card from '../../../../components/Card';
 import Button from '../../../../components/Button';
+import { api } from '../../../../lib/api';
 
 interface LiveSession {
   id: string;
@@ -21,43 +22,28 @@ interface StudentLiveProps {
 
 const StudentLive: React.FC<StudentLiveProps> = ({ user }) => {
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'live'>('all');
+  const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
 
-  // Mock live sessions data
-  const liveSessions: LiveSession[] = [
-    {
-      id: '1',
-      title: 'React Hooks Deep Dive',
-      courseTitle: 'Advanced React and TypeScript',
-      instructor: 'Dr. Evelyn Reed',
-      scheduledTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-      duration: 90,
-      status: 'upcoming',
-      participants: 25,
-      description: 'Master advanced React hooks patterns and best practices'
-    },
-    {
-      id: '2',
-      title: 'UI/UX Design Principles',
-      courseTitle: 'UI/UX Design Fundamentals',
-      instructor: 'Dr. Evelyn Reed',
-      scheduledTime: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-      duration: 60,
-      status: 'live',
-      participants: 32,
-      description: 'Learn core design principles for better user experiences'
-    },
-    {
-      id: '3',
-      title: 'JavaScript Fundamentals Review',
-      courseTitle: 'Introduction to Web Development',
-      instructor: 'Dr. Evelyn Reed',
-      scheduledTime: new Date(Date.now() - 24 * 60 * 60 * 1000), // yesterday
-      duration: 75,
-      status: 'ended',
-      participants: 28,
-      description: 'Review essential JavaScript concepts'
-    }
-  ];
+  useEffect(() => {
+    void api.getLiveSessions()
+      .then((data) => {
+        const sessions = (data.sessions || []).map((session: any) => ({
+          id: String(session.id),
+          title: session.title || session.class_title || 'Live Session',
+          courseTitle: session.class_title || session.title || 'Live Class',
+          instructor: session.instructor || session.host_name || 'TBA',
+          scheduledTime: session.started_at || session.scheduled_time || new Date().toISOString(),
+          duration: session.duration || 60,
+          status: session.status || 'upcoming',
+          participants: session.member_count || session.participants || 0,
+          description: session.description || '',
+        }));
+        setLiveSessions(sessions);
+      })
+      .catch(() => {
+        setLiveSessions([]);
+      });
+  }, []);
 
   const filteredSessions = liveSessions.filter(session => {
     if (filter === 'all') return true;
