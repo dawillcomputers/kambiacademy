@@ -14,7 +14,7 @@ const StudentChat: React.FC<StudentChatProps> = ({ user }) => {
         <p className="text-gray-600">Talk to tutors, classmates, and support staff in the live chat room.</p>
       </div>
 
-      <div className="h-[680px] rounded-3xl border border-gray-200 bg-white shadow-sm">
+      <div className="h-[calc(100vh-220px)] min-h-[600px] rounded-3xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <ChatSystem
           roomId="kambi-academy-room"
           currentUser={{ id: user.id, name: user.name }}

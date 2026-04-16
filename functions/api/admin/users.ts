@@ -1,4 +1,4 @@
-import { getAuthUser, requireSubscription } from '../../_shared/auth';
+import { getAuthUser, requireSubscription, checkSubscription } from '../../_shared/auth';
 
 interface Env {
   DB: D1Database;
@@ -101,14 +101,14 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
 
     case 'reset_password': {
       const { hashPassword } = await import('../../_shared/auth');
-      const tempPassword = 'Kambi@' + Math.random().toString(36).slice(2, 8) + '1!';
-      const hash = await hashPassword(tempPassword);
+      const newPassword = body.newPassword || 'Kambi@' + Math.random().toString(36).slice(2, 8) + '1!';
+      const hash = await hashPassword(newPassword);
       await env.DB.prepare('UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?')
         .bind(hash, userId)
         .run();
       // Invalidate their sessions
       await env.DB.prepare('DELETE FROM user_sessions WHERE user_id = ?').bind(userId).run();
-      return Response.json({ message: 'Password reset.', tempPassword });
+      return Response.json({ message: 'Password reset.', tempPassword: newPassword });
     }
 
     case 'change_role': {

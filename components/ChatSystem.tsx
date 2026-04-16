@@ -301,8 +301,8 @@ export default function ChatSystem({ roomId, currentUser, className = '' }: Chat
         </div>
 
         <div className="flex-1 min-h-0 overflow-hidden">
-          <div className="flex h-full min-h-0">
-            <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="flex-1 min-h-0 overflow-hidden">
               <div className="p-4 overflow-y-auto flex-1 min-h-0 space-y-4 bg-slate-50">
                 {messages.length === 0 ? (
                   <div className="text-center py-10">
@@ -351,7 +351,7 @@ export default function ChatSystem({ roomId, currentUser, className = '' }: Chat
           </div>
         </div>
 
-        <div className="px-4 py-4 border-t border-slate-200 bg-white">
+        <div className="sticky bottom-0 z-10 bg-white border-t border-slate-200 px-4 py-4">
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <button

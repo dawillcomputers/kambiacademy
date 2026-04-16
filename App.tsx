@@ -33,7 +33,7 @@ const fallbackBranding: BrandingContent = {
   name: 'Kambi Academy',
   strapline: 'Live digital skills programs with expert mentorship and interactive learning.',
   primaryCta: { label: 'Explore courses', href: '/courses' },
-  secondaryCta: { label: 'Contact admissions', href: '/contact' },
+  secondaryCta: { label: 'Request information', href: '/contact' },
 };
 
 const ScrollToTop: React.FC = () => {

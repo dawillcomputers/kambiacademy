@@ -1,4 +1,4 @@
-import { getAuthUser, requireSubscription } from '../../_shared/auth';
+import { getAuthUser, requireSubscription, checkSubscription } from '../../_shared/auth';
 
 interface Env {
   DB: D1Database;

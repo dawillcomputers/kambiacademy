@@ -41,7 +41,7 @@ const Home: React.FC<HomeProps> = ({ siteData }) => {
     description: 'Explore live courses, mentorship-led workshops, and hands-on project learning with industry experts.',
     highlights: [],
     primaryCta: { label: 'Explore courses', href: '/courses' },
-    secondaryCta: { label: 'Contact admissions', href: '/contact' },
+    secondaryCta: { label: 'Request information', href: '/contact' },
   };
   const courses = siteData.courses ?? [];
   const instructors = siteData.instructors ?? [];
@@ -227,7 +227,7 @@ const Home: React.FC<HomeProps> = ({ siteData }) => {
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-sky-200">Ready to move</p>
           <h2 className="mt-3 font-display text-3xl font-bold">Choose a program, meet your instructor, and join the next live session.</h2>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
-            Kambi Academy pairs production-ready course pages with interactive live classrooms so admissions, delivery, and follow-up happen in one flow.
+            Browse programs, meet instructors, and join the next live session with a faster, simpler experience.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link to="/courses" className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100">
