@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { User } from '../../../../types';
+import { AuthUser } from '../../../../lib/auth';
 import Button from '../../../../components/Button';
 import Card from '../../../../components/Card';
 import { api } from '../../../../lib/api';
 
 interface StudentProfileProps {
-  user: User;
+  user: AuthUser;
 }
 
 const StudentProfile: React.FC<StudentProfileProps> = ({ user }) => {
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
+  const [country, setCountry] = useState('');
+  const [certificateName, setCertificateName] = useState(user.name);
   const [bio, setBio] = useState('');
   const [avatarPreview, setAvatarPreview] = useState<string>('');
   const [statusMessage, setStatusMessage] = useState('');
@@ -23,6 +25,8 @@ const StudentProfile: React.FC<StudentProfileProps> = ({ user }) => {
         setName(profile.name);
         setEmail(profile.email);
         setBio(profile.bio || '');
+        setCountry(profile.country || '');
+        setCertificateName(profile.certificate_name || user.name);
         setAvatarPreview(profile.avatar_url || '');
       } catch (error) {
         console.error('Failed to load profile:', error);
@@ -59,7 +63,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({ user }) => {
     event.preventDefault();
     setStatusMessage('');
     try {
-      await api.updateProfile({ name, bio });
+      await api.updateProfile({ name, bio, country, certificate_name: certificateName });
       setStatusMessage('Profile updated successfully.');
       window.dispatchEvent(new Event('profile-updated'));
     } catch (error) {
@@ -101,13 +105,14 @@ const StudentProfile: React.FC<StudentProfileProps> = ({ user }) => {
           <Card className="p-6">
             <form onSubmit={handleSave} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Your full name (as it should appear on certificates)</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                 />
+              <p className="mt-2 text-sm text-gray-500">This name will be used on your completion certificates.</p>
               </div>
 
               <div>
@@ -121,6 +126,24 @@ const StudentProfile: React.FC<StudentProfileProps> = ({ user }) => {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                <input
+                  type="text"
+                  value={country}
+                  onChange={(event) => setCountry(event.target.value)}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Name for certificate</label>
+                <input
+                  type="text"
+                  value={certificateName}
+                  onChange={(event) => setCertificateName(event.target.value)}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Short bio</label>
                 <textarea

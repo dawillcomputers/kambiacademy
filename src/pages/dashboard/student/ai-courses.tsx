@@ -55,22 +55,62 @@ const AICourses: React.FC<AICoursesProps> = ({ onRequestPayment }) => {
     }, 2000);
   };
 
+  const createCourseFromPopular = (course: { title: string; level: 'Beginner' | 'Intermediate' | 'Advanced'; price: number }) => {
+    const slug = `ai-${course.title.toLowerCase().replace(/\s+/g, '-')}`;
+    const levelLabel = course.level === 'Beginner' ? 'Foundation' : course.level;
+
+    return {
+      id: slug,
+      slug,
+      title: course.title,
+      summary: `A practical ${course.title} course designed by Kambi AI.`,
+      description: `Learn ${course.title} with an AI-crafted curriculum that includes modules, assessments, and real-world examples.`,
+      level: levelLabel,
+      durationLabel: course.level === 'Beginner' ? '4 weeks' : course.level === 'Intermediate' ? '6 weeks' : '8 weeks',
+      priceLabel: `₦${course.price.toLocaleString()}`,
+      deliveryMode: 'AI generated',
+      cohortSize: 'Self-paced',
+      category: 'AI Course',
+      tone: 'indigo',
+      instructorId: 'ai-bot',
+      featured: false,
+      outcomes: [
+        `Build practical ${course.title} skills`,
+        `Complete hands-on projects with AI guidance`,
+        `Earn a strong foundation in ${course.title}`
+      ],
+      tags: ['AI'],
+      modules: [
+        { title: 'Introduction', summary: 'Get started with the fundamentals.', lengthLabel: '1 week' },
+        { title: 'Core concepts', summary: 'Master the essential ideas and workflows.', lengthLabel: '2 weeks' },
+        { title: 'Practical application', summary: 'Apply your learning to real examples.', lengthLabel: '2 weeks' }
+      ],
+      price: course.price,
+      instructor: 'Kambi AI',
+      imageUrl: `https://picsum.photos/seed/${slug}/600/400`,
+      assignments: [],
+      materials: [],
+      liveClassLinks: [],
+      announcements: []
+    } as Course;
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold mb-2">🤖 AI Course Generator</h1>
-        <p className="text-gray-600">Create personalized courses tailored to your learning needs</p>
+        <h1 className="text-3xl font-bold mb-2 text-white">🤖 AI Course Generator</h1>
+        <p className="text-white">Create personalized courses tailored to your learning needs</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Input Panel */}
         <Card className="p-6">
-          <h2 className="text-xl font-bold mb-6">Create Your Course</h2>
+          <h2 className="text-xl font-bold mb-6 text-slate-900">Create Your Course</h2>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-slate-900 mb-2">
                 Topic *
               </label>
               <input
@@ -78,19 +118,19 @@ const AICourses: React.FC<AICoursesProps> = ({ onRequestPayment }) => {
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder="e.g., React, Python, Data Science"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-slate-900 mb-2">
                 Skill Level
               </label>
               <select
                 value={level}
                 onChange={(e) => setLevel(e.target.value as 'Beginner' | 'Intermediate' | 'Advanced')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="Beginner">Beginner</option>
                 <option value="Intermediate">Intermediate</option>
@@ -99,7 +139,7 @@ const AICourses: React.FC<AICoursesProps> = ({ onRequestPayment }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-slate-900 mb-2">
                 What do you want to learn?
               </label>
               <textarea
@@ -107,7 +147,7 @@ const AICourses: React.FC<AICoursesProps> = ({ onRequestPayment }) => {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe your learning goals, specific areas of interest, or any prerequisites..."
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
@@ -126,32 +166,32 @@ const AICourses: React.FC<AICoursesProps> = ({ onRequestPayment }) => {
           {generatedCourse ? (
             <Card className={`p-6 ${generatedCourse.isLocked ? 'bg-gray-50 border-gray-200' : 'bg-white'}`}>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold">{generatedCourse.title}</h2>
+                <h2 className="text-xl font-bold text-slate-900">{generatedCourse.title}</h2>
                 {generatedCourse.isLocked && (
-                  <span className="px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded-full">
+                  <span className="px-2 py-1 bg-gray-200 text-slate-900 text-xs rounded-full">
                     🔒 Locked
                   </span>
                 )}
               </div>
 
-              <p className="text-gray-600 mb-4">{generatedCourse.description}</p>
+              <p className="text-slate-900 mb-4">{generatedCourse.description}</p>
 
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div>
-                  <span className="text-sm text-gray-500">Level</span>
-                  <p className="font-medium">{generatedCourse.level}</p>
+                  <span className="text-sm text-slate-900">Level</span>
+                  <p className="font-medium text-slate-900">{generatedCourse.level}</p>
                 </div>
                 <div>
-                  <span className="text-sm text-gray-500">Duration</span>
-                  <p className="font-medium">{generatedCourse.estimatedDuration}</p>
+                  <span className="text-sm text-slate-900">Duration</span>
+                  <p className="font-medium text-slate-900">{generatedCourse.estimatedDuration}</p>
                 </div>
               </div>
 
               <div className="mb-6">
-                <h3 className="font-semibold mb-3">Course Modules</h3>
+                <h3 className="font-semibold mb-3 text-slate-900">Course Modules</h3>
                 <ul className="space-y-2">
                   {generatedCourse.modules.map((module, index) => (
-                    <li key={index} className="flex items-center gap-2 text-sm">
+                    <li key={index} className="flex items-center gap-2 text-sm text-slate-900">
                       <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-medium">
                         {index + 1}
                       </span>
@@ -187,6 +227,7 @@ const AICourses: React.FC<AICoursesProps> = ({ onRequestPayment }) => {
                       instructorId: 'ai-bot',
                       featured: false,
                       outcomes: [],
+                      tags: ['AI'],
                       modules: generatedCourse.modules.map((title) => ({ title, summary: '', lengthLabel: '' })),
                       price: generatedCourse.price,
                       instructor: 'Kambi AI',
@@ -204,8 +245,8 @@ const AICourses: React.FC<AICoursesProps> = ({ onRequestPayment }) => {
           ) : (
             <Card className="p-12 text-center bg-gray-50">
               <div className="text-6xl mb-4">🤖</div>
-              <h3 className="text-xl font-semibold mb-2">AI Course Preview</h3>
-              <p className="text-gray-600">
+              <h3 className="text-xl font-semibold mb-2 text-slate-900">AI Course Preview</h3>
+              <p className="text-slate-900">
                 Fill out the form to generate a personalized course curriculum
               </p>
             </Card>
@@ -213,8 +254,8 @@ const AICourses: React.FC<AICoursesProps> = ({ onRequestPayment }) => {
 
           {/* Tips Card */}
           <Card className="p-6 bg-blue-50 border-blue-200">
-            <h3 className="font-semibold text-blue-900 mb-3">💡 AI Course Tips</h3>
-            <ul className="text-sm text-blue-800 space-y-2">
+            <h3 className="font-semibold text-slate-900 mb-3">💡 AI Course Tips</h3>
+            <ul className="text-sm text-slate-900 space-y-2">
               <li>• Be specific about your learning goals</li>
               <li>• Mention any prerequisites or prior knowledge</li>
               <li>• Include practical projects you'd like to build</li>
@@ -226,7 +267,7 @@ const AICourses: React.FC<AICoursesProps> = ({ onRequestPayment }) => {
 
       {/* Popular AI Generated Courses */}
       <div>
-        <h2 className="text-2xl font-bold mb-6">Popular AI Courses</h2>
+        <h2 className="text-2xl font-bold mb-6 text-slate-900">Popular AI Courses</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[
             {
@@ -249,7 +290,7 @@ const AICourses: React.FC<AICoursesProps> = ({ onRequestPayment }) => {
             }
           ].map((course, index) => (
             <Card key={index} className="p-6">
-              <h3 className="font-bold text-lg mb-2">{course.title}</h3>
+              <h3 className="font-bold text-lg mb-2 text-slate-900">{course.title}</h3>
               <div className="flex justify-between items-center mb-4">
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                   course.level === 'Beginner' ? 'bg-green-100 text-green-800' :
@@ -262,7 +303,12 @@ const AICourses: React.FC<AICoursesProps> = ({ onRequestPayment }) => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="font-bold text-lg text-green-600">₦{course.price.toLocaleString()}</span>
-                <Button size="small">View Course</Button>
+                <Button
+                  size="small"
+                  onClick={() => onRequestPayment?.(createCourseFromPopular(course))}
+                >
+                  View Details
+                </Button>
               </div>
             </Card>
           ))}

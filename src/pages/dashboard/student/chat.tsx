@@ -1,9 +1,9 @@
 import React from 'react';
-import { User } from '../../../../types';
+import { AuthUser } from '../../../../lib/auth';
 import ChatSystem from '../../../../components/ChatSystem';
 
 interface StudentChatProps {
-  user: User;
+  user: AuthUser;
 }
 
 const StudentChat: React.FC<StudentChatProps> = ({ user }) => {

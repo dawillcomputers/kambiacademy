@@ -12,14 +12,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const { results } = await env.DB.prepare(
-    'SELECT name, email, bio, avatar_url FROM users WHERE id = ?'
+    'SELECT name, email, bio, avatar_url, country, certificate_name FROM users WHERE id = ?'
   ).bind(user.id).all();
 
   if (results.length === 0) {
     return Response.json({ error: 'User not found' }, { status: 404 });
   }
 
-  const profile = results[0] as { name: string; email: string; bio?: string; avatar_url?: string };
+  const profile = results[0] as { name: string; email: string; bio?: string; avatar_url?: string; country?: string; certificate_name?: string };
 
   return Response.json({ profile });
 };
@@ -31,7 +31,7 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const body = await request.json<{ name?: string; bio?: string; avatar_url?: string }>();
+  const body = await request.json<{ name?: string; bio?: string; avatar_url?: string; country?: string; certificate_name?: string }>();
 
   const updates: string[] = [];
   const values: any[] = [];
@@ -47,6 +47,14 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
   if (body.avatar_url !== undefined) {
     updates.push('avatar_url = ?');
     values.push(body.avatar_url);
+  }
+  if (body.country !== undefined) {
+    updates.push('country = ?');
+    values.push(body.country);
+  }
+  if (body.certificate_name !== undefined) {
+    updates.push('certificate_name = ?');
+    values.push(body.certificate_name);
   }
 
   if (updates.length === 0) {

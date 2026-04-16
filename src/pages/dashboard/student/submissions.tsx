@@ -1,9 +1,10 @@
 import React from 'react';
-import { User, Submission, Course } from '../../../../types';
+import { AuthUser } from '../../../../lib/auth';
+import { Submission, Course } from '../../../../types';
 import Card from '../../../../components/Card';
 
 interface StudentSubmissionsProps {
-  user: User;
+  user: AuthUser;
   submissions: Submission[];
   courses: Course[];
 }

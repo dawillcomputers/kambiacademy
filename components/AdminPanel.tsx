@@ -63,7 +63,7 @@ const AdminPanel: React.FC = () => {
   const [subscriptions, setSubscriptions] = useState<{ platform: any; liveClass: any } | null>(null);
   const [subscriptionHistory, setSubscriptionHistory] = useState<any[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
-  const [selectedSubscriptionType, setSelectedSubscriptionType] = useState<'platform' | 'live_class'>('platform');
+  const [selectedSubscriptionType, setSelectedSubscriptionType] = useState<'platform' | 'liveClass'>('platform');
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
   useEffect(() => {
@@ -138,7 +138,7 @@ const AdminPanel: React.FC = () => {
     setActionMsg('');
     try {
       const res = await api.createTeacherSubscription(selectedPlan, selectedSubscriptionType);
-      setActionMsg(`${selectedSubscriptionType === 'live_class' ? 'Live class' : 'Platform'} subscription created successfully. Redirecting to payment...`);
+      setActionMsg(`${selectedSubscriptionType === 'liveClass' ? 'Live class' : 'Platform'} subscription created successfully. Redirecting to payment...`);
       // Redirect to payment URL
       if (res.payment_url) {
         window.location.href = res.payment_url;
@@ -511,9 +511,9 @@ const AdminPanel: React.FC = () => {
                     Platform Access ($4/month)
                   </button>
                   <button
-                    onClick={() => setSelectedSubscriptionType('live_class')}
+                    onClick={() => setSelectedSubscriptionType('liveClass')}
                     className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                      selectedSubscriptionType === 'live_class'
+                      selectedSubscriptionType === 'liveClass'
                         ? 'bg-indigo-600 text-white'
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     }`}
@@ -526,7 +526,7 @@ const AdminPanel: React.FC = () => {
               {/* Current Subscription Status */}
               <div className="rounded-2xl border border-white/70 bg-white/85 px-6 py-5 shadow-sm">
                 <h3 className="font-semibold text-slate-900 mb-4">
-                  Current {selectedSubscriptionType === 'live_class' ? 'Live Class' : 'Platform'} Subscription
+                  Current {selectedSubscriptionType === 'liveClass' ? 'Live Class' : 'Platform'} Subscription
                 </h3>
                 {subscriptions && subscriptions[selectedSubscriptionType]?.subscription ? (
                   <div className="space-y-3">
@@ -562,7 +562,7 @@ const AdminPanel: React.FC = () => {
                 ) : (
                   <div className="text-center py-8">
                     <p className="text-sm text-slate-500 mb-4">
-                      No active {selectedSubscriptionType === 'live_class' ? 'live class' : 'platform'} subscription found
+                      No active {selectedSubscriptionType === 'liveClass' ? 'live class' : 'platform'} subscription found
                     </p>
                     {subscriptions && subscriptions[selectedSubscriptionType]?.requiresSubscription && (
                       <button
@@ -585,7 +585,7 @@ const AdminPanel: React.FC = () => {
                   <div className="rounded-xl border border-slate-200 p-4">
                     <h4 className="font-semibold text-slate-900">Monthly Plan</h4>
                     <p className="text-2xl font-bold text-indigo-600 mt-1">
-                      ${selectedSubscriptionType === 'live_class' ? '2' : '4'}
+                      ${selectedSubscriptionType === 'liveClass' ? '2' : '4'}
                       <span className="text-sm font-normal text-slate-500">/month</span>
                     </p>
                     <button
@@ -600,7 +600,7 @@ const AdminPanel: React.FC = () => {
                   <div className="rounded-xl border border-slate-200 p-4">
                     <h4 className="font-semibold text-slate-900">Yearly Plan</h4>
                     <p className="text-2xl font-bold text-indigo-600 mt-1">
-                      ${selectedSubscriptionType === 'live_class' ? '24' : '44'}
+                      ${selectedSubscriptionType === 'liveClass' ? '24' : '44'}
                       <span className="text-sm font-normal text-slate-500">/year</span>
                     </p>
                     <button

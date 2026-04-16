@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Course, User } from '../../../../types';
+import { Course } from '../../../../types';
+import { AuthUser } from '../../../../lib/auth';
 import Card from '../../../../components/Card';
 import Button from '../../../../components/Button';
 
 interface StudentCoursesProps {
-  user: User;
+  user: AuthUser;
   courses: Course[];
   onSelectCourse: (course: Course) => void;
 }
@@ -29,8 +30,8 @@ const StudentCourses: React.FC<StudentCoursesProps> = ({ user, courses, onSelect
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold mb-2">My Courses</h1>
-        <p className="text-gray-600">See all the courses you're taking and find new ones to join</p>
+        <h1 className="text-3xl font-bold mb-2 text-white">My Courses</h1>
+        <p className="text-white">See all the courses you're taking and find new ones to join</p>
       </div>
 
       {/* Search and Filters */}
@@ -40,7 +41,7 @@ const StudentCourses: React.FC<StudentCoursesProps> = ({ user, courses, onSelect
           placeholder="Search for courses..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="flex-1 px-4 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
 
         <div className="flex gap-2">
@@ -91,8 +92,8 @@ const StudentCourses: React.FC<StudentCoursesProps> = ({ user, courses, onSelect
               />
 
               <div className="mb-4">
-                <h3 className="font-bold text-lg mb-2">{course.title}</h3>
-                <p className="text-gray-600 text-sm mb-3">{course.summary}</p>
+                <h3 className="font-bold text-lg mb-2 text-slate-900">{course.title}</h3>
+                <p className="text-slate-900 text-sm mb-3">{course.summary}</p>
 
                 <div className="flex items-center gap-2 mb-2">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -105,7 +106,7 @@ const StudentCourses: React.FC<StudentCoursesProps> = ({ user, courses, onSelect
                   <span className="text-sm text-gray-500">{course.durationLabel}</span>
                 </div>
 
-                <p className="text-sm text-gray-500">by {course.instructor}</p>
+                <p className="text-sm text-slate-900">by {course.instructor}</p>
               </div>
 
               <div className="flex justify-between items-center">

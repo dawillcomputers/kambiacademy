@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Course, User } from '../../../../types';
+import { Course } from '../../../../types';
+import { AuthUser } from '../../../../lib/auth';
 import Card from '../../../../components/Card';
 import Button from '../../../../components/Button';
 
 interface StudentCourseDetailProps {
-  user: User;
+  user: AuthUser;
   courses: Course[];
   onSelectCourse: (course: Course) => void;
 }
@@ -35,7 +36,7 @@ const StudentCourseDetail: React.FC<StudentCourseDetailProps> = ({ user, courses
             <div className="space-y-3">
               <div className="text-sm text-gray-500">{course.category}</div>
               <h1 className="text-3xl font-bold">{course.title}</h1>
-              <p className="text-gray-600">{course.summary}</p>
+              <p className="text-slate-900">{course.summary}</p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
@@ -55,8 +56,8 @@ const StudentCourseDetail: React.FC<StudentCourseDetailProps> = ({ user, courses
 
             <div className="space-y-4">
               <div>
-                <h2 className="text-xl font-semibold">What you'll learn</h2>
-                <ul className="mt-4 space-y-2 text-gray-600">
+                <h2 className="text-xl font-semibold text-slate-900">What you'll learn</h2>
+                <ul className="mt-4 space-y-2 text-slate-900">
                   {course.outcomes.map((outcome, index) => (
                     <li key={index} className="flex items-start gap-3">
                       <span className="mt-1 text-green-600">•</span>
@@ -67,7 +68,7 @@ const StudentCourseDetail: React.FC<StudentCourseDetailProps> = ({ user, courses
               </div>
 
               <div>
-                <h2 className="text-xl font-semibold">Course modules</h2>
+                <h2 className="text-xl font-semibold text-slate-900">Course modules</h2>
                 <div className="mt-4 space-y-3">
                   {course.modules.map((module, index) => (
                     <div key={index} className="rounded-2xl bg-slate-50 p-4">
@@ -75,7 +76,7 @@ const StudentCourseDetail: React.FC<StudentCourseDetailProps> = ({ user, courses
                         <p className="font-semibold text-slate-900">{module.title}</p>
                         <span className="text-sm text-slate-500">{module.lengthLabel}</span>
                       </div>
-                      <p className="mt-2 text-gray-600">{module.summary}</p>
+                      <p className="mt-2 text-slate-900">{module.summary}</p>
                     </div>
                   ))}
                 </div>
@@ -101,7 +102,7 @@ const StudentCourseDetail: React.FC<StudentCourseDetailProps> = ({ user, courses
           </div>
 
           <Button onClick={() => onSelectCourse(course)}>
-            {isEnrolled ? 'Continue Learning' : 'Enroll in this course'}
+            {isEnrolled ? 'Continue Learning' : course.price === 0 ? 'Proceed to course' : 'Enroll in this course'}
           </Button>
 
           <Link to="/student/courses" className="block text-center text-sm text-blue-600 underline">

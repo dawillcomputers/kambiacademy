@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, Routes, Route, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../lib/auth';
 import { api } from '../../../../lib/api';
+import { Course } from '../../../../types';
 import DashboardLayout from '../../../../components/layout/DashboardLayout';
 import StudentDashboardHome from './index';
 import StudentCourses from './courses';
@@ -17,11 +18,12 @@ import StudentCourseDetail from './course-detail';
 import StudentAssignmentDetail from './assignment-detail';
 import PaymentModal from '../../../../components/PaymentModal';
 import { MOCK_COURSES, MOCK_SUBMISSIONS, MOCK_MATERIALS } from '../../../../constants';
-import { Course } from '../../../../types';
+import { AuthUser } from '../../../../lib/auth';
 
 const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [courses, setCourses] = useState<Course[]>(MOCK_COURSES);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showMaterialsEnabled, setShowMaterialsEnabled] = useState(false);
@@ -44,13 +46,56 @@ const StudentDashboard: React.FC = () => {
     const isEnrolled = user.enrolledCourses?.includes(course.id);
     if (isEnrolled) {
       navigate(`/student/courses/${course.id}`);
-    } else {
-      setSelectedCourse(course);
-      setShowPaymentModal(true);
+      return;
     }
+
+    if (course.price === 0) {
+      handlePaymentSuccess(course);
+      return;
+    }
+
+    setSelectedCourse(course);
+    setShowPaymentModal(true);
   };
 
-  const handlePaymentSuccess = (course: Course) => {
+  const handlePaymentSuccess = async (course: Course) => {
+    // Record revenue transaction if course has a price
+    if (course.price > 0) {
+      try {
+        // Determine location markup (10% for US and EU countries)
+        const euCountries = [
+          'Germany', 'France', 'Italy', 'Spain', 'Netherlands', 'Belgium', 'Austria',
+          'Sweden', 'Denmark', 'Finland', 'Poland', 'Czech Republic', 'Hungary',
+          'Portugal', 'Greece', 'Ireland', 'Slovenia', 'Estonia', 'Latvia', 'Lithuania',
+          'Slovakia', 'Luxembourg', 'Malta', 'Cyprus', 'Croatia', 'Bulgaria', 'Romania'
+        ];
+        const isUSOrEU = user.country === 'United States' || euCountries.includes(user.country || '');
+        const locationMarkup = isUSOrEU ? 10 : 0;
+
+        await api.recordRevenue({
+          course_id: course.id,
+          teacher_id: parseInt(course.instructorId),
+          base_amount: course.price,
+          location_markup_percentage: locationMarkup,
+          student_country: user.country
+        });
+      } catch (error) {
+        console.error('Failed to record revenue:', error);
+        // Continue with enrollment even if revenue recording fails
+      }
+    }
+
+    setCourses((currentCourses) => {
+      if (currentCourses.some((item) => item.id === course.id)) {
+        return currentCourses;
+      }
+      return [...currentCourses, course];
+    });
+
+    if (!MOCK_COURSES.some((item) => item.id === course.id)) {
+      MOCK_COURSES.push(course);
+    }
+
     if (user.enrolledCourses) {
       if (!user.enrolledCourses.includes(course.id)) {
         user.enrolledCourses.push(course.id);
@@ -59,52 +104,51 @@ const StudentDashboard: React.FC = () => {
       user.enrolledCourses = [course.id];
     }
 
-    const courseExists = MOCK_COURSES.some((item) => item.id === course.id);
-    navigate(courseExists ? `/student/courses/${course.id}` : '/student/courses');
+    navigate(`/student/courses/${course.id}`);
   };
 
   return (
     <DashboardLayout user={user} showMaterials={showMaterialsEnabled}>
       <Routes>
         <Route
-          path="/"
+          index
           element={
             <StudentDashboardHome
               user={user}
-              courses={MOCK_COURSES}
+              courses={courses}
               submissions={MOCK_SUBMISSIONS}
             />
           }
         />
-        <Route path="/profile" element={<StudentProfile user={user} />} />
-        <Route path="/chat" element={<StudentChat user={user} />} />
+        <Route path="profile" element={<StudentProfile user={user} />} />
+        <Route path="chat" element={<StudentChat user={user} />} />
         <Route
-          path="/courses"
+          path="courses"
           element={
             <StudentCourses
               user={user}
-              courses={MOCK_COURSES}
+              courses={courses}
               onSelectCourse={handleSelectCourse}
             />
           }
         />
         <Route
-          path="/courses/:courseId"
+          path="courses/:courseId"
           element={
             <StudentCourseDetail
               user={user}
-              courses={MOCK_COURSES}
+              courses={courses}
               onSelectCourse={handleSelectCourse}
             />
           }
         />
         <Route
-          path="/materials"
+          path="materials"
           element={
             showMaterialsEnabled ? (
               <StudentMaterials
                 user={user}
-                courses={MOCK_COURSES}
+                courses={courses}
                 materials={MOCK_MATERIALS}
               />
             ) : (
@@ -121,56 +165,57 @@ const StudentDashboard: React.FC = () => {
           }
         />
         <Route
-          path="/assignments"
+          path="assignments"
           element={
             <StudentAssignments
               user={user}
-              courses={MOCK_COURSES}
+              courses={courses}
               submissions={MOCK_SUBMISSIONS}
             />
           }
         />
         <Route
-          path="/assignments/:assignmentId"
+          path="assignments/:assignmentId"
           element={
             <StudentAssignmentDetail
               user={user}
-              courses={MOCK_COURSES}
+              courses={courses}
               submissions={MOCK_SUBMISSIONS}
             />
           }
         />
         <Route
-          path="/submissions"
+          path="submissions"
           element={
             <StudentSubmissions
               user={user}
               submissions={MOCK_SUBMISSIONS}
-              courses={MOCK_COURSES}
+              courses={courses}
             />
           }
         />
         <Route
-          path="/live"
+          path="live"
           element={<StudentLive user={user} />}
         />
         <Route
-          path="/request-class"
+          path="request-class"
           element={
             <StudentRequestClass
               user={user}
-              courses={MOCK_COURSES}
+              courses={courses}
             />
           }
         />
         <Route
-          path="/ai-courses"
+          path="ai-courses"
           element={<AICourses onRequestPayment={handleSelectCourse} />}
         />
       </Routes>
       {showPaymentModal && selectedCourse && (
         <PaymentModal
           course={selectedCourse}
+          user={user}
           onClose={() => setShowPaymentModal(false)}
           onConfirm={() => {
             handlePaymentSuccess(selectedCourse);

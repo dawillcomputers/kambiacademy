@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { User, Course, Submission } from '../../../../types';
+import { AuthUser } from '../../../../lib/auth';
+import { Course, Submission } from '../../../../types';
 import Card from '../../../../components/Card';
 import Button from '../../../../components/Button';
 
 interface StudentAssignmentsProps {
-  user: User;
+  user: AuthUser;
   courses: Course[];
   submissions: Submission[];
 }

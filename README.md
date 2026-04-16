@@ -92,11 +92,11 @@ A comprehensive LMS platform featuring live video classes, real-time chat, codin
 ## 🛠 Technology Stack
 
 - **Frontend**: React 19 + TypeScript + Vite
-- **Backend**: Cloudflare Workers + Hono
+- **Backend**: Serverless Functions + Hono
 - **Database**: Cloudflare D1 (SQLite)
 - **Storage**: Cloudflare R2
 - **Video**: LiveKit (WebRTC)
-- **Real-time**: Socket.io
+- **Real-time**: WebSockets (Cloudflare Durable Objects)
 - **Code Editor**: Monaco Editor
 - **Styling**: Tailwind CSS + Custom Gradients
 - **PWA**: Service Worker + Web App Manifest
@@ -189,7 +189,9 @@ The platform includes full PWA support:
 
 ## 📈 Performance & Security
 
-- **Cloudflare Infrastructure**: Global CDN and edge computing
+- **Global CDN**: Distributed content delivery worldwide
+- **Edge Computing**: Serverless functions at the network edge
+- **Real-time Communication**: WebSocket connections via Durable Objects
 - **Optimized Builds**: Vite-powered fast builds and HMR
 - **Type Safety**: Full TypeScript implementation
 - **Security**: JWT authentication, input validation, CORS
@@ -225,7 +227,7 @@ The platform includes full PWA support:
 - **Video**: LiveKit (production-grade WebRTC)
 - **Chat**: Socket.io (real-time messaging)
 - **Code Editor**: Monaco Editor (VS Code engine)
-- **Backend**: Cloudflare Workers, D1 Database, R2 Storage
+- **Backend**: Serverless Functions, Database, Object Storage
 - **Styling**: Tailwind CSS with custom gradients and glassmorphism
 
 ## Deployment
@@ -302,7 +304,7 @@ React App (Vite)
 ├── LiveKit Client → LiveKit Cloud (Video)
 ├── Socket.io Client → Cloudflare Worker (Chat)
 ├── Monaco Editor → Code Sandbox
-└── REST API → Cloudflare Workers → D1 + R2
+└── REST API → Serverless Functions → Database + Storage
 ```
 
 This platform now rivals commercial LMS solutions with enterprise-grade video conferencing, real-time collaboration, and professional UI/UX.

@@ -65,6 +65,13 @@ textarea {
   font: inherit;
 }
 
+input,
+textarea,
+select,
+option {
+  color: var(--app-ink);
+}
+
 ::selection {
   background: rgba(96, 165, 250, 0.35);
   color: #020617;

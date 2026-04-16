@@ -151,16 +151,16 @@ export const api = {
   getTeacherSubscription: () =>
     request<{ platform: any; liveClass: any }>('/api/subscriptions/current'),
 
-  createTeacherSubscription: (planType: 'monthly' | 'yearly', subscriptionType: 'platform' | 'live_class' = 'platform', paymentGateway = 'flutterwave') =>
+  createTeacherSubscription: (planType: string, subscriptionType: 'platform' | 'liveClass' = 'platform', paymentGateway?: string) =>
     request<any>('/api/subscriptions', {
       method: 'POST',
       body: JSON.stringify({ planType, subscriptionType, paymentGateway }),
     }),
 
-  getTeacherSubscriptionHistory: (subscriptionType: 'platform' | 'live_class' = 'platform') =>
+  getTeacherSubscriptionHistory: (subscriptionType: 'platform' | 'liveClass' = 'platform') =>
     request<any>(`/api/subscriptions/history?type=${subscriptionType}`),
 
-  cancelTeacherSubscription: (subscriptionId: string, subscriptionType: 'platform' | 'live_class' = 'platform') =>
+  cancelTeacherSubscription: (subscriptionId: string, subscriptionType: 'platform' | 'liveClass' = 'platform') =>
     request<any>(`/api/subscriptions/${encodeURIComponent(subscriptionId)}/cancel?type=${subscriptionType}`, {
       method: 'PATCH',
     }),
@@ -331,11 +331,18 @@ export const api = {
 
   // Profile
   getProfile: () =>
-    request<{ profile: { name: string; email: string; bio?: string; avatar_url?: string } }>('/api/profile'),
+    request<{ profile: { name: string; email: string; bio?: string; avatar_url?: string; country?: string; certificate_name?: string } }>('/api/profile'),
 
-  updateProfile: (data: { name?: string; bio?: string; avatar_url?: string }) =>
+  updateProfile: (data: { name?: string; bio?: string; avatar_url?: string; country?: string; certificate_name?: string }) =>
     request<{ success: boolean }>('/api/profile', {
       method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  // Revenue
+  recordRevenue: (data: { course_id: string; teacher_id: number; base_amount: number; location_markup_percentage?: number; student_country?: string }) =>
+    request<{ success: boolean; transaction_id: number; final_amount: number; platform_fee: number; teacher_payout: number }>('/api/revenue', {
+      method: 'POST',
       body: JSON.stringify(data),
     }),
 };

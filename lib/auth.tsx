@@ -7,6 +7,18 @@ export interface AuthUser {
   role: 'student' | 'teacher' | 'admin';
   status?: string;
   mustChangePassword?: boolean;
+  enrolledCourses?: string[];
+  country?: string;
+  certificateName?: string;
+}
+
+interface LoginResponse {
+  token: string;
+  user: AuthUser;
+}
+
+interface MeResponse {
+  user: AuthUser;
 }
 
 interface AuthContextValue {
@@ -43,7 +55,7 @@ const authFetch = async (path: string, init?: RequestInit) => {
     },
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Request failed');
+  if (!res.ok) throw new Error((data as { error?: string }).error || 'Request failed');
   return data;
 };
 
@@ -58,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     authFetch('/api/auth/me')
-      .then((data) => setUser(data.user))
+      .then((data) => setUser((data as MeResponse).user))
       .catch(() => localStorage.removeItem('auth_token'))
       .finally(() => setIsLoading(false));
   }, []);
@@ -67,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const data = await authFetch('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
-    });
+    }) as LoginResponse;
     localStorage.setItem('auth_token', data.token);
     setUser(data.user);
     return data.user;
@@ -77,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const data = await authFetch('/api/auth/signup', {
       method: 'POST',
       body: JSON.stringify({ name, email, password, role }),
-    });
+    }) as LoginResponse;
     localStorage.setItem('auth_token', data.token);
     setUser(data.user);
     return data.user;
@@ -93,7 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const token = localStorage.getItem('auth_token');
     if (!token) return;
     try {
-      const data = await authFetch('/api/auth/me');
+      const data = await authFetch('/api/auth/me') as MeResponse;
       setUser(data.user);
     } catch (error) {
       localStorage.removeItem('auth_token');

@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { User, Course, Submission } from '../../../../types';
+import { AuthUser } from '../../../../lib/auth';
+import { Course, Submission } from '../../../../types';
 import Card from '../../../../components/Card';
 import Button from '../../../../components/Button';
 
 interface StudentDashboardHomeProps {
-  user: User;
+  user: AuthUser;
   courses: Course[];
   submissions: Submission[];
 }
@@ -58,8 +59,8 @@ const StudentDashboardHome: React.FC<StudentDashboardHomeProps> = ({ user, cours
                 alt={course.title}
                 className="w-full h-32 object-cover rounded-lg mb-4"
               />
-              <h3 className="font-bold text-lg mb-2">{course.title}</h3>
-              <p className="text-gray-600 text-sm mb-4">{course.summary}</p>
+              <h3 className="font-bold text-lg mb-2 text-slate-900">{course.title}</h3>
+              <p className="text-slate-900 text-sm mb-4">{course.summary}</p>
 
               {/* Progress Bar */}
               <div className="mb-4">
@@ -93,8 +94,8 @@ const StudentDashboardHome: React.FC<StudentDashboardHomeProps> = ({ user, cours
                 alt={course.title}
                 className="w-full h-32 object-cover rounded-lg mb-4"
               />
-              <h3 className="font-bold text-lg mb-2">{course.title}</h3>
-              <p className="text-gray-600 text-sm mb-4">{course.summary}</p>
+              <h3 className="font-bold text-lg mb-2 text-slate-900">{course.title}</h3>
+              <p className="text-slate-900 text-sm mb-4">{course.summary}</p>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-500">{course.level}</span>
                 <Link to={`/student/courses`}>

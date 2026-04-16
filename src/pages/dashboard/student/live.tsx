@@ -64,6 +64,8 @@ const StudentLive: React.FC<StudentLiveProps> = ({ user }) => {
     return session.status === filter;
   });
 
+  const liveSessionExists = liveSessions.some(session => session.status === 'live');
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'live': return 'bg-red-100 text-red-800';
@@ -88,7 +90,7 @@ const StudentLive: React.FC<StudentLiveProps> = ({ user }) => {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold mb-2">Live Classes</h1>
-        <p className="text-gray-600">Join interactive live sessions with your instructors</p>
+        <p className="text-black">Join interactive live sessions with your instructors</p>
       </div>
 
       {/* Filter Tabs */}
@@ -114,6 +116,15 @@ const StudentLive: React.FC<StudentLiveProps> = ({ user }) => {
         </div>
       </Card>
 
+      {!liveSessionExists && (
+        <Card className="p-6 bg-yellow-50 border-yellow-200">
+          <h2 className="text-xl font-bold text-slate-900 mb-2">No Live Class Available</h2>
+          <p className="text-sm text-slate-600">
+            There are no live sessions running right now. Check upcoming sessions or request a new class.
+          </p>
+        </Card>
+      )}
+
       {/* Live Sessions */}
       <div className="space-y-4">
         {filteredSessions.map(session => (
@@ -128,10 +139,10 @@ const StudentLive: React.FC<StudentLiveProps> = ({ user }) => {
                     </span>
                   )}
                 </div>
-                <p className="text-gray-600 mb-2">{session.courseTitle}</p>
-                <p className="text-sm text-gray-500 mb-3">by {session.instructor}</p>
+                <p className="text-slate-900 mb-2">{session.courseTitle}</p>
+                <p className="text-sm text-slate-900 mb-3">by {session.instructor}</p>
                 {session.description && (
-                  <p className="text-gray-700 mb-4">{session.description}</p>
+                  <p className="text-slate-900 mb-4">{session.description}</p>
                 )}
               </div>
               <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(session.status)}`}>
@@ -140,7 +151,7 @@ const StudentLive: React.FC<StudentLiveProps> = ({ user }) => {
             </div>
 
             <div className="flex justify-between items-center">
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-slate-900">
                 <div className="flex items-center gap-4">
                   <span>📅 {formatTime(session.scheduledTime)}</span>
                   <span>⏱️ {session.duration} minutes</span>
@@ -149,10 +160,15 @@ const StudentLive: React.FC<StudentLiveProps> = ({ user }) => {
               </div>
               <Button
                 variant={session.status === 'live' ? 'primary' : 'secondary'}
-                disabled={session.status === 'ended'}
+                disabled={session.status !== 'live'}
+                onClick={() => {
+                  if (session.status === 'live') {
+                    alert('Live video is not available in this demo yet. Please join through the scheduled class link.');
+                  }
+                }}
               >
                 {session.status === 'live' ? 'Join Live Class' :
-                 session.status === 'upcoming' ? 'Set Reminder' : 'View Recording'}
+                 session.status === 'upcoming' ? 'Scheduled' : 'Ended'}
               </Button>
             </div>
           </Card>
@@ -176,28 +192,28 @@ const StudentLive: React.FC<StudentLiveProps> = ({ user }) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6 text-center hover:shadow-lg transition-shadow cursor-pointer">
           <div className="text-4xl mb-4">📝</div>
-          <h3 className="font-bold mb-2">Request Class</h3>
-          <p className="text-gray-600 text-sm">Request a live session on a specific topic</p>
+          <h3 className="font-bold mb-2 text-slate-900">Request Class</h3>
+          <p className="text-slate-900 text-sm">Request a live session on a specific topic</p>
         </Card>
         <Card className="p-6 text-center hover:shadow-lg transition-shadow cursor-pointer">
           <div className="text-4xl mb-4">📚</div>
-          <h3 className="font-bold mb-2">Study Groups</h3>
-          <p className="text-gray-600 text-sm">Join study groups for collaborative learning</p>
+          <h3 className="font-bold mb-2 text-slate-900">Study Groups</h3>
+          <p className="text-slate-900 text-sm">Join study groups for collaborative learning</p>
         </Card>
         <Card className="p-6 text-center hover:shadow-lg transition-shadow cursor-pointer">
           <div className="text-4xl mb-4">💬</div>
-          <h3 className="font-bold mb-2">Q&A Sessions</h3>
-          <p className="text-gray-600 text-sm">Get your questions answered live</p>
+          <h3 className="font-bold mb-2 text-slate-900">Q&A Sessions</h3>
+          <p className="text-slate-900 text-sm">Get your questions answered live</p>
         </Card>
       </div>
 
       {/* Live Class Tips */}
       <Card className="p-6 bg-blue-50 border-blue-200">
-        <h2 className="text-xl font-bold text-blue-900 mb-4">Live Class Tips 💡</h2>
+        <h2 className="text-xl font-bold text-slate-900 mb-4">Live Class Tips 💡</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <h3 className="font-semibold text-blue-800 mb-2">Before Class</h3>
-            <ul className="text-sm text-blue-700 space-y-1">
+            <h3 className="font-semibold text-sky-900 mb-2">Before Class</h3>
+            <ul className="text-sm text-slate-900 space-y-1">
               <li>• Test your camera and microphone</li>
               <li>• Ensure stable internet connection</li>
               <li>• Prepare questions in advance</li>
@@ -205,8 +221,8 @@ const StudentLive: React.FC<StudentLiveProps> = ({ user }) => {
             </ul>
           </div>
           <div>
-            <h3 className="font-semibold text-blue-800 mb-2">During Class</h3>
-            <ul className="text-sm text-blue-700 space-y-1">
+            <h3 className="font-semibold text-sky-900 mb-2">During Class</h3>
+            <ul className="text-sm text-slate-900 space-y-1">
               <li>• Stay engaged and participate</li>
               <li>• Use the chat for questions</li>
               <li>• Take notes actively</li>

@@ -124,6 +124,7 @@ export interface Course {
   featured: boolean;
   outcomes: string[];
   modules: CourseModule[];
+  tags?: string[];
   syllabusUrl?: string | null;
   // Dashboard properties
   price: number;
