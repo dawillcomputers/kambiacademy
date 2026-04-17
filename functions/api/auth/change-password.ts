@@ -1,4 +1,6 @@
-import { getAuthUser, hashPassword, verifyPassword, generateToken } from '../../_shared/auth';
+/// <reference types="@cloudflare/workers-types" />
+
+import { getAuthUser, verifyPassword, hashPassword, generateToken } from '../../_shared/auth.js';
 
 interface Env {
   DB: D1Database;
@@ -9,61 +11,84 @@ const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const user = await getAuthUser(request, env.DB);
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const body = await request.json<{ currentPassword?: string; newPassword?: string }>();
+    if (!user) {
+      return Response.json({ error: 'Not authenticated' }, { status: 401 });
+    }
 
-    if (!body.currentPassword || !body.newPassword) {
+    let body: {
+      currentPassword?: string;
+      newPassword?: string;
+      old_password?: string;
+      new_password?: string;
+    };
+    try {
+      body = await request.json();
+    } catch {
+      return Response.json({ error: 'Invalid request body' }, { status: 400 });
+    }
+
+    const currentPassword = body.currentPassword ?? body.old_password;
+    const newPassword = body.newPassword ?? body.new_password;
+
+    if (!currentPassword || !newPassword) {
       return Response.json({ error: 'Current and new passwords are required.' }, { status: 400 });
     }
 
-    if (body.newPassword.length < 8) {
-      return Response.json({ error: 'Password must be at least 8 characters.' }, { status: 400 });
+    const userRow = await env.DB
+      .prepare('SELECT name, email, role, status, password_hash FROM users WHERE id = ?')
+      .bind(user.id)
+      .first<{ name: string; email: string; role: string; status: string; password_hash: string }>();
+
+    if (!userRow || !userRow.password_hash) {
+      return Response.json({ error: 'User not found or password not set.' }, { status: 404 });
     }
 
-    if (!PASSWORD_REGEX.test(body.newPassword)) {
+    const valid = await verifyPassword(currentPassword, userRow.password_hash);
+
+    if (!valid) {
+      return Response.json({ error: 'Current password is incorrect.' }, { status: 400 });
+    }
+
+    if (newPassword.length < 8 || !PASSWORD_REGEX.test(newPassword)) {
       return Response.json({
         error: 'Password must include uppercase, lowercase, number, and special character.',
       }, { status: 400 });
     }
 
-    const row = await env.DB.prepare('SELECT password_hash, name, email, role, status FROM users WHERE id = ?')
-      .bind(user.id)
-      .first<{ password_hash: string; name: string; email: string; role: string; status: string }>();
-    if (!row) return Response.json({ error: 'User not found.' }, { status: 404 });
+    const newHash = await hashPassword(newPassword);
 
-    const valid = await verifyPassword(body.currentPassword, row.password_hash);
-    if (!valid) return Response.json({ error: 'Current password is incorrect.' }, { status: 400 });
+    await env.DB
+      .prepare('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?')
+      .bind(newHash, user.id)
+      .run();
 
-    const newHash = await hashPassword(body.newPassword);
-    await env.DB.prepare(
-      'UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?',
-    ).bind(newHash, user.id).run();
-
-    const newToken = generateToken();
+    const token = generateToken();
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    await env.DB.prepare(
-      'INSERT INTO user_sessions (token, user_id, expires_at) VALUES (?, ?, ?)',
-    )
-      .bind(newToken, user.id, expiresAt)
+
+    await env.DB
+      .prepare('INSERT INTO user_sessions (token, user_id, expires_at) VALUES (?, ?, ?)')
+      .bind(token, user.id, expiresAt)
       .run();
 
     return Response.json({
       message: 'Password changed successfully.',
-      token: newToken,
+      token,
       user: {
         id: user.id,
-        name: row.name,
-        email: row.email,
-        role: row.role,
-        status: row.status,
+        name: userRow.name,
+        email: userRow.email,
+        role: userRow.role,
+        status: userRow.status,
       },
     });
-  } catch (error) {
-    console.error('Error in /api/auth/change-password:', error);
+
+  } catch (err) {
+    console.error('CHANGE PASSWORD ERROR:', err);
+
     return Response.json(
-      { error: 'Internal server error', message: 'Could not change password at this time.' },
-      { status: 500 },
+      { error: 'Internal server error' },
+      { status: 500 }
     );
   }
 };

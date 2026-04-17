@@ -52,6 +52,13 @@ const AdminPanel: React.FC = () => {
   const [error, setError] = useState('');
   const [actionMsg, setActionMsg] = useState('');
 
+  // Subscription state
+  const [subscriptions, setSubscriptions] = useState<any>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [selectedSubscriptionType, setSelectedSubscriptionType] = useState<'platform' | 'liveClass'>('platform');
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
+  const [subscriptionHistory, setSubscriptionHistory] = useState<any[]>([]);
+
   // Role change modal
   const [roleChangeTarget, setRoleChangeTarget] = useState<ManagedUser | null>(null);
   const [roleChangeNewRole, setRoleChangeNewRole] = useState('');
@@ -95,8 +102,7 @@ const AdminPanel: React.FC = () => {
   // Separate effect for subscription history to avoid dependency issues
   useEffect(() => {
     if (tab === 'subscription') {
-      const subscriptionTypeParam = selectedSubscriptionType === 'liveClass' ? 'live_class' : selectedSubscriptionType;
-      api.getTeacherSubscriptionHistory(subscriptionTypeParam)
+      api.getTeacherSubscriptionHistory(selectedSubscriptionType)
         .then((d) => setSubscriptionHistory(d.payments || []))
         .catch(() => {});
     }
@@ -151,10 +157,8 @@ const AdminPanel: React.FC = () => {
   const handleSubscribe = async () => {
     setActionMsg('');
     try {
-      const subscriptionTypeParam = selectedSubscriptionType === 'liveClass' ? 'live_class' : selectedSubscriptionType;
-      const res = await api.createTeacherSubscription(selectedPlan, subscriptionTypeParam);
+      const res = await api.createTeacherSubscription(selectedPlan, selectedSubscriptionType);
       setActionMsg(`${selectedSubscriptionType === 'liveClass' ? 'Live class' : 'Platform'} subscription created successfully. Redirecting to payment...`);
-      // Redirect to payment URL
       if (res.payment_url) {
         window.location.href = res.payment_url;
       }
@@ -187,9 +191,8 @@ const AdminPanel: React.FC = () => {
       setConfirmPassword('');
       
       // Auto-login with new auth token
-      if (result.authToken) {
-        localStorage.setItem('auth_token', result.authToken);
-        // Refresh the page to reload auth context
+      if (result.token) {
+        localStorage.setItem('auth_token', result.token);
         setTimeout(() => window.location.reload(), 1500);
       }
     } catch (e: any) {

@@ -27,5 +27,18 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.js",
+    "**/*.jsx"
+  ],
+  "exclude": [
+    "functions/**",
+    "migrations/**",
+    "seed/**",
+    "dist/**",
+    "node_modules"
+  ]
 }

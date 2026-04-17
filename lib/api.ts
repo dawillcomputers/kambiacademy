@@ -198,6 +198,12 @@ export const api = {
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
 
+  adminChangePassword: (currentPassword: string, newPassword: string) =>
+    request<{ message: string; token: string; user: { id: number; name: string; email: string; role: string; status: string } }>('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+
   // Assignments
   getAssignments: (courseSlug?: string) =>
     request<{ assignments: any[] }>(courseSlug ? `/api/assignments?course=${encodeURIComponent(courseSlug)}` : '/api/assignments'),

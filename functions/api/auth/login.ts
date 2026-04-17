@@ -50,7 +50,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   } catch (error) {
     console.error('Error in /api/auth/login:', error);
     return Response.json(
-      { error: 'Internal server error', message: 'Unable to log in at this time.' },
+      {
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }

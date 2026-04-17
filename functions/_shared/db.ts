@@ -1,3 +1,3 @@
-export function getDB(c: { env: { DB: D1Database } }): D1Database {
-  return c.env.DB;
+export function getDB(c: { env: { DB: D1Database } }): any {
+  return c.env.DB as any;
 }

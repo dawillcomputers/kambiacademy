@@ -19,10 +19,12 @@ wrangler pages secret put FLUTTERWAVE_SECRET
 ### Step 3: Apply Database Migration
 ```bash
 # For local development
-npm run db:migrate:local
-
-# Or manually run:
 wrangler d1 execute DB --local --file=./migrations/0025_payouts_system.sql
+wrangler d1 execute DB --local --file=./migrations/0026_superadmin_auth_logic.sql
+
+# For production
+wrangler d1 execute DB --remote --file=./migrations/0025_payouts_system.sql
+wrangler d1 execute DB --remote --file=./migrations/0026_superadmin_auth_logic.sql
 ```
 
 ### Step 4: Update Tutor Bank Details (Important!)

@@ -34,12 +34,16 @@ const ChangePassword: React.FC = () => {
     if (!allValid) { setError('Please fix validation errors.'); return; }
     setLoading(true);
     try {
-      await api.changePassword(currentPassword, newPassword);
+      const response = await api.changePassword(currentPassword, newPassword);
+      if (response.token) {
+        localStorage.setItem('auth_token', response.token);
+      }
       await refreshUser(); // Update user state to reflect password change
       setSuccess('Password changed successfully. Redirecting...');
       setTimeout(() => {
-        if (user?.role === 'admin') navigate('/admin');
-        else if (user?.role === 'teacher') navigate('/tutor');
+        if (response.user.role === 'super_admin') navigate('/superadmin');
+        else if (response.user.role === 'admin') navigate('/admin');
+        else if (response.user.role === 'teacher') navigate('/tutor');
         else navigate('/student');
       }, 1500);
     } catch (err: any) {
