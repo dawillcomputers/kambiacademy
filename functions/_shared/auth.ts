@@ -18,8 +18,24 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 export async function verifyPassword(password: string, stored: string): Promise<boolean> {
-  const [saltHex, storedHash] = stored.split(':');
-  const salt = new Uint8Array(saltHex.match(/.{2}/g)!.map((b) => parseInt(b, 16)));
+  if (!stored || typeof stored !== 'string') {
+    return false;
+  }
+
+  const parts = stored.split(':');
+  if (parts.length !== 2) {
+    console.warn('verifyPassword: stored hash has invalid format', stored);
+    return false;
+  }
+
+  const [saltHex, storedHash] = parts;
+  const saltMatch = saltHex.match(/.{2}/g);
+  if (!saltMatch) {
+    console.warn('verifyPassword: invalid salt format', saltHex);
+    return false;
+  }
+
+  const salt = new Uint8Array(saltMatch.map((b) => parseInt(b, 16)));
   const key = await crypto.subtle.importKey(
     'raw',
     new TextEncoder().encode(password),
