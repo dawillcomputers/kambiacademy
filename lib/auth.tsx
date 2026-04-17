@@ -43,6 +43,14 @@ export const useAuth = () => useContext(AuthContext);
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
+const isCurrentToken = (token: string | null) => localStorage.getItem('auth_token') === token;
+
+const clearStoredTokenIfMatches = (token: string | null) => {
+  if (token && isCurrentToken(token)) {
+    localStorage.removeItem('auth_token');
+  }
+};
+
 const authFetch = async (path: string, init?: RequestInit) => {
   const token = localStorage.getItem('auth_token');
   const res = await fetch(`${apiBaseUrl}${path}`, {
@@ -59,8 +67,8 @@ const authFetch = async (path: string, init?: RequestInit) => {
   const data = contentType.includes('application/json') ? await res.json() : null;
 
   if (!res.ok) {
-    if (res.status === 401 || res.status === 403) {
-      localStorage.removeItem('auth_token');
+    if ((res.status === 401 || res.status === 403) && token) {
+      clearStoredTokenIfMatches(token);
     }
 
     const message = data && typeof data === 'object' && 'error' in data
@@ -84,10 +92,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     authFetch('/api/auth/me')
-      .then((data) => setUser((data as MeResponse).user))
+      .then((data) => {
+        if (isCurrentToken(token)) {
+          setUser((data as MeResponse).user);
+        }
+      })
       .catch(() => {
-        localStorage.removeItem('auth_token');
-        setUser(null);
+        if (isCurrentToken(token)) {
+          localStorage.removeItem('auth_token');
+          setUser(null);
+        }
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -123,10 +137,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!token) return;
     try {
       const data = await authFetch('/api/auth/me') as MeResponse;
-      setUser(data.user);
+      if (isCurrentToken(token)) {
+        setUser(data.user);
+      }
     } catch (error) {
-      localStorage.removeItem('auth_token');
-      setUser(null);
+      if (isCurrentToken(token)) {
+        localStorage.removeItem('auth_token');
+        setUser(null);
+      }
     }
   }, []);
 

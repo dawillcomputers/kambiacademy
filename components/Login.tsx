@@ -20,6 +20,8 @@ const Login: React.FC = () => {
       const redirect = searchParams.get('redirect');
       if (redirect) {
         navigate(redirect, { replace: true });
+      } else if (user.role === 'super_admin') {
+        navigate('/superadmin', { replace: true });
       } else if (user.role === 'admin') {
         navigate('/admin', { replace: true });
       } else if (user.role === 'teacher') {
@@ -38,6 +40,8 @@ const Login: React.FC = () => {
       const loggedInUser = await login(email, password);
       if (loggedInUser?.mustChangePassword) {
         navigate('/change-password', { replace: true });
+      } else if (loggedInUser?.role === 'super_admin') {
+        navigate('/superadmin', { replace: true });
       } else if (loggedInUser?.role === 'admin') {
         navigate('/admin', { replace: true });
       } else if (loggedInUser?.role === 'teacher') {

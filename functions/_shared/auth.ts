@@ -66,12 +66,12 @@ export async function getAuthUser(request: Request, db: D1Database) {
     if (!token) return null;
     const row = await db
       .prepare(
-        `SELECT u.id, u.name, u.email, u.role, u.status, u.must_change_password, u.is_hidden, u.created_at FROM users u
+        `SELECT u.id, u.name, u.email, u.role, u.status, u.must_change_password, u.created_at FROM users u
          JOIN user_sessions s ON u.id = s.user_id
          WHERE s.token = ? AND s.expires_at > datetime('now')`,
       )
       .bind(token)
-      .first<{ id: number; name: string; email: string; role: string; status: string; must_change_password: number; is_hidden?: number; created_at: string }>();
+      .first<{ id: number; name: string; email: string; role: string; status: string; must_change_password: number; created_at: string }>();
     return row || null;
   } catch (err) {
     console.error('getAuthUser ERROR:', err);
