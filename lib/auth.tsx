@@ -4,7 +4,7 @@ export interface AuthUser {
   id: number;
   name: string;
   email: string;
-  role: 'student' | 'teacher' | 'admin';
+  role: 'student' | 'teacher' | 'admin' | 'super_admin';
   status?: string;
   mustChangePassword?: boolean;
   enrolledCourses?: string[];
@@ -54,8 +54,22 @@ const authFetch = async (path: string, init?: RequestInit) => {
       ...init?.headers,
     },
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error((data as { error?: string }).error || 'Request failed');
+
+  const contentType = res.headers.get('content-type') || '';
+  const data = contentType.includes('application/json') ? await res.json() : null;
+
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      localStorage.removeItem('auth_token');
+    }
+
+    const message = data && typeof data === 'object' && 'error' in data
+      ? (data as { error?: string }).error
+      : res.statusText || 'Request failed';
+
+    throw new Error(message || 'Request failed');
+  }
+
   return data;
 };
 
@@ -71,7 +85,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     authFetch('/api/auth/me')
       .then((data) => setUser((data as MeResponse).user))
-      .catch(() => localStorage.removeItem('auth_token'))
+      .catch(() => {
+        localStorage.removeItem('auth_token');
+        setUser(null);
+      })
       .finally(() => setIsLoading(false));
   }, []);
 
