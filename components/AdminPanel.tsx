@@ -61,12 +61,11 @@ const AdminPanel: React.FC = () => {
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
 
-  // Subscription state
-  const [subscriptions, setSubscriptions] = useState<{ platform: any; liveClass: any } | null>(null);
-  const [subscriptionHistory, setSubscriptionHistory] = useState<any[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
-  const [selectedSubscriptionType, setSelectedSubscriptionType] = useState<'platform' | 'liveClass'>('platform');
-  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     api.adminGetStats()
@@ -96,7 +95,8 @@ const AdminPanel: React.FC = () => {
   // Separate effect for subscription history to avoid dependency issues
   useEffect(() => {
     if (tab === 'subscription') {
-      api.getTeacherSubscriptionHistory(selectedSubscriptionType)
+      const subscriptionTypeParam = selectedSubscriptionType === 'liveClass' ? 'live_class' : selectedSubscriptionType;
+      api.getTeacherSubscriptionHistory(subscriptionTypeParam)
         .then((d) => setSubscriptionHistory(d.payments || []))
         .catch(() => {});
     }
@@ -151,7 +151,8 @@ const AdminPanel: React.FC = () => {
   const handleSubscribe = async () => {
     setActionMsg('');
     try {
-      const res = await api.createTeacherSubscription(selectedPlan, selectedSubscriptionType);
+      const subscriptionTypeParam = selectedSubscriptionType === 'liveClass' ? 'live_class' : selectedSubscriptionType;
+      const res = await api.createTeacherSubscription(selectedPlan, subscriptionTypeParam);
       setActionMsg(`${selectedSubscriptionType === 'liveClass' ? 'Live class' : 'Platform'} subscription created successfully. Redirecting to payment...`);
       // Redirect to payment URL
       if (res.payment_url) {
@@ -159,6 +160,42 @@ const AdminPanel: React.FC = () => {
       }
     } catch (e: any) {
       setActionMsg(e.message || 'Failed to create subscription');
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setActionMsg('');
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setActionMsg('All fields are required.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setActionMsg('New passwords do not match.');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setActionMsg('Password must be at least 8 characters.');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const result = await api.adminChangePassword(currentPassword, newPassword);
+      setActionMsg('Password changed successfully! Logging in...');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      
+      // Auto-login with new auth token
+      if (result.authToken) {
+        localStorage.setItem('auth_token', result.authToken);
+        // Refresh the page to reload auth context
+        setTimeout(() => window.location.reload(), 1500);
+      }
+    } catch (e: any) {
+      setActionMsg(e.message || 'Failed to change password.');
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -190,37 +227,46 @@ const AdminPanel: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-8">
-      <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8 sm:px-10">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-indigo-500">Admin Dashboard</p>
-            <h1 className="mt-2 font-display text-3xl font-bold text-slate-950">Welcome back, {user?.name}</h1>
-          </div>
-          <Link to="/courses" className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50">
-            View site &rarr;
-          </Link>
+    <div className="flex min-h-screen bg-slate-50 overflow-hidden">
+      {/* Sidebar */}
+      <div className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-slate-200 shadow-lg overflow-y-auto z-50">
+        <div className="p-6 border-b border-slate-200">
+          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-indigo-500">Admin Dashboard</p>
+          <h1 className="mt-2 font-display text-xl font-bold text-slate-950">Welcome back, {user?.name}</h1>
         </div>
-
-        {/* Tabs */}
-        <div className="mt-6 flex gap-2 overflow-x-auto">
+        
+        <nav className="p-4 space-y-2">
           {tabs.map((t) => (
-            <button key={t.key} onClick={() => { setTab(t.key); setActionMsg(''); }}
-              className={`rounded-full px-5 py-2 text-sm font-semibold transition ${tab === t.key ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+            <button 
+              key={t.key} 
+              onClick={() => { setTab(t.key); setActionMsg(''); }}
+              className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition ${
+                tab === t.key 
+                  ? 'bg-indigo-600 text-white' 
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}>
               {t.label}
             </button>
           ))}
-        </div>
+        </nav>
 
+        <div className="p-4 border-t border-slate-200">
+          <Link to="/courses" className="inline-flex items-center justify-center w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50">
+            View site &rarr;
+          </Link>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 ml-64 p-8 overflow-y-auto">
         {actionMsg && (
-          <div className="mt-4 rounded-xl bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-700">{actionMsg}</div>
+          <div className="mb-6 rounded-xl bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-700">{actionMsg}</div>
         )}
-      </section>
 
       {/* OVERVIEW TAB */}
       {tab === 'overview' && (
         <>
-          <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-6">
+          <section className="mb-8 rounded-[32px] border border-white/70 bg-white px-6 py-6 shadow-lg">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard label="Total Users" value={stats.totalUsers} />
               <StatCard label="Enrollments" value={stats.totalEnrollments} />
@@ -235,7 +281,7 @@ const AdminPanel: React.FC = () => {
           </section>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8 sm:px-8">
+            <section className="rounded-[32px] border border-white/70 bg-white px-6 py-8 sm:px-8 shadow-lg">
               <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Recent Users</p>
               <div className="mt-4 space-y-3">
                 {stats.recentUsers.map((u) => (
@@ -247,7 +293,7 @@ const AdminPanel: React.FC = () => {
               </div>
             </section>
 
-            <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8 sm:px-8">
+            <section className="rounded-[32px] border border-white/70 bg-white px-6 py-8 sm:px-8 shadow-lg">
               <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Recent Enrollments</p>
               <div className="mt-4 space-y-3">
                 {stats.recentEnrollments.map((e, i) => (
@@ -311,7 +357,7 @@ const AdminPanel: React.FC = () => {
 
       {/* USERS TAB */}
       {tab === 'users' && (
-        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+        <section className="rounded-[32px] border border-white/70 bg-white px-6 py-8 shadow-lg">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">User Management</p>
           <h2 className="mt-2 font-display text-2xl font-bold text-slate-950">All Users</h2>
           <div className="mt-6 overflow-x-auto">
@@ -364,7 +410,7 @@ const AdminPanel: React.FC = () => {
 
       {/* COURSE APPROVAL TAB */}
       {tab === 'courses' && (
-        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+        <section className="rounded-[32px] border border-white/70 bg-white px-6 py-8 shadow-lg">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Course Approval</p>
           <h2 className="mt-2 font-display text-2xl font-bold text-slate-950">Tutor-Submitted Courses</h2>
           <div className="mt-6 space-y-4">
@@ -398,7 +444,7 @@ const AdminPanel: React.FC = () => {
 
       {/* COMPLAINTS TAB */}
       {tab === 'complaints' && (
-        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+        <section className="rounded-[32px] border border-white/70 bg-white px-6 py-8 shadow-lg">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Student Complaints</p>
           <h2 className="mt-2 font-display text-2xl font-bold text-slate-950">Review and Resolve Complaints</h2>
           <div className="mt-6 overflow-x-auto">
@@ -445,7 +491,7 @@ const AdminPanel: React.FC = () => {
 
       {/* SETTINGS TAB */}
       {tab === 'settings' && (
-        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+        <section className="rounded-[32px] border border-white/70 bg-white px-6 py-8 shadow-lg">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Platform Settings</p>
           <h2 className="mt-2 font-display text-2xl font-bold text-slate-950">Revenue Split & Configuration</h2>
           <div className="mt-6 space-y-6">
@@ -500,13 +546,84 @@ const AdminPanel: React.FC = () => {
                 Save feature setting
               </button>
             </div>
+            <div className="rounded-2xl border border-white/70 bg-white/85 px-6 py-5 shadow-sm">
+              <h3 className="font-semibold text-slate-900 mb-4">Change Password</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-slate-600 mb-1">Current Password</label>
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-2 text-slate-900"
+                    placeholder="Enter current password"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-600 mb-1">New Password</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-2 text-slate-900"
+                    placeholder="Enter new password"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-600 mb-1">Confirm New Password</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-2 text-slate-900"
+                    placeholder="Confirm new password"
+                  />
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!currentPassword || !newPassword || !confirmPassword) {
+                      setActionMsg('All password fields are required.');
+                      return;
+                    }
+                    if (newPassword !== confirmPassword) {
+                      setActionMsg('New passwords do not match.');
+                      return;
+                    }
+                    if (newPassword.length < 8) {
+                      setActionMsg('Password must be at least 8 characters.');
+                      return;
+                    }
+                    setChangingPassword(true);
+                    setActionMsg('');
+                    try {
+                      const response = await api.changePassword(currentPassword, newPassword);
+                      // Store new token for auto-login
+                      localStorage.setItem('auth_token', response.token);
+                      setActionMsg('Password changed successfully. Logging you back in...');
+                      setCurrentPassword('');
+                      setNewPassword('');
+                      setConfirmPassword('');
+                      // Reload page after brief delay to show success message
+                      setTimeout(() => window.location.reload(), 1500);
+                    } catch (error: any) {
+                      setActionMsg(error.message || 'Failed to change password.');
+                    } finally {
+                      setChangingPassword(false);
+                    }
+                  }}
+                  disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+                  className="rounded-full bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                  {changingPassword ? 'Changing...' : 'Change Password'}
+                </button>
+              </div>
+            </div>
           </div>
         </section>
       )}
 
       {/* AUDIT LOG TAB */}
       {tab === 'audit-log' && (
-        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+        <section className="rounded-[32px] border border-white/70 bg-white px-6 py-8 shadow-lg">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Role Changes</p>
           <h2 className="mt-2 font-display text-2xl font-bold text-slate-950">Audit Log</h2>
           <div className="mt-6 overflow-x-auto">
@@ -548,7 +665,7 @@ const AdminPanel: React.FC = () => {
 
       {/* SUBSCRIPTION TAB */}
       {tab === 'subscription' && (
-        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
+        <section className="rounded-[32px] border border-white/70 bg-white px-6 py-8 shadow-lg">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Subscription Management</p>
           <h2 className="mt-2 font-display text-2xl font-bold text-slate-950">Admin Subscription Status</h2>
 
@@ -747,6 +864,7 @@ const AdminPanel: React.FC = () => {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 };

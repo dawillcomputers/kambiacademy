@@ -26,39 +26,60 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     return subscriptionError;
   }
 
+  // Helper function to safely query tables that might not exist
+  const safeQuery = async (query: string, params: any[] = []) => {
+    try {
+      const result = await env.DB.prepare(query).bind(...params);
+      return await result.first() || { count: 0, total: 0, revenue: 0 };
+    } catch (error) {
+      // Table might not exist, return default values
+      return { count: 0, total: 0, revenue: 0 };
+    }
+  };
+
+  const safeAll = async (query: string, params: any[] = []) => {
+    try {
+      const result = await env.DB.prepare(query).bind(...params);
+      return await result.all() || { results: [] };
+    } catch (error) {
+      // Table might not exist, return empty results
+      return { results: [] };
+    }
+  };
+
   const [usersResult, enrollmentsResult, contactsResult, tutorAppsResult, courseLikesResult, courseViewsResult, recentUsersResult, recentEnrollmentsResult, topCoursesResult, topTeachersResult] = await Promise.all([
-    env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>(),
-    env.DB.prepare('SELECT COUNT(*) as count, COALESCE(SUM(amount_paid), 0) as revenue FROM enrollments').first<{ count: number; revenue: number }>(),
-    env.DB.prepare('SELECT COUNT(*) as count FROM contact_submissions').first<{ count: number }>(),
-    env.DB.prepare('SELECT COUNT(*) as count FROM tutor_applications').first<{ count: number }>(),
-    env.DB.prepare('SELECT COALESCE(SUM(likes), 0) as total FROM course_stats').first<{ total: number }>(),
-    env.DB.prepare('SELECT COALESCE(SUM(views), 0) as total FROM course_stats').first<{ total: number }>(),
-    env.DB.prepare('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC LIMIT 10').all(),
-    env.DB.prepare(`
+    safeQuery('SELECT COUNT(*) as count FROM users'),
+    safeQuery('SELECT COUNT(*) as count, COALESCE(SUM(amount_paid), 0) as revenue FROM enrollments'),
+    safeQuery('SELECT COUNT(*) as count FROM contact_submissions'),
+    safeQuery('SELECT COUNT(*) as count FROM tutor_applications'),
+    safeQuery('SELECT COALESCE(SUM(likes), 0) as total FROM course_stats'),
+    safeQuery('SELECT COALESCE(SUM(views), 0) as total FROM course_stats'),
+    safeAll('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC LIMIT 10'),
+    safeAll(`
       SELECT e.course_slug, e.amount_paid, e.created_at, u.name as user_name, u.email as user_email
       FROM enrollments e JOIN users u ON e.user_id = u.id
       ORDER BY e.created_at DESC LIMIT 10
-    `).all(),
-    env.DB.prepare(`
+    `),
+    safeAll(`
       SELECT e.course_slug, COUNT(*) as enrollment_count, COALESCE(SUM(e.amount_paid), 0) as total_revenue
       FROM enrollments e
       GROUP BY e.course_slug
       ORDER BY total_revenue DESC
       LIMIT 10
-    `).all(),
-    env.DB.prepare(`
+    `),
+    safeAll(`
       SELECT u.id, u.name, u.email,
         COUNT(DISTINCT e.id) as enrollment_count,
         COALESCE(SUM(e.amount_paid), 0) as total_revenue,
         COUNT(DISTINCT tc.id) as course_count
       FROM users u
-      JOIN tutor_courses tc ON tc.tutor_id = u.id AND tc.status = 'approved'
+      LEFT JOIN tutor_courses tc ON tc.tutor_id = u.id AND tc.status = 'approved'
       LEFT JOIN enrollments e ON e.course_slug = tc.slug
       WHERE u.role = 'teacher'
       GROUP BY u.id
       ORDER BY total_revenue DESC
       LIMIT 10
-    `).all(),
+    `),
   ]);
 
   return Response.json({

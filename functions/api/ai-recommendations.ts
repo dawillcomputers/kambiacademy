@@ -189,3 +189,5 @@ function generateStudyPlan(currentCourses: any[], upcomingWork: any[]) {
 }
 
 export default app;
+
+export const onRequest: PagesFunction = app.fetch;

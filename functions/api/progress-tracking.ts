@@ -322,3 +322,5 @@ function generateAchievements(completedCourses: number, quizPerformance: any, as
 }
 
 export default app;
+
+export const onRequest: PagesFunction = app.fetch;

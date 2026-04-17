@@ -1,4 +1,4 @@
-import { getAuthUser, requireSubscription, checkSubscription } from '../../_shared/auth';
+import { getAuthUser, requireSubscription, checkSubscription, isFullAdmin } from '../../_shared/auth';
 
 interface Env {
   DB: D1Database;
@@ -7,28 +7,32 @@ interface Env {
 // GET: list all users (admin only)
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const admin = await getAuthUser(request, env.DB);
-  if (!admin || admin.role !== 'admin') {
+  if (!admin || !isFullAdmin(admin)) {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  // Check subscription for admin
-  const hasSubscription = await checkSubscription(admin, env.DB);
-  if (!hasSubscription) {
-    const accountAge = Date.now() - new Date(admin.created_at).getTime();
-    const sevenDays = 7 * 24 * 60 * 60 * 1000;
-    if (accountAge > sevenDays) {
-      return Response.json({ error: 'Subscription required. Please pay to continue accessing admin console.', requiresPayment: true }, { status: 402 });
+  // Super admin and SOU bypass subscription check
+  if (admin.role !== 'super_admin' && admin.role !== 'SOU') {
+    // Check subscription for admin
+    const hasSubscription = await checkSubscription(admin, env.DB);
+    if (!hasSubscription) {
+      const accountAge = Date.now() - new Date(admin.created_at).getTime();
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
+      if (accountAge > sevenDays) {
+        return Response.json({ error: 'Subscription required. Please pay to continue accessing admin console.', requiresPayment: true }, { status: 402 });
+      }
+    }
+
+    // Check subscription for admin access (enforce after one week of non-payment)
+    const subscriptionError = await requireSubscription(request, env.DB);
+    if (subscriptionError) {
+      return subscriptionError;
     }
   }
 
-  // Check subscription for admin access (enforce after one week of non-payment)
-  const subscriptionError = await requireSubscription(request, env.DB);
-  if (subscriptionError) {
-    return subscriptionError;
-  }
-
+  // Get all users except hidden ones
   const { results } = await env.DB.prepare(
-    'SELECT id, name, email, role, status, must_change_password, created_at FROM users ORDER BY created_at DESC',
+    'SELECT id, name, email, role, status, must_change_password, created_at FROM users WHERE COALESCE(is_hidden, 0) = 0 ORDER BY created_at DESC',
   ).all();
 
   return Response.json({ users: results });
@@ -37,24 +41,27 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 // PATCH: update user (role, status, reset password)
 export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
   const admin = await getAuthUser(request, env.DB);
-  if (!admin || admin.role !== 'admin') {
+  if (!admin || !isFullAdmin(admin)) {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  // Check subscription for admin
-  const hasSubscription = await checkSubscription(admin, env.DB);
-  if (!hasSubscription) {
-    const accountAge = Date.now() - new Date(admin.created_at).getTime();
-    const sevenDays = 7 * 24 * 60 * 60 * 1000;
-    if (accountAge > sevenDays) {
-      return Response.json({ error: 'Subscription required. Please pay to continue accessing admin console.', requiresPayment: true }, { status: 402 });
+  // Super admin and SOU bypass subscription check
+  if (admin.role !== 'super_admin' && admin.role !== 'SOU') {
+    // Check subscription for admin
+    const hasSubscription = await checkSubscription(admin, env.DB);
+    if (!hasSubscription) {
+      const accountAge = Date.now() - new Date(admin.created_at).getTime();
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
+      if (accountAge > sevenDays) {
+        return Response.json({ error: 'Subscription required. Please pay to continue accessing admin console.', requiresPayment: true }, { status: 402 });
+      }
     }
-  }
 
-  // Check subscription for admin access (enforce after one week of non-payment)
-  const subscriptionError = await requireSubscription(request, env.DB);
-  if (subscriptionError) {
-    return subscriptionError;
+    // Check subscription for admin access (enforce after one week of non-payment)
+    const subscriptionError = await requireSubscription(request, env.DB);
+    if (subscriptionError) {
+      return subscriptionError;
+    }
   }
 
   const body = await request.json<{

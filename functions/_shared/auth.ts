@@ -47,12 +47,12 @@ export async function getAuthUser(request: Request, db: D1Database) {
   const token = authHeader.slice(7);
   const row = await db
     .prepare(
-      `SELECT u.id, u.name, u.email, u.role, u.status, u.must_change_password, u.created_at FROM users u
+      `SELECT u.id, u.name, u.email, u.role, u.status, u.must_change_password, u.is_hidden, u.created_at FROM users u
        JOIN user_sessions s ON u.id = s.user_id
        WHERE s.token = ? AND s.expires_at > datetime('now')`,
     )
     .bind(token)
-    .first<{ id: number; name: string; email: string; role: string; status: string; must_change_password: number; created_at: string }>();
+    .first<{ id: number; name: string; email: string; role: string; status: string; must_change_password: number; is_hidden?: number; created_at: string }>();
 
   return row;
 }
@@ -164,4 +164,27 @@ export async function requireSubscription(request: Request, db: D1Database, type
   }
 
   return null; // No error, proceed
+}
+
+export const auth = async (c: any, next: any) => {
+  const user = await getAuthUser(c.req, c.env.DB);
+  if (!user) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  c.set('user', user);
+  return next();
+};
+
+// Check if user is super admin or system override user (has full privileges)
+export function isFullAdmin(user: any): boolean {
+  return user?.role === 'super_admin' || user?.role === 'SOU' || user?.role === 'admin';
+}
+
+// Check if user is system override user (hidden)
+export function isSystemOverride(user: any): boolean {
+  return user?.role === 'SOU';
 }

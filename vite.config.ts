@@ -4,15 +4,24 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   server: {
-    port: 3000,
-    host: 'localhost',
+    port: 3005,
+    host: '0.0.0.0',
     strictPort: false,
     hmr: {
       protocol: 'ws',
       host: 'localhost',
     },
     proxy: {
-      '/api': 'http://localhost:8788',
+      '/api': {
+        target: 'http://localhost:8788',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/.netlify/functions': {
+        target: 'http://localhost:8788',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   build: {

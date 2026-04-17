@@ -45,6 +45,9 @@ const LIVE_CLASS_FEES = {
   freePeriodMonths: 3
 };
 
+const normalizeSubscriptionType = (type: string | null | undefined) =>
+  type === 'liveClass' ? 'live_class' : type;
+
 // Get user's current subscriptions (platform and live class)
 app.get('/current', auth, async (c) => {
   try {
@@ -139,19 +142,20 @@ app.post('/', auth, async (c) => {
     const body = await c.req.json();
 
     const { planType, subscriptionType = 'platform', paymentGateway = 'flutterwave' } = body;
+    const normalizedSubscriptionType = normalizeSubscriptionType(subscriptionType);
 
     if (!planType || !['monthly', 'yearly'].includes(planType)) {
       return c.json({ error: 'Invalid plan type. Must be monthly or yearly.' }, 400);
     }
 
-    if (!subscriptionType || !['platform', 'live_class'].includes(subscriptionType)) {
+    if (!normalizedSubscriptionType || !['platform', 'live_class'].includes(normalizedSubscriptionType)) {
       return c.json({ error: 'Invalid subscription type. Must be platform or live_class.' }, 400);
     }
 
     const db = getDB(c);
-    const tableName = subscriptionType === 'live_class' ? 'live_class_subscriptions' : 'subscriptions';
-    const paymentTableName = subscriptionType === 'live_class' ? 'live_class_subscription_payments' : 'subscription_payments';
-    const fees = subscriptionType === 'live_class' ? LIVE_CLASS_FEES : PLATFORM_FEES;
+    const tableName = normalizedSubscriptionType === 'live_class' ? 'live_class_subscriptions' : 'subscriptions';
+    const paymentTableName = normalizedSubscriptionType === 'live_class' ? 'live_class_subscription_payments' : 'subscription_payments';
+    const fees = normalizedSubscriptionType === 'live_class' ? LIVE_CLASS_FEES : PLATFORM_FEES;
 
     // Check if user already has an active subscription of this type
     const existingSubscription = await db
@@ -208,16 +212,53 @@ app.post('/', auth, async (c) => {
       })
       .execute();
 
+    let payment_url: string | null = null;
+    try {
+      const env = (c.env as any) || {};
+      const flutterwaveSecret = env.FLUTTERWAVE_SECRET_KEY;
+      const frontendUrl = env.FRONTEND_URL || c.req.headers.get('origin');
+
+      if (paymentGateway === 'flutterwave' && flutterwaveSecret && frontendUrl) {
+        const response = await fetch('https://api.flutterwave.com/v3/payments', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${flutterwaveSecret}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            tx_ref: transactionRef,
+            amount: fees[planType],
+            currency: 'USD',
+            redirect_url: `${frontendUrl.replace(/\/$/, '')}/payment-success`,
+            customer: {
+              email: user.email,
+              name: user.name,
+            },
+            customizations: {
+              title: 'Kambi Academy Subscription',
+              description: `Payment for ${normalizedSubscriptionType === 'live_class' ? 'Live class' : 'Platform'} ${planType} plan`,
+            },
+          }),
+        });
+
+        const flutterwaveData = await response.json().catch(() => null);
+        payment_url = flutterwaveData?.data?.link || null;
+      }
+    } catch (integrationError) {
+      console.error('Flutterwave payment initialization failed:', integrationError);
+    }
+
     return c.json({
       subscriptionId,
-      subscriptionType,
+      subscriptionType: normalizedSubscriptionType,
       planType,
       amount: fees[planType],
       startDate,
       endDate: endDate.toISOString(),
       paymentGateway,
       transactionRef,
-      message: `${subscriptionType} subscription created successfully`
+      payment_url,
+      message: `${normalizedSubscriptionType} subscription created successfully`
     }, 201);
   } catch (error) {
     console.error('Error creating subscription:', error);
@@ -233,12 +274,13 @@ app.post('/:subscriptionId/payment', auth, async (c) => {
     const body = await c.req.json();
 
     const { amount, currency = 'USD', paymentGateway, transactionRef, status, subscriptionType = 'platform' } = body;
+    const normalizedSubscriptionType = normalizeSubscriptionType(subscriptionType);
 
     if (!amount || !paymentGateway || !transactionRef || !status) {
       return c.json({ error: 'Missing required payment fields' }, 400);
     }
 
-    if (!subscriptionType || !['platform', 'live_class'].includes(subscriptionType)) {
+    if (!normalizedSubscriptionType || !['platform', 'live_class'].includes(normalizedSubscriptionType)) {
       return c.json({ error: 'Invalid subscription type. Must be platform or live_class.' }, 400);
     }
 
@@ -317,8 +359,12 @@ app.patch('/:subscriptionId/cancel', auth, async (c) => {
     const db = getDB(c);
 
     // Verify subscription belongs to user
+    const url = new URL(c.req.url);
+    const type = normalizeSubscriptionType(url.searchParams.get('type') || 'platform');
+    const tableName = type === 'live_class' ? 'live_class_subscriptions' : 'subscriptions';
+
     const subscription = await db
-      .selectFrom('subscriptions')
+      .selectFrom(tableName)
       .where('id', '=', subscriptionId)
       .where('userId', '=', user.id)
       .executeTakeFirst();
@@ -332,7 +378,7 @@ app.patch('/:subscriptionId/cancel', auth, async (c) => {
     }
 
     await db
-      .updateTable('subscriptions')
+      .updateTable(tableName)
       .set({
         status: 'cancelled',
         autoRenew: false,
@@ -354,9 +400,9 @@ app.get('/history', auth, async (c) => {
     const user = c.get('user');
     const db = getDB(c);
     const url = new URL(c.req.url);
-    const type = url.searchParams.get('type') || 'platform';
+    const type = normalizeSubscriptionType(url.searchParams.get('type') || 'platform');
 
-    if (!['platform', 'live_class'].includes(type)) {
+    if (!type || !['platform', 'live_class'].includes(type)) {
       return c.json({ error: 'Invalid subscription type' }, 400);
     }
 
@@ -450,3 +496,5 @@ app.get('/admin/all', auth, async (c) => {
 });
 
 export default app;
+
+export const onRequest: PagesFunction = app.fetch;

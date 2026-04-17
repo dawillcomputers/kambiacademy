@@ -14,6 +14,7 @@ import Login from './components/Login';
 import SignUp from './components/SignUp';
 import AdminPanel from './components/AdminPanel';
 import TutorPanel from './components/TutorPanel';
+import SuperAdminRoutes from './src/pages/dashboard/superadmin';
 import StudentDashboard from './src/pages/dashboard/student/StudentDashboard';
 import ChangePassword from './components/ChangePassword';
 import JoinClass from './components/JoinClass';
@@ -91,11 +92,21 @@ const RequireAdmin: React.FC<{ children: React.ReactElement }> = ({ children }) 
   return children;
 };
 
+const RequireSuperAdmin: React.FC<{ children: React.ReactElement }> = ({ children }) => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return <LoadingState />;
+  if (!user || user.role !== 'super_admin') return <Navigate to="/" replace />;
+  if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
+
+  return children;
+};
+
 const RequireTutor: React.FC<{ children: React.ReactElement }> = ({ children }) => {
   const { user, isLoading } = useAuth();
 
   if (isLoading) return <LoadingState />;
-  if (!user || user.role !== 'teacher' || user.status !== 'active') return <Navigate to="/" replace />;
+  if (!user || user.role !== 'tutor') return <Navigate to="/" replace />;
   if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
 
   return children;
@@ -108,6 +119,7 @@ const RequireChangePassword: React.FC<{ children: React.ReactElement }> = ({ chi
   if (!user) return <Navigate to="/login" replace />;
   if (!user.mustChangePassword) {
     // User doesn't need to change password, redirect to appropriate dashboard
+    if (user.role === 'super_admin') return <Navigate to="/superadmin" replace />;
     if (user.role === 'admin') return <Navigate to="/admin" replace />;
     if (user.role === 'teacher') return <Navigate to="/tutor" replace />;
     return <Navigate to="/student" replace />;
@@ -257,6 +269,7 @@ const AppShell: React.FC = () => {
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<SignUp />} />
               <Route path="/admin" element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
+              <Route path="/superadmin/*" element={<RequireSuperAdmin><SuperAdminRoutes /></RequireSuperAdmin>} />
               <Route path="/tutor" element={<RequireTutor><TutorPanel /></RequireTutor>} />
               <Route path="/student/*" element={<RequireAuth><StudentDashboard /></RequireAuth>} />
               <Route path="/change-password" element={<RequireChangePassword><ChangePassword /></RequireChangePassword>} />

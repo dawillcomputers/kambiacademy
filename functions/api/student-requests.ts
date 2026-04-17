@@ -212,3 +212,5 @@ app.delete('/:requestId', auth, async (c) => {
 });
 
 export default app;
+
+export const onRequest: PagesFunction = app.fetch;

@@ -193,7 +193,7 @@ export const api = {
 
   // Auth
   changePassword: (currentPassword: string, newPassword: string) =>
-    request<{ message: string }>('/api/auth/change-password', {
+    request<{ message: string; token: string; user: { id: number; name: string; email: string; role: string; status: string } }>('/api/auth/change-password', {
       method: 'POST',
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
