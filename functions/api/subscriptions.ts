@@ -1,500 +1,169 @@
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
-import { auth } from '../_shared/auth';
-import { getDB } from '../_shared/db';
+import { getAuthUser, isFullAdmin } from '../_shared/auth';
 
-const app = new Hono();
-app.use('*', cors());
-
-interface Subscription {
-  id: string;
-  userId: string;
-  planType: 'monthly' | 'yearly';
-  status: 'active' | 'inactive' | 'cancelled' | 'expired';
-  startDate: string;
-  endDate: string;
-  autoRenew: boolean;
-  paymentGateway: string;
-  createdAt: string;
-  updatedAt: string;
+interface Env {
+  DB: D1Database;
+  FLUTTERWAVE_SECRET_KEY?: string;
 }
 
-interface SubscriptionPayment {
-  id: string;
-  subscriptionId: string;
-  amount: number;
-  currency: string;
-  status: 'pending' | 'success' | 'failed' | 'refunded';
-  paymentGateway: string;
-  transactionRef: string;
-  paymentDate: string;
-  createdAt: string;
+const PLATFORM_FEES = { monthly: 4.00, yearly: 44.00, effectiveDate: '2026-05-12T00:00:00.000Z' } as Record<string, any>;
+const STORAGE_FEES = { monthly: 2.00, yearly: 24.00, freePeriodMonths: 3 } as Record<string, any>;
+
+function normalizeType(t: string | null | undefined): string {
+  if (t === 'liveClass' || t === 'live_class' || t === 'storage') return 'live_class';
+  return 'platform';
 }
 
-// Platform management fees (effective May 12th, 2026)
-const PLATFORM_FEES = {
-  monthly: 4.00, // $4 per month
-  yearly: 44.00,  // $44 per year
-  effectiveDate: '2026-05-12T00:00:00.000Z'
-};
+function tbl(type: string) {
+  const lc = type === 'live_class';
+  return { sub: lc ? 'live_class_subscriptions' : 'subscriptions', pay: lc ? 'live_class_subscription_payments' : 'subscription_payments' };
+}
 
-// Live class access fees (effective after 3 months free)
-const LIVE_CLASS_FEES = {
-  monthly: 2.00, // $2 per month
-  yearly: 24.00,  // $24 per year
-  freePeriodMonths: 3
-};
+function getFees(type: string) { return type === 'live_class' ? STORAGE_FEES : PLATFORM_FEES; }
 
-const normalizeSubscriptionType = (type: string | null | undefined) =>
-  type === 'liveClass' ? 'live_class' : type;
+// GET /api/subscriptions?action=current|history|admin&type=platform|live_class
+export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
+  const user = await getAuthUser(request, env.DB);
+  if (!user) return Response.json({ error: 'Not authenticated' }, { status: 401 });
 
-// Get user's current subscriptions (platform and live class)
-app.get('/current', auth, async (c) => {
-  try {
-    const user = c.get('user');
-    const db = getDB(c);
+  const url = new URL(request.url);
+  const action = url.searchParams.get('action') || 'current';
 
-    // Get platform subscription
-    const platformSubscription = await db
-      .selectFrom('subscriptions')
-      .where('userId', '=', user.id)
-      .where('status', '=', 'active')
-      .selectAll()
-      .orderBy('createdAt', 'desc')
-      .executeTakeFirst();
+  if (action === 'current') {
+    const db = env.DB;
+    const platformSub = await db.prepare(`SELECT * FROM subscriptions WHERE userId = ? AND status = 'active' ORDER BY createdAt DESC LIMIT 1`).bind(user.id).first<any>();
+    const storageSub = await db.prepare(`SELECT * FROM live_class_subscriptions WHERE userId = ? AND status = 'active' ORDER BY createdAt DESC LIMIT 1`).bind(user.id).first<any>();
 
-    // Get live class subscription
-    const liveClassSubscription = await db
-      .selectFrom('live_class_subscriptions')
-      .where('userId', '=', user.id)
-      .where('status', '=', 'active')
-      .selectAll()
-      .orderBy('createdAt', 'desc')
-      .executeTakeFirst();
-
-    // Check platform subscription status
-    let platformStatus = { hasActiveSubscription: false, requiresSubscription: false };
-    if (platformSubscription) {
-      const now = new Date();
-      const endDate = new Date(platformSubscription.endDate);
-      if (endDate > now) {
-        platformStatus.hasActiveSubscription = true;
-      } else {
-        // Mark as expired
-        await db
-          .updateTable('subscriptions')
-          .set({ status: 'expired', updatedAt: new Date().toISOString() })
-          .where('id', '=', platformSubscription.id)
-          .execute();
-      }
-    } else {
-      // Check if subscription is required
-      const effectiveDate = user.role === 'admin'
-        ? new Date('2026-04-12T00:00:00.000Z').getTime() + (7 * 24 * 60 * 60 * 1000)
-        : new Date('2026-05-12T00:00:00.000Z').getTime() + (6 * 30 * 24 * 60 * 60 * 1000);
-      platformStatus.requiresSubscription = new Date().getTime() >= effectiveDate;
+    let platformActive = false;
+    if (platformSub) {
+      if (new Date(platformSub.endDate) > new Date()) { platformActive = true; }
+      else { await db.prepare(`UPDATE subscriptions SET status = 'expired', updatedAt = ? WHERE id = ?`).bind(new Date().toISOString(), platformSub.id).run(); }
+    }
+    let storageActive = false;
+    if (storageSub) {
+      if (new Date(storageSub.endDate) > new Date()) { storageActive = true; }
+      else { await db.prepare(`UPDATE live_class_subscriptions SET status = 'expired', updatedAt = ? WHERE id = ?`).bind(new Date().toISOString(), storageSub.id).run(); }
     }
 
-    // Check live class subscription status
-    let liveClassStatus = { hasActiveSubscription: false, requiresSubscription: false };
-    if (liveClassSubscription) {
-      const now = new Date();
-      const endDate = new Date(liveClassSubscription.endDate);
-      if (endDate > now) {
-        liveClassStatus.hasActiveSubscription = true;
-      } else {
-        // Mark as expired
-        await db
-          .updateTable('live_class_subscriptions')
-          .set({ status: 'expired', updatedAt: new Date().toISOString() })
-          .where('id', '=', liveClassSubscription.id)
-          .execute();
-      }
-    } else {
-      // Check if live class subscription is required (after 3 months free)
-      const accountAge = Date.now() - new Date(user.created_at).getTime();
-      const threeMonths = 3 * 30 * 24 * 60 * 60 * 1000;
-      liveClassStatus.requiresSubscription = accountAge >= threeMonths;
-    }
+    const reqPlatform = (() => {
+      const eff = user.role === 'admin' ? new Date('2026-04-12').getTime() + 7 * 86400000 : new Date('2026-05-12').getTime() + 6 * 30 * 86400000;
+      return Date.now() >= eff;
+    })();
+    const reqStorage = Date.now() - new Date(user.created_at).getTime() >= 3 * 30 * 86400000;
 
-    return c.json({
-      platform: {
-        ...platformStatus,
-        subscription: platformSubscription,
-        fees: PLATFORM_FEES
-      },
-      liveClass: {
-        ...liveClassStatus,
-        subscription: liveClassSubscription,
-        fees: LIVE_CLASS_FEES
-      }
+    return Response.json({
+      platform: { hasActiveSubscription: platformActive, requiresSubscription: reqPlatform, subscription: platformSub, fees: PLATFORM_FEES },
+      liveClass: { hasActiveSubscription: storageActive, requiresSubscription: reqStorage, subscription: storageSub, fees: STORAGE_FEES },
     });
-  } catch (error) {
-    console.error('Error fetching subscriptions:', error);
-    return c.json({ error: 'Internal server error' }, 500);
   }
-});
 
-// Create new subscription (platform or live class)
-app.post('/', auth, async (c) => {
-  try {
-    const user = c.get('user');
-    const body = await c.req.json();
-
-    const { planType, subscriptionType = 'platform', paymentGateway = 'flutterwave' } = body;
-    const normalizedSubscriptionType = normalizeSubscriptionType(subscriptionType);
-
-    if (!planType || !['monthly', 'yearly'].includes(planType)) {
-      return c.json({ error: 'Invalid plan type. Must be monthly or yearly.' }, 400);
-    }
-
-    if (!normalizedSubscriptionType || !['platform', 'live_class'].includes(normalizedSubscriptionType)) {
-      return c.json({ error: 'Invalid subscription type. Must be platform or live_class.' }, 400);
-    }
-
-    const db = getDB(c);
-    const tableName = normalizedSubscriptionType === 'live_class' ? 'live_class_subscriptions' : 'subscriptions';
-    const paymentTableName = normalizedSubscriptionType === 'live_class' ? 'live_class_subscription_payments' : 'subscription_payments';
-    const fees = normalizedSubscriptionType === 'live_class' ? LIVE_CLASS_FEES : PLATFORM_FEES;
-
-    // Check if user already has an active subscription of this type
-    const existingSubscription = await db
-      .selectFrom(tableName)
-      .where('userId', '=', user.id)
-      .where('status', '=', 'active')
-      .executeTakeFirst();
-
-    if (existingSubscription) {
-      return c.json({ error: `User already has an active ${subscriptionType} subscription` }, 400);
-    }
-
-    const now = new Date();
-    const startDate = now.toISOString();
-    const endDate = new Date(now);
-
-    if (planType === 'monthly') {
-      endDate.setMonth(endDate.getMonth() + 1);
-    } else {
-      endDate.setFullYear(endDate.getFullYear() + 1);
-    }
-
-    const subscriptionId = crypto.randomUUID();
-    const transactionRef = `${subscriptionType}-${subscriptionId}-${Date.now()}`;
-
-    await db
-      .insertInto(tableName)
-      .values({
-        id: subscriptionId,
-        userId: user.id,
-        planType,
-        status: 'active',
-        startDate,
-        endDate: endDate.toISOString(),
-        autoRenew: true,
-        paymentGateway,
-        createdAt: now.toISOString(),
-        updatedAt: now.toISOString(),
-      })
-      .execute();
-
-    await db
-      .insertInto(paymentTableName)
-      .values({
-        id: crypto.randomUUID(),
-        subscriptionId,
-        amount: fees[planType],
-        currency: 'USD',
-        status: 'success',
-        paymentGateway,
-        transactionRef,
-        paymentDate: now.toISOString(),
-        createdAt: now.toISOString(),
-      })
-      .execute();
-
-    let payment_url: string | null = null;
-    try {
-      const env = (c.env as any) || {};
-      const flutterwaveSecret = env.FLUTTERWAVE_SECRET_KEY;
-      const frontendUrl = env.FRONTEND_URL || c.req.headers.get('origin');
-
-      if (paymentGateway === 'flutterwave' && flutterwaveSecret && frontendUrl) {
-        const response = await fetch('https://api.flutterwave.com/v3/payments', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${flutterwaveSecret}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            tx_ref: transactionRef,
-            amount: fees[planType],
-            currency: 'USD',
-            redirect_url: `${frontendUrl.replace(/\/$/, '')}/payment-success`,
-            customer: {
-              email: user.email,
-              name: user.name,
-            },
-            customizations: {
-              title: 'Kambi Academy Subscription',
-              description: `Payment for ${normalizedSubscriptionType === 'live_class' ? 'Live class' : 'Platform'} ${planType} plan`,
-            },
-          }),
-        });
-
-        const flutterwaveData = await response.json().catch(() => null);
-        payment_url = flutterwaveData?.data?.link || null;
-      }
-    } catch (integrationError) {
-      console.error('Flutterwave payment initialization failed:', integrationError);
-    }
-
-    return c.json({
-      subscriptionId,
-      subscriptionType: normalizedSubscriptionType,
-      planType,
-      amount: fees[planType],
-      startDate,
-      endDate: endDate.toISOString(),
-      paymentGateway,
-      transactionRef,
-      payment_url,
-      message: `${normalizedSubscriptionType} subscription created successfully`
-    }, 201);
-  } catch (error) {
-    console.error('Error creating subscription:', error);
-    return c.json({ error: 'Internal server error' }, 500);
+  if (action === 'history') {
+    const type = normalizeType(url.searchParams.get('type'));
+    const { sub, pay } = tbl(type);
+    const subs = await env.DB.prepare(`SELECT * FROM ${sub} WHERE userId = ? ORDER BY createdAt DESC`).bind(user.id).all();
+    const payments = await env.DB.prepare(`SELECT p.*, s.planType FROM ${pay} p JOIN ${sub} s ON p.subscriptionId = s.id WHERE s.userId = ? ORDER BY p.createdAt DESC`).bind(user.id).all();
+    return Response.json({ subscriptions: subs.results, payments: payments.results, fees: getFees(type) });
   }
-});
 
-// Process subscription payment (platform or live class)
-app.post('/:subscriptionId/payment', auth, async (c) => {
-  try {
-    const subscriptionId = c.req.param('subscriptionId');
-    const user = c.get('user');
-    const body = await c.req.json();
+  if (action === 'admin') {
+    if (!isFullAdmin(user)) return Response.json({ error: 'Unauthorized' }, { status: 403 });
+    const { results } = await env.DB.prepare(`SELECT s.*, u.name, u.email, u.role FROM subscriptions s JOIN users u ON CAST(s.userId AS TEXT) = CAST(u.id AS TEXT) ORDER BY s.createdAt DESC`).all();
+    const active = (results || []).filter((s: any) => s.status === 'active');
+    const mRev = active.filter((s: any) => s.planType === 'monthly').length * 4;
+    const yRev = active.filter((s: any) => s.planType === 'yearly').length * 44;
+    return Response.json({ subscriptions: results, stats: { totalSubscriptions: results?.length || 0, activeSubscriptions: active.length, monthlyRevenue: mRev, yearlyRevenue: yRev, totalRevenue: mRev + yRev }, platformFees: PLATFORM_FEES });
+  }
 
-    const { amount, currency = 'USD', paymentGateway, transactionRef, status, subscriptionType = 'platform' } = body;
-    const normalizedSubscriptionType = normalizeSubscriptionType(subscriptionType);
+  return Response.json({ error: 'Unknown action' }, { status: 400 });
+};
 
-    if (!amount || !paymentGateway || !transactionRef || !status) {
-      return c.json({ error: 'Missing required payment fields' }, 400);
-    }
+// POST /api/subscriptions - create subscription or record payment
+export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+  const user = await getAuthUser(request, env.DB);
+  if (!user) return Response.json({ error: 'Not authenticated' }, { status: 401 });
 
-    if (!normalizedSubscriptionType || !['platform', 'live_class'].includes(normalizedSubscriptionType)) {
-      return c.json({ error: 'Invalid subscription type. Must be platform or live_class.' }, 400);
-    }
+  const body = await request.json<any>();
 
-    // Verify subscription belongs to user
-    const db = getDB(c);
-    const tableName = subscriptionType === 'live_class' ? 'live_class_subscriptions' : 'subscriptions';
-    const paymentTableName = subscriptionType === 'live_class' ? 'live_class_subscription_payments' : 'subscription_payments';
-
-    const subscription = await db
-      .selectFrom(tableName)
-      .where('id', '=', subscriptionId)
-      .where('userId', '=', user.id)
-      .executeTakeFirst();
-
-    if (!subscription) {
-      return c.json({ error: 'Subscription not found or access denied' }, 404);
-    }
-
-    // Check if payment already exists
-    const existingPayment = await db
-      .selectFrom(paymentTableName)
-      .where('transactionRef', '=', transactionRef)
-      .executeTakeFirst();
-
-    if (existingPayment) {
-      return c.json({ error: 'Payment with this transaction reference already exists' }, 400);
-    }
-
-    const paymentId = crypto.randomUUID();
+  if (body.subscriptionId && body.transactionRef) {
+    const { subscriptionId, amount, paymentGateway, transactionRef, status: payStatus, subscriptionType = 'platform' } = body;
+    const type = normalizeType(subscriptionType);
+    const { sub, pay } = tbl(type);
+    if (!amount || !paymentGateway || !transactionRef || !payStatus) return Response.json({ error: 'Missing payment fields' }, { status: 400 });
+    const row = await env.DB.prepare(`SELECT id FROM ${sub} WHERE id = ? AND userId = ?`).bind(subscriptionId, user.id).first();
+    if (!row) return Response.json({ error: 'Subscription not found' }, { status: 404 });
+    const dup = await env.DB.prepare(`SELECT id FROM ${pay} WHERE transactionRef = ?`).bind(transactionRef).first();
+    if (dup) return Response.json({ error: 'Duplicate transaction' }, { status: 400 });
     const now = new Date().toISOString();
-
-    await db
-      .insertInto(paymentTableName)
-      .values({
-        id: paymentId,
-        subscriptionId,
-        amount,
-        currency,
-        status,
-        paymentGateway,
-        transactionRef,
-        paymentDate: status === 'success' ? now : null,
-        createdAt: now,
-      })
-      .execute();
-
-    // If payment is successful, ensure subscription is active
-    if (status === 'success') {
-      await db
-        .updateTable(tableName)
-        .set({
-          status: 'active',
-          updatedAt: now
-        })
-        .where('id', '=', subscriptionId)
-        .execute();
-    }
-
-    return c.json({
-      paymentId,
-      status,
-      message: `${subscriptionType} payment ${status} recorded successfully`
-    });
-  } catch (error) {
-    console.error('Error processing subscription payment:', error);
-    return c.json({ error: 'Internal server error' }, 500);
+    await env.DB.prepare(`INSERT INTO ${pay} (id, subscriptionId, amount, currency, status, paymentGateway, transactionRef, paymentDate, createdAt) VALUES (?,?,?,'USD',?,?,?,?,?)`).bind(crypto.randomUUID(), subscriptionId, amount, payStatus, paymentGateway, transactionRef, payStatus === 'success' ? now : null, now).run();
+    if (payStatus === 'success') { await env.DB.prepare(`UPDATE ${sub} SET status = 'active', updatedAt = ? WHERE id = ?`).bind(now, subscriptionId).run(); }
+    return Response.json({ message: 'Payment recorded', status: payStatus });
   }
-});
 
-// Cancel subscription
-app.patch('/:subscriptionId/cancel', auth, async (c) => {
+  const { planType, subscriptionType = 'platform', paymentGateway = 'flutterwave' } = body;
+  const type = normalizeType(subscriptionType);
+  if (!planType || !['monthly', 'yearly'].includes(planType)) return Response.json({ error: 'Invalid plan type.' }, { status: 400 });
+
+  const { sub, pay } = tbl(type);
+  const f = getFees(type);
+
+  const existing = await env.DB.prepare(`SELECT id FROM ${sub} WHERE userId = ? AND status = 'active' LIMIT 1`).bind(user.id).first();
+  if (existing) return Response.json({ error: 'Already has an active subscription' }, { status: 400 });
+
+  const now = new Date();
+  const endDate = new Date(now);
+  if (planType === 'monthly') endDate.setMonth(endDate.getMonth() + 1);
+  else endDate.setFullYear(endDate.getFullYear() + 1);
+
+  const subscriptionId = crypto.randomUUID();
+  const transactionRef = `${type}-${subscriptionId}-${Date.now()}`;
+
+  await env.DB.prepare(`INSERT INTO ${sub} (id, userId, planType, status, startDate, endDate, autoRenew, paymentGateway, createdAt, updatedAt) VALUES (?,?,?,'active',?,?,1,?,?,?)`).bind(subscriptionId, user.id, planType, now.toISOString(), endDate.toISOString(), paymentGateway, now.toISOString(), now.toISOString()).run();
+  await env.DB.prepare(`INSERT INTO ${pay} (id, subscriptionId, amount, currency, status, paymentGateway, transactionRef, paymentDate, createdAt) VALUES (?,?,?,'USD','pending',?,?,?,?)`).bind(crypto.randomUUID(), subscriptionId, f[planType], paymentGateway, transactionRef, now.toISOString(), now.toISOString()).run();
+
+  let payment_url = null;
   try {
-    const subscriptionId = c.req.param('subscriptionId');
-    const user = c.get('user');
-
-    const db = getDB(c);
-
-    // Verify subscription belongs to user
-    const url = new URL(c.req.url);
-    const type = normalizeSubscriptionType(url.searchParams.get('type') || 'platform');
-    const tableName = type === 'live_class' ? 'live_class_subscriptions' : 'subscriptions';
-
-    const subscription = await db
-      .selectFrom(tableName)
-      .where('id', '=', subscriptionId)
-      .where('userId', '=', user.id)
-      .executeTakeFirst();
-
-    if (!subscription) {
-      return c.json({ error: 'Subscription not found or access denied' }, 404);
+    const secret = env.FLUTTERWAVE_SECRET_KEY;
+    const origin = request.headers.get('origin') || '';
+    if (secret && origin) {
+      const resp = await fetch('https://api.flutterwave.com/v3/payments', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tx_ref: transactionRef,
+          amount: f[planType],
+          currency: 'USD',
+          redirect_url: `${origin.replace(/\/$/, '')}/payment-callback?type=${type}&sid=${subscriptionId}`,
+          customer: { email: user.email, name: user.name },
+          customizations: { title: 'Kambi Academy', description: `${type === 'live_class' ? 'Storage' : 'Platform'} ${planType} plan` },
+        }),
+      });
+      const data: any = await resp.json().catch(() => null);
+      payment_url = data?.data?.link || null;
     }
+  } catch (e) { console.error('Flutterwave init failed:', e); }
 
-    if (subscription.status !== 'active') {
-      return c.json({ error: 'Can only cancel active subscriptions' }, 400);
-    }
+  return Response.json({
+    subscriptionId, subscriptionType: type, planType, amount: f[planType],
+    startDate: now.toISOString(), endDate: endDate.toISOString(),
+    transactionRef, payment_url, message: 'Subscription created',
+  }, { status: 201 });
+};
 
-    await db
-      .updateTable(tableName)
-      .set({
-        status: 'cancelled',
-        autoRenew: false,
-        updatedAt: new Date().toISOString()
-      })
-      .where('id', '=', subscriptionId)
-      .execute();
+// PATCH /api/subscriptions - cancel subscription
+export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
+  const user = await getAuthUser(request, env.DB);
+  if (!user) return Response.json({ error: 'Not authenticated' }, { status: 401 });
 
-    return c.json({ message: 'Subscription cancelled successfully' });
-  } catch (error) {
-    console.error('Error cancelling subscription:', error);
-    return c.json({ error: 'Internal server error' }, 500);
-  }
-});
+  const body = await request.json<any>();
+  const { subscriptionId, subscriptionType = 'platform' } = body;
+  if (!subscriptionId) return Response.json({ error: 'subscriptionId required' }, { status: 400 });
 
-// Get subscription history
-app.get('/history', auth, async (c) => {
-  try {
-    const user = c.get('user');
-    const db = getDB(c);
-    const url = new URL(c.req.url);
-    const type = normalizeSubscriptionType(url.searchParams.get('type') || 'platform');
+  const type = normalizeType(subscriptionType);
+  const { sub } = tbl(type);
 
-    if (!type || !['platform', 'live_class'].includes(type)) {
-      return c.json({ error: 'Invalid subscription type' }, 400);
-    }
+  const row = await env.DB.prepare(`SELECT id, status FROM ${sub} WHERE id = ? AND userId = ?`).bind(subscriptionId, user.id).first<any>();
+  if (!row) return Response.json({ error: 'Not found' }, { status: 404 });
+  if (row.status !== 'active') return Response.json({ error: 'Can only cancel active subscriptions' }, { status: 400 });
 
-    const tableName = type === 'live_class' ? 'live_class_subscriptions' : 'subscriptions';
-    const paymentTableName = type === 'live_class' ? 'live_class_subscription_payments' : 'subscription_payments';
-
-    const subscriptions = await db
-      .selectFrom(tableName)
-      .where('userId', '=', user.id)
-      .selectAll()
-      .orderBy('createdAt', 'desc')
-      .execute();
-
-    const payments = await db
-      .selectFrom(paymentTableName)
-      .innerJoin(tableName, `${paymentTableName}.subscriptionId`, `${tableName}.id`)
-      .where(`${tableName}.userId`, '=', user.id)
-      .select([
-        `${paymentTableName}.id`,
-        `${paymentTableName}.subscriptionId`,
-        `${paymentTableName}.amount`,
-        `${paymentTableName}.currency`,
-        `${paymentTableName}.status`,
-        `${paymentTableName}.paymentGateway`,
-        `${paymentTableName}.transactionRef`,
-        `${paymentTableName}.paymentDate`,
-        `${paymentTableName}.createdAt`,
-        `${tableName}.planType`
-      ])
-      .orderBy(`${paymentTableName}.createdAt`, 'desc')
-      .execute();
-
-    const fees = type === 'live_class' ? LIVE_CLASS_FEES : PLATFORM_FEES;
-
-    return c.json({
-      subscriptions,
-      payments,
-      fees
-    });
-  } catch (error) {
-    console.error('Error fetching subscription history:', error);
-    return c.json({ error: 'Internal server error' }, 500);
-  }
-});
-
-// Admin endpoint to get all subscriptions
-app.get('/admin/all', auth, async (c) => {
-  try {
-    const user = c.get('user');
-
-    if (user.role !== 'admin' && user.role !== 'super_admin') {
-      return c.json({ error: 'Unauthorized' }, 403);
-    }
-
-    const db = getDB(c);
-    const subscriptions = await db
-      .selectFrom('subscriptions')
-      .innerJoin('users', 'subscriptions.userId', 'users.id')
-      .select([
-        'subscriptions.*',
-        'users.name',
-        'users.email',
-        'users.role'
-      ])
-      .orderBy('subscriptions.createdAt', 'desc')
-      .execute();
-
-    const stats = {
-      totalSubscriptions: subscriptions.length,
-      activeSubscriptions: subscriptions.filter(s => s.status === 'active').length,
-      monthlyRevenue: subscriptions
-        .filter(s => s.status === 'active' && s.planType === 'monthly')
-        .length * PLATFORM_FEES.monthly,
-      yearlyRevenue: subscriptions
-        .filter(s => s.status === 'active' && s.planType === 'yearly')
-        .length * PLATFORM_FEES.yearly,
-      totalRevenue: 0
-    };
-
-    stats.totalRevenue = stats.monthlyRevenue + stats.yearlyRevenue;
-
-    return c.json({
-      subscriptions,
-      stats,
-      platformFees: PLATFORM_FEES
-    });
-  } catch (error) {
-    console.error('Error fetching admin subscriptions:', error);
-    return c.json({ error: 'Internal server error' }, 500);
-  }
-});
-
-export default app;
-
-export const onRequest: PagesFunction = app.fetch;
+  await env.DB.prepare(`UPDATE ${sub} SET status = 'cancelled', autoRenew = 0, updatedAt = ? WHERE id = ?`).bind(new Date().toISOString(), subscriptionId).run();
+  return Response.json({ message: 'Subscription cancelled' });
+};

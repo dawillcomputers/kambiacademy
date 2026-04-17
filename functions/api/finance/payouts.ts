@@ -5,6 +5,33 @@ interface Env {
   FLUTTERWAVE_SECRET: string;
 }
 
+interface TutorWalletRow {
+  id: number;
+  name: string;
+  email: string;
+  balance: number;
+}
+
+interface PayoutRow {
+  id: string;
+  tutor_id: number;
+  amount: number;
+  status: string;
+  flutterwave_reference: string | null;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+interface PayoutResult {
+  payout_id: string;
+  tutor_id: number;
+  tutor_name: string;
+  amount: number;
+  status: string;
+  flutterwave_ref: string;
+  message: string;
+}
+
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
   if (!user || user.role !== 'super_admin') {
@@ -54,15 +81,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const body = await request.json<{ action?: string; tutor_id?: number; amount?: number }>();
 
   if (body.action === 'create_batch') {
-    return await createBatchPayouts(env);
+    return Response.json(await createBatchPayouts(env));
   }
 
   if (body.action === 'payout_tutor') {
-    return await payoutTutor(env, body.tutor_id || 0, body.amount || 0);
+    return Response.json(await payoutTutor(env, body.tutor_id || 0, body.amount || 0));
   }
 
   if (body.action === 'reconcile') {
-    return await reconcilePayouts(env);
+    return Response.json(await reconcilePayouts(env));
   }
 
   return Response.json({ error: 'Unknown action' }, { status: 400 });
@@ -79,10 +106,10 @@ async function createBatchPayouts(env: Env) {
     WHERE u.role = 'teacher'
     GROUP BY u.id
     HAVING balance > 10
-  `).all();
+  `).all<TutorWalletRow>();
 
   let payoutCount = 0;
-  const results = [];
+  const results: Array<PayoutResult | { error: string; tutor_id: number }> = [];
 
   for (const tutor of tutorsWithBalance.results || []) {
     try {
@@ -97,17 +124,17 @@ async function createBatchPayouts(env: Env) {
     }
   }
 
-  return Response.json({
+  return {
     success: true,
     total_payouts: payoutCount,
     total_amount: tutorsWithBalance.results?.reduce((sum: number, t: any) => sum + t.balance, 0) || 0,
     batch_id: `BATCH-${Date.now()}`,
     results: results,
     message: `${payoutCount} payouts created successfully`
-  });
+  };
 }
 
-async function payoutTutor(env: Env, tutorId: number, amount: number) {
+async function payoutTutor(env: Env, tutorId: number, amount: number): Promise<PayoutResult> {
   if (amount <= 0) {
     throw new Error('Amount must be greater than 0');
   }
@@ -162,11 +189,11 @@ async function reconcilePayouts(env: Env) {
     SELECT id, tutor_id, amount, flutterwave_reference, created_at
     FROM payouts
     WHERE status = 'processing'
-  `).all();
+  `).all<PayoutRow>();
 
   let reconciled = 0;
   let failed = 0;
-  const results = [];
+  const results: Array<{ payout_id: string; status: string; amount?: number; error?: string }> = [];
 
   for (const payout of pending.results || []) {
     try {
@@ -198,14 +225,14 @@ async function reconcilePayouts(env: Env) {
     }
   }
 
-  return Response.json({
+  return {
     success: true,
     reconciled: reconciled,
     failed: failed,
     total_processed: reconciled + failed,
     results: results,
     message: `Reconciliation complete: ${reconciled} completed, ${failed} failed`
-  });
+  };
 }
 
 // Cron function for weekly payouts (called by Cloudflare scheduler)

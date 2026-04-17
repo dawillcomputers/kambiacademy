@@ -3,7 +3,16 @@ import { cors } from 'hono/cors';
 import { auth } from '../_shared/auth';
 import { getDB } from '../_shared/db';
 
-const app = new Hono();
+interface Env {
+  DB: D1Database;
+}
+
+interface SessionUser {
+  id: number;
+  role: string;
+}
+
+const app = new Hono<{ Bindings: Env; Variables: { user: SessionUser } }>();
 app.use('*', cors());
 
 interface StudentRequest {
@@ -27,7 +36,7 @@ app.get('/teacher/:teacherId', auth, async (c) => {
     const user = c.get('user');
 
     // Only allow teachers to view their own requests or admins to view all
-    if (user.role !== 'admin' && user.id !== teacherId) {
+    if (user.role !== 'admin' && String(user.id) !== teacherId) {
       return c.json({ error: 'Unauthorized' }, 403);
     }
 
@@ -53,7 +62,7 @@ app.get('/student/:studentId', auth, async (c) => {
     const user = c.get('user');
 
     // Only allow students to view their own requests or admins
-    if (user.role !== 'admin' && user.id !== studentId) {
+    if (user.role !== 'admin' && String(user.id) !== studentId) {
       return c.json({ error: 'Unauthorized' }, 403);
     }
 
@@ -76,7 +85,14 @@ app.get('/student/:studentId', auth, async (c) => {
 app.post('/', auth, async (c) => {
   try {
     const user = c.get('user');
-    const body = await c.req.json();
+    const body = await c.req.json<{
+      teacherId?: string;
+      courseId?: string;
+      type?: StudentRequest['type'];
+      subject?: string;
+      message?: string;
+      priority?: StudentRequest['priority'];
+    }>();
 
     const { teacherId, courseId, type, subject, message, priority = 'medium' } = body;
 
@@ -128,7 +144,7 @@ app.patch('/:requestId/status', auth, async (c) => {
   try {
     const requestId = c.req.param('requestId');
     const user = c.get('user');
-    const body = await c.req.json();
+    const body = await c.req.json<{ status?: StudentRequest['status'] }>();
 
     const { status } = body;
     const validStatuses = ['pending', 'accepted', 'declined', 'completed'];
@@ -151,7 +167,7 @@ app.patch('/:requestId/status', auth, async (c) => {
     }
 
     // Only allow teachers to update their own requests or admins
-    if (user.role !== 'admin' && user.id !== request.teacherId) {
+    if (user.role !== 'admin' && String(user.id) !== request.teacherId) {
       return c.json({ error: 'Unauthorized' }, 403);
     }
 
@@ -192,8 +208,8 @@ app.delete('/:requestId', auth, async (c) => {
 
     // Allow students to delete their own requests, teachers to delete requests to them, or admins
     const canDelete = user.role === 'admin' ||
-                     user.id === request.studentId ||
-                     user.id === request.teacherId;
+                     String(user.id) === request.studentId ||
+                     String(user.id) === request.teacherId;
 
     if (!canDelete) {
       return c.json({ error: 'Unauthorized' }, 403);
@@ -213,4 +229,5 @@ app.delete('/:requestId', auth, async (c) => {
 
 export default app;
 
-export const onRequest: PagesFunction = app.fetch;
+export const onRequest: PagesFunction<Env> = async (context) =>
+  app.fetch(context.request, context.env, context as unknown as ExecutionContext);

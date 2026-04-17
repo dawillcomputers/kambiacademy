@@ -1,161 +1,106 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   LiveKitRoom,
-  VideoConference,
   RoomAudioRenderer,
+  VideoConference,
   useRoomContext,
-  Chat,
-  useChat
-} from "@livekit/components-react";
-import "@livekit/components-styles";
+} from '@livekit/components-react';
+import '@livekit/components-styles';
+import type { AuthUser } from '../lib/auth';
+import { api } from '../lib/api';
 
 interface LiveClassroomProps {
-  sessionId: string;
-  user: {
-    id: string;
-    name: string;
-    role: string;
-  };
+  sessionId: number;
+  user: Pick<AuthUser, 'id' | 'name' | 'role'>;
   onLeave: () => void;
 }
 
-function Controls() {
+function SessionActions({ isTeacher, sessionId, onLeave }: { isTeacher: boolean; sessionId: number; onLeave: () => void }) {
   const room = useRoomContext();
 
-  const [isMuted, setIsMuted] = useState(false);
-  const [isCameraOff, setIsCameraOff] = useState(false);
+  const leaveRoom = () => {
+    room.disconnect();
+    onLeave();
+  };
 
-  useEffect(() => {
-    setIsMuted(!room.localParticipant.isMicrophoneEnabled);
-    setIsCameraOff(!room.localParticipant.isCameraEnabled);
-  }, [room.localParticipant.isMicrophoneEnabled, room.localParticipant.isCameraEnabled]);
+  const raiseHand = async () => {
+    await room.localParticipant.publishData(
+      new TextEncoder().encode(
+        JSON.stringify({ type: 'raise_hand', userId: room.localParticipant.identity, sessionId }),
+      ),
+    );
+  };
 
-  return (
-    <div className="flex gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg">
-      <button
-        onClick={() => room.localParticipant.setMicrophoneEnabled(isMuted)}
-        className={`px-4 py-2 rounded font-semibold transition-colors ${
-          isMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
-        }`}
-      >
-        {isMuted ? 'Unmute' : 'Mute'}
-      </button>
-
-      <button
-        onClick={() => room.localParticipant.setCameraEnabled(isCameraOff)}
-        className={`px-4 py-2 rounded font-semibold transition-colors ${
-          isCameraOff ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
-        }`}
-      >
-        {isCameraOff ? 'Camera On' : 'Camera Off'}
-      </button>
-
-      <button
-        onClick={() => room.localParticipant.setScreenShareEnabled(
-          !room.localParticipant.isScreenShareEnabled
-        )}
-        className={`px-4 py-2 rounded font-semibold transition-colors ${
-          room.localParticipant.isScreenShareEnabled
-            ? 'bg-blue-600 hover:bg-blue-700'
-            : 'bg-white/20 hover:bg-white/30'
-        }`}
-      >
-        Screen Share
-      </button>
-
-      <button
-        onClick={() => {
-          // Raise hand via data channel
-          room.localParticipant.publishData(
-            JSON.stringify({ type: "raise_hand", userId: room.localParticipant.identity })
-          );
-        }}
-        className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded font-semibold transition-colors"
-      >
-        ✋ Raise Hand
-      </button>
-    </div>
-  );
-}
-
-function TeacherControls({ onEndSession }: { onEndSession: () => void }) {
-  const room = useRoomContext();
-
-  const muteAllStudents = () => {
-    room.remoteParticipants.forEach(participant => {
-      if (participant.metadata && JSON.parse(participant.metadata).role === 'student') {
-        participant.setMicrophoneEnabled(false);
-      }
-    });
+  const endSession = async () => {
+    await api.endLiveSession(sessionId);
+    leaveRoom();
   };
 
   return (
-    <div className="flex gap-3 p-4 bg-red-900/20 backdrop-blur-sm rounded-lg border border-red-500/20">
+    <div className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-slate-900/90 px-4 py-3">
       <button
-        onClick={muteAllStudents}
-        className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded font-semibold transition-colors"
+        onClick={raiseHand}
+        className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400"
       >
-        Mute All Students
+        Raise Hand
       </button>
       <button
-        onClick={onEndSession}
-        className="px-4 py-2 bg-red-700 hover:bg-red-800 rounded font-semibold transition-colors"
+        onClick={leaveRoom}
+        className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-600"
       >
-        End Session
+        Leave Session
       </button>
+      {isTeacher && (
+        <button
+          onClick={endSession}
+          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-500"
+        >
+          End Session
+        </button>
+      )}
     </div>
   );
 }
 
-export default function LiveClassroom({ sessionId, user, onLeave }: LiveClassroomProps) {
-  const [token, setToken] = useState("");
+export default function LiveClassroomLiveKit({ sessionId, user, onLeave }: LiveClassroomProps) {
+  const [token, setToken] = useState('');
+  const [serverUrl, setServerUrl] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [showChat, setShowChat] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchToken = async () => {
       try {
-        const response = await fetch("/api/livekit-token", {
-          method: "POST",
+        const authToken = localStorage.getItem('auth_token');
+        const response = await fetch('/api/livekit-token', {
+          method: 'POST',
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
           },
           body: JSON.stringify({
-            room: `session-${sessionId}`,
-            identity: user.id,
-            name: user.name,
-            role: user.role,
+            session_id: sessionId,
           }),
         });
 
         if (!response.ok) {
-          throw new Error('Failed to get access token');
+          const body = await response.json().catch(() => null);
+          throw new Error(body?.error || 'Failed to get access token');
         }
 
         const data = await response.json();
         setToken(data.token);
+        setServerUrl(data.serverUrl);
       } catch (err) {
         console.error('Error fetching token:', err);
-        setError('Failed to connect to live session');
+        setError(err instanceof Error ? err.message : 'Failed to connect to live session');
       } finally {
         setLoading(false);
       }
     };
 
     fetchToken();
-  }, [sessionId, user]);
-
-  const handleEndSession = async () => {
-    try {
-      // Call your API to end the session
-      await fetch(`/api/live-sessions/${sessionId}/end`, { method: 'POST' });
-      onLeave();
-    } catch (err) {
-      console.error('Error ending session:', err);
-      onLeave();
-    }
-  };
+  }, [sessionId]);
 
   if (loading) {
     return (
@@ -195,69 +140,36 @@ export default function LiveClassroom({ sessionId, user, onLeave }: LiveClassroo
   const isTeacher = user.role === 'teacher';
 
   return (
-    <div className="bg-gray-900 rounded-lg overflow-hidden">
-      <div className="p-4 bg-gray-800 flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-            <span className="text-white font-semibold">LIVE SESSION</span>
+    <LiveKitRoom
+      token={token}
+      serverUrl={serverUrl}
+      connect={true}
+      audio={true}
+      video={true}
+      className="h-[85vh] overflow-hidden rounded-2xl border border-slate-800 bg-slate-950"
+      data-lk-theme="default"
+    >
+      <div className="flex h-full flex-col bg-slate-950">
+        <div className="flex items-center justify-between border-b border-white/10 bg-slate-900 px-4 py-3 text-sm text-white/80">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+            </span>
+            <span className="font-semibold text-white">Live Session {sessionId}</span>
+            <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs uppercase tracking-wide">{user.role}</span>
           </div>
-          <span className="text-white/70">Session {sessionId}</span>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowChat(!showChat)}
-            className={`px-3 py-1 rounded font-semibold transition-colors ${
-              showChat ? 'bg-indigo-600' : 'bg-white/10 hover:bg-white/20'
-            }`}
-          >
-            💬 Chat
-          </button>
-          <button
-            onClick={onLeave}
-            className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded font-semibold transition-colors"
-          >
-            Leave
-          </button>
-        </div>
-      </div>
-
-      <div className="flex">
-        <div className={`flex-1 ${showChat ? 'mr-80' : ''}`}>
-          <LiveKitRoom
-            token={token}
-            serverUrl={import.meta.env.VITE_LIVEKIT_URL || "wss://your-livekit-server.livekit.cloud"}
-            connect={true}
-            video={true}
-            audio={true}
-            className="h-96"
-          >
-            <div className="relative h-full">
-              <VideoConference />
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-                <Controls />
-                {isTeacher && (
-                  <div className="mt-2">
-                    <TeacherControls onEndSession={handleEndSession} />
-                  </div>
-                )}
-              </div>
-            </div>
-            <RoomAudioRenderer />
-          </LiveKitRoom>
+          <span className="text-xs text-white/50">Audio and video are synchronized through LiveKit</span>
         </div>
 
-        {showChat && (
-          <div className="w-80 bg-gray-800 border-l border-gray-700 flex flex-col">
-            <div className="p-3 border-b border-gray-700">
-              <h3 className="text-white font-semibold">Live Chat</h3>
-            </div>
-            <div className="flex-1">
-              <Chat />
-            </div>
-          </div>
-        )}
+        <SessionActions isTeacher={isTeacher} sessionId={sessionId} onLeave={onLeave} />
+
+        <div className="min-h-0 flex-1">
+          <VideoConference />
+        </div>
+
+        <RoomAudioRenderer />
       </div>
-    </div>
+    </LiveKitRoom>
   );
 }

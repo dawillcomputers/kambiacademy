@@ -2,10 +2,9 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "moduleResolution": "node16",
+    "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM"],
     "types": ["@cloudflare/workers-types"],
-    "typeRoots": ["../node_modules/@types"],
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
     "allowJs": false,

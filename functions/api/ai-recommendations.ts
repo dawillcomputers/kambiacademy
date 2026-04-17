@@ -3,7 +3,16 @@ import { cors } from 'hono/cors';
 import { auth } from '../_shared/auth';
 import { getDB } from '../_shared/db';
 
-const app = new Hono();
+interface Env {
+  DB: D1Database;
+}
+
+interface SessionUser {
+  id: number;
+  role: string;
+}
+
+const app = new Hono<{ Bindings: Env; Variables: { user: SessionUser } }>();
 app.use('*', cors());
 
 // AI-powered course recommendations for students
@@ -13,7 +22,7 @@ app.get('/courses/:studentId', auth, async (c) => {
     const user = c.get('user');
 
     // Only allow students to get their own recommendations or admins
-    if (user.role !== 'admin' && user.id !== studentId) {
+    if (user.role !== 'admin' && String(user.id) !== studentId) {
       return c.json({ error: 'Unauthorized' }, 403);
     }
 
@@ -59,7 +68,7 @@ app.get('/study-plan/:studentId', auth, async (c) => {
     const studentId = c.req.param('studentId');
     const user = c.get('user');
 
-    if (user.role !== 'admin' && user.id !== studentId) {
+    if (user.role !== 'admin' && String(user.id) !== studentId) {
       return c.json({ error: 'Unauthorized' }, 403);
     }
 
@@ -109,7 +118,7 @@ function generateRecommendations(enrollments: any[], quizResults: any[], allCour
     : 75;
 
   // Determine next level
-  const levelCounts = completedCourses.reduce((acc, course) => {
+  const levelCounts = completedCourses.reduce<Record<string, number>>((acc, course) => {
     acc[course.level] = (acc[course.level] || 0) + 1;
     return acc;
   }, {});
@@ -157,7 +166,7 @@ function generateStudyPlan(currentCourses: any[], upcomingWork: any[]) {
 
     const dayWork = upcomingWork.filter(work => {
       const dueDate = new Date(work.dueDate);
-      const daysUntilDue = Math.ceil((dueDate - date) / (1000 * 60 * 60 * 24));
+      const daysUntilDue = Math.ceil((dueDate.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
       return daysUntilDue <= 7 && daysUntilDue >= 0;
     });
 
@@ -190,4 +199,5 @@ function generateStudyPlan(currentCourses: any[], upcomingWork: any[]) {
 
 export default app;
 
-export const onRequest: PagesFunction = app.fetch;
+export const onRequest: PagesFunction<Env> = async (context) =>
+  app.fetch(context.request, context.env, context as unknown as ExecutionContext);

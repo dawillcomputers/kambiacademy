@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
-import LiveClassroom from './LiveClassroom';
+import LiveClassroom from './LiveClassroomLiveKit';
 
 type Tab = 'courses' | 'classes' | 'create-course' | 'create-class' | 'assignments' | 'submissions' | 'quizzes' | 'create-quiz' | 'quiz-results' | 'materials' | 'live' | 'billing';
 
@@ -1011,8 +1011,8 @@ const TutorPanel: React.FC = () => {
 
       {/* LIVE CLASSES TAB */}
       {tab === 'live' && (
-        activeSessionId ? (
-          <LiveClassroom sessionId={activeSessionId} onLeave={() => { setActiveSessionId(null); api.getLiveSessions().then((d) => setLiveSessions(d.sessions)).catch(() => {}); }} />
+        activeSessionId && user ? (
+          <LiveClassroom sessionId={activeSessionId} user={user} onLeave={() => { setActiveSessionId(null); api.getLiveSessions().then((d) => setLiveSessions(d.sessions)).catch(() => {}); }} />
         ) : (
           <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8">
             <h2 className="font-display text-2xl font-bold text-slate-950 mb-6">Live Classes</h2>

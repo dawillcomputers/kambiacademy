@@ -43,6 +43,11 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
 };
 
 export const api = {
+  // Generic get/post/patch helpers for direct path calls
+  get: <T = any>(path: string) => request<T>(path),
+  post: <T = any>(path: string, body?: any) => request<T>(path, { method: 'POST', ...(body ? { body: JSON.stringify(body) } : {}) }),
+  patch: <T = any>(path: string, body?: any) => request<T>(path, { method: 'PATCH', ...(body ? { body: JSON.stringify(body) } : {}) }),
+
   getSite: () => request<SiteData>('/api/site'),
 
   submitContact: (payload: ContactSubmissionPayload) =>
@@ -116,6 +121,15 @@ export const api = {
       body: JSON.stringify({ courseId, status, notes }),
     }),
 
+  adminDeleteCourse: (courseId: number) =>
+    request<any>('/api/admin/courses', {
+      method: 'DELETE',
+      body: JSON.stringify({ courseId }),
+    }),
+
+  adminGetSubscriptions: () =>
+    request<any>('/api/subscriptions?action=admin'),
+
   adminGetSettings: () =>
     request<{ settings: Record<string, string> }>('/api/admin/settings'),
 
@@ -158,20 +172,21 @@ export const api = {
 
   // Tutor subscriptions and billing
   getTeacherSubscription: () =>
-    request<{ platform: any; liveClass: any }>('/api/subscriptions/current'),
+    request<{ platform: any; liveClass: any }>('/api/subscriptions?action=current'),
 
-  createTeacherSubscription: (planType: string, subscriptionType: 'platform' | 'liveClass' = 'platform', paymentGateway?: string) =>
+  createTeacherSubscription: (planType: string, subscriptionType: 'platform' | 'liveClass' | 'storage' = 'platform', paymentGateway?: string) =>
     request<any>('/api/subscriptions', {
       method: 'POST',
       body: JSON.stringify({ planType, subscriptionType, paymentGateway }),
     }),
 
-  getTeacherSubscriptionHistory: (subscriptionType: 'platform' | 'liveClass' = 'platform') =>
-    request<any>(`/api/subscriptions/history?type=${subscriptionType}`),
+  getTeacherSubscriptionHistory: (subscriptionType: 'platform' | 'liveClass' | 'storage' = 'platform') =>
+    request<any>(`/api/subscriptions?action=history&type=${subscriptionType}`),
 
-  cancelTeacherSubscription: (subscriptionId: string, subscriptionType: 'platform' | 'liveClass' = 'platform') =>
-    request<any>(`/api/subscriptions/${encodeURIComponent(subscriptionId)}/cancel?type=${subscriptionType}`, {
+  cancelTeacherSubscription: (subscriptionId: string, subscriptionType: 'platform' | 'liveClass' | 'storage' = 'platform') =>
+    request<any>('/api/subscriptions', {
       method: 'PATCH',
+      body: JSON.stringify({ subscriptionId, subscriptionType }),
     }),
 
   // Invite

@@ -245,6 +245,31 @@ const AppShell: React.FC = () => {
     : defaultSiteData;
 
   const branding = resolvedSiteData.branding;
+  const location = useLocation();
+
+  // Dashboard routes get full-width layout without header/footer
+  const isDashboard = /^\/(superadmin|admin|tutor|teacher|student|change-password)/.test(location.pathname);
+
+  if (isDashboard) {
+    return (
+      <div className="app-shell min-h-screen">
+        {isLoading ? (
+          <LoadingState />
+        ) : (
+          <Routes>
+            <Route path="/admin" element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
+            <Route path="/superadmin/*" element={<RequireSuperAdmin><SuperAdminRoutes /></RequireSuperAdmin>} />
+            <Route path="/tutor" element={<RequireTutor><TutorPanel /></RequireTutor>} />
+            <Route path="/student/*" element={<RequireAuth><StudentDashboard /></RequireAuth>} />
+            <Route path="/change-password" element={<RequireChangePassword><ChangePassword /></RequireChangePassword>} />
+            <Route path="/teacher" element={<RequireTutor><TeacherDashboard /></RequireTutor>} />
+            <Route path="/teacher/*" element={<RequireTutor><TeacherDashboard /></RequireTutor>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell flex min-h-screen flex-col text-slate-950">

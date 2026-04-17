@@ -3,7 +3,16 @@ import { cors } from 'hono/cors';
 import { auth } from '../_shared/auth';
 import { getDB } from '../_shared/db';
 
-const app = new Hono();
+interface Env {
+  DB: D1Database;
+}
+
+interface SessionUser {
+  id: number;
+  role: string;
+}
+
+const app = new Hono<{ Bindings: Env; Variables: { user: SessionUser } }>();
 app.use('*', cors());
 
 // Get comprehensive progress dashboard for a student
@@ -12,7 +21,7 @@ app.get('/student/:studentId', auth, async (c) => {
     const studentId = c.req.param('studentId');
     const user = c.get('user');
 
-    if (user.role !== 'admin' && user.id !== studentId) {
+    if (user.role !== 'admin' && String(user.id) !== studentId) {
       return c.json({ error: 'Unauthorized' }, 403);
     }
 
@@ -111,7 +120,7 @@ app.get('/leaderboard/:courseId?', auth, async (c) => {
       completedAt: entry.completedAt,
       isCompleted: !!entry.completedAt,
       daysToComplete: entry.completedAt
-        ? Math.ceil((new Date(entry.completedAt) - new Date(entry.enrolledAt)) / (1000 * 60 * 60 * 24))
+        ? Math.ceil((new Date(entry.completedAt).getTime() - new Date(entry.enrolledAt).getTime()) / (1000 * 60 * 60 * 24))
         : null
     }));
 
@@ -198,18 +207,18 @@ function analyzeLearningPatterns(enrollments: any[], quizStats: any[]) {
 
   // Calculate average completion time
   const avgCompletionDays = completedEnrollments.reduce((sum, e) => {
-    const days = Math.ceil((new Date(e.completedAt) - new Date(e.enrolledAt)) / (1000 * 60 * 60 * 24));
+    const days = Math.ceil((new Date(e.completedAt).getTime() - new Date(e.enrolledAt).getTime()) / (1000 * 60 * 60 * 24));
     return sum + days;
   }, 0) / completedEnrollments.length;
 
   // Analyze category preferences
-  const categoryCount = completedEnrollments.reduce((acc, e) => {
+  const categoryCount = completedEnrollments.reduce<Record<string, number>>((acc, e) => {
     acc[e.category] = (acc[e.category] || 0) + 1;
     return acc;
   }, {});
 
   const preferredCategories = Object.entries(categoryCount)
-    .sort(([,a], [,b]) => b - a)
+    .sort(([, a], [, b]) => Number(b) - Number(a))
     .slice(0, 3)
     .map(([category]) => category);
 
@@ -323,4 +332,5 @@ function generateAchievements(completedCourses: number, quizPerformance: any, as
 
 export default app;
 
-export const onRequest: PagesFunction = app.fetch;
+export const onRequest: PagesFunction<Env> = async (context) =>
+  app.fetch(context.request, context.env, context as unknown as ExecutionContext);

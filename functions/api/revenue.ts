@@ -4,6 +4,13 @@ interface Env {
   DB: D1Database;
 }
 
+interface TeacherEarningsRow {
+  total_earned: number;
+  total_withdrawn: number;
+  available_balance: number;
+  held_balance: number;
+}
+
 // POST: record a revenue transaction when student enrolls/pays for a course
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
@@ -131,8 +138,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       `SELECT SUM(held_balance) as total_held FROM course_earnings WHERE teacher_id = ?`
     ).bind(user.id).first<{ total_held: number }>();
 
-    const earnings = earningsResult || { total_earned: 0, total_withdrawn: 0, available_balance: 0 };
-    earnings.held_balance = heldResult?.total_held || 0;
+    const earnings: TeacherEarningsRow = {
+      total_earned: earningsResult?.total_earned || 0,
+      total_withdrawn: earningsResult?.total_withdrawn || 0,
+      available_balance: earningsResult?.available_balance || 0,
+      held_balance: heldResult?.total_held || 0,
+    };
 
     // Get recent transactions
     const transactionsResult = await env.DB.prepare(

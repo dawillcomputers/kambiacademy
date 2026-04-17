@@ -2,6 +2,7 @@
 	"name": "kambiacademy",
 	"pages_build_output_dir": "./dist",
 	"compatibility_date": "2026-04-08",
+	"compatibility_flags": ["nodejs_compat"],
 	// Configure runtime secrets with `wrangler pages secret put` or a local `.dev.vars` file.
 	"d1_databases": [
 		{

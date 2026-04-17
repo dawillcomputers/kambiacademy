@@ -30,10 +30,19 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     }
   }
 
-  // Get all users except hidden ones
-  const { results } = await env.DB.prepare(
-    'SELECT id, name, email, role, status, must_change_password, created_at FROM users WHERE COALESCE(is_hidden, 0) = 0 ORDER BY created_at DESC',
-  ).all();
+  // Get all users except hidden ones (is_hidden column may not exist)
+  let results;
+  try {
+    const q = await env.DB.prepare(
+      'SELECT id, name, email, role, status, must_change_password, created_at FROM users WHERE COALESCE(is_hidden, 0) = 0 ORDER BY created_at DESC',
+    ).all();
+    results = q.results;
+  } catch {
+    const q = await env.DB.prepare(
+      'SELECT id, name, email, role, status, must_change_password, created_at FROM users ORDER BY created_at DESC',
+    ).all();
+    results = q.results;
+  }
 
   return Response.json({ users: results });
 };

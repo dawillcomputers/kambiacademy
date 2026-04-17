@@ -1,4 +1,4 @@
-import { getAuthUser, requireSubscription } from '../../_shared/auth';
+import { getAuthUser, requireSubscription, isFullAdmin } from '../../_shared/auth';
 
 interface Env {
   DB: D1Database;
@@ -75,10 +75,26 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   return Response.json({ message: 'Course submitted for review.', id: result.meta.last_row_id }, { status: 201 });
 };
 
+// DELETE: remove a course (admin/super_admin)
+export const onRequestDelete: PagesFunction<Env> = async ({ request, env }) => {
+  const admin = await getAuthUser(request, env.DB);
+  if (!admin || !isFullAdmin(admin)) {
+    return Response.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  const body = await request.json<{ courseId: number }>();
+  if (!body.courseId) {
+    return Response.json({ error: 'courseId is required.' }, { status: 400 });
+  }
+
+  await env.DB.prepare('DELETE FROM tutor_courses WHERE id = ?').bind(body.courseId).run();
+  return Response.json({ message: 'Course removed.' });
+};
+
 // PATCH: admin approves / rejects a course
 export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
   const admin = await getAuthUser(request, env.DB);
-  if (!admin || admin.role !== 'admin') {
+  if (!admin || !isFullAdmin(admin)) {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   }
 

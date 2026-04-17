@@ -166,7 +166,7 @@ async function unflagUser(env: Env, targetUserId: number) {
 async function scanAllUsers(env: Env) {
   const users = await env.DB.prepare(`
     SELECT id FROM users
-  `).all();
+  `).all<{ id: number }>();
 
   let flaggedCount = 0;
 

@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
 
@@ -17,65 +16,41 @@ interface SuperAdminStats {
   topTeachers: Array<{ id: number; name: string; email: string; enrollment_count: number; total_revenue: number; course_count: number }>;
 }
 
-const AnimatedCounter: React.FC<{ value: number; label: string; icon: string; color: string }> = ({ value, label, icon, color }) => {
+const KpiCard: React.FC<{ value: number; label: string; icon: string; prefix?: string }> = ({ value, label, icon, prefix }) => {
   const [count, setCount] = useState(0);
-
   useEffect(() => {
     let start = 0;
     const end = value;
-    const step = Math.ceil(end / 40);
-
-    const interval = setInterval(() => {
+    const step = Math.ceil(end / 40) || 1;
+    const id = setInterval(() => {
       start += step;
-      if (start >= end) {
-        setCount(end);
-        clearInterval(interval);
-      } else {
-        setCount(start);
-      }
+      if (start >= end) { setCount(end); clearInterval(id); } else { setCount(start); }
     }, 20);
-
-    return () => clearInterval(interval);
+    return () => clearInterval(id);
   }, [value]);
 
   return (
-    <div className={`bg-gradient-to-br ${color} rounded-xl p-6 text-white shadow-lg`}>
+    <div className="rounded-2xl bg-[#111B2E] border border-white/[0.06] p-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className={`opacity-80 text-sm font-medium`}>{label}</p>
-          <p className="text-3xl font-bold mt-2">{count.toLocaleString()}</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-[#6B7A99]">{label}</p>
+          <p className="text-2xl font-bold text-[#EAF0FF] mt-1">{prefix}{count.toLocaleString()}</p>
         </div>
-        <div className="text-4xl">{icon}</div>
+        <div className="text-3xl opacity-60">{icon}</div>
       </div>
     </div>
   );
 };
 
 const SuperAdminDashboard: React.FC = () => {
-  const { user, logout } = useAuth();
-  const location = useLocation();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const [stats, setStats] = useState<SuperAdminStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [aiInput, setAiInput] = useState('');
-  const [aiLog, setAiLog] = useState<Array<{ role: string; text: string }>>([]);
-  const wsRef = useRef<WebSocket | null>(null);
-
-  const sidebarItems = [
-    { name: 'Dashboard', icon: '📊', path: '/superadmin', active: location.pathname === '/superadmin' },
-    { name: 'Users', icon: '👥', path: '/superadmin/users', active: location.pathname === '/superadmin/users' },
-    { name: 'Courses', icon: '📚', path: '/superadmin/courses', active: location.pathname === '/superadmin/courses' },
-    { name: 'Analytics', icon: '📈', path: '/superadmin/analytics', active: location.pathname === '/superadmin/analytics' },
-    { name: 'Finance', icon: '💰', path: '/superadmin/finance', active: location.pathname === '/superadmin/finance' },
-    { name: 'Payouts', icon: '💸', path: '/superadmin/payouts', active: location.pathname === '/superadmin/payouts' },
-    { name: 'Settings', icon: '⚙️', path: '/superadmin/settings', active: location.pathname === '/superadmin/settings' },
-    { name: 'Audit Log', icon: '📋', path: '/superadmin/audit', active: location.pathname === '/superadmin/audit' },
-  ];
 
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const response = await api.get('/admin/stats');
+        const response = await api.adminGetStats();
         setStats(response);
       } catch (error) {
         console.error('Failed to load stats:', error);
@@ -86,216 +61,110 @@ const SuperAdminDashboard: React.FC = () => {
 
     loadStats();
     
-    // Refresh stats every 10 seconds
-    const interval = setInterval(loadStats, 10000);
+    const interval = setInterval(loadStats, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  const sendAiCommand = async () => {
-    if (!aiInput.trim()) return;
-
-    setAiLog(prev => [...prev, { role: 'user', text: aiInput }]);
-    const command = aiInput;
-    setAiInput('');
-
-    try {
-      const response = await fetch('/api/ai/command', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command })
-      });
-
-      const data = await response.json();
-      setAiLog(prev => [...prev, {
-        role: 'ai',
-        text: data.result || data.message || 'Command executed'
-      }]);
-    } catch (error: any) {
-      setAiLog(prev => [...prev, {
-        role: 'ai',
-        text: `Error: ${error.message}`
-      }]);
-    }
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/');
-  };
-
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-      {/* Sidebar */}
-      <aside className="w-72 h-screen overflow-y-auto border-r border-white/10 bg-slate-900/50 backdrop-blur-sm">
-        <div className="p-6 border-b border-white/10">
-          <h1 className="text-xl font-bold text-white">Super Admin</h1>
-          <p className="text-sm text-slate-400 mt-1">Kambi Academy</p>
+    <div className="p-6 lg:p-8">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-[#EAF0FF]">Dashboard Overview</h1>
+        <p className="text-[#6B7A99] mt-1 text-sm">Welcome back, {user?.name}</p>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-[#6366F1] border-t-transparent"></div>
         </div>
-
-        <nav className="p-4 space-y-2">
-          {[
-            { name: 'Dashboard', icon: '📊', path: '/superadmin', active: location.pathname === '/superadmin' },
-            { name: 'Users', icon: '👥', path: '/superadmin/users', active: location.pathname === '/superadmin/users' },
-            { name: 'Courses', icon: '📚', path: '/superadmin/courses', active: location.pathname === '/superadmin/courses' },
-            { name: 'Analytics', icon: '📈', path: '/superadmin/analytics', active: location.pathname === '/superadmin/analytics' },
-            { name: 'Finance', icon: '💰', path: '/superadmin/finance', active: location.pathname === '/superadmin/finance' },
-            { name: 'Payouts', icon: '💸', path: '/superadmin/payouts', active: location.pathname === '/superadmin/payouts' },
-            { name: 'Settings', icon: '⚙️', path: '/superadmin/settings', active: location.pathname === '/superadmin/settings' },
-            { name: 'Audit Log', icon: '📋', path: '/superadmin/audit', active: location.pathname === '/superadmin/audit' },
-          ].map((item) => (
-            <Link
-              key={item.name}
-              to={item.path}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                item.active
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
-                  : 'text-slate-300 hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              <span className="text-lg">{item.icon}</span>
-              <span className="font-medium">{item.name}</span>
-            </Link>
-          ))}
-        </nav>
-
-        {/* User Profile Section */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10 bg-slate-900/50">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">
-                {user?.name?.charAt(0)?.toUpperCase() || 'S'}
-              </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{user?.name}</p>
-              <p className="text-xs text-slate-400 truncate">{user?.email}</p>
-            </div>
+      ) : (
+        <>
+          {/* KPI Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <KpiCard label="Total Users" value={stats?.totalUsers || 0} icon="👥" />
+            <KpiCard label="Enrollments" value={stats?.totalEnrollments || 0} icon="🎓" />
+            <KpiCard label="Revenue" value={stats?.totalRevenue || 0} icon="💰" prefix="₦" />
+            <KpiCard label="Contacts" value={stats?.totalContacts || 0} icon="📩" />
           </div>
-          <button
-            onClick={handleLogout}
-            className="w-full px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-red-600/20 rounded-lg transition-colors"
-          >
-            Logout
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col min-h-0">
-        {/* Header */}
-        <header className="flex items-center justify-between p-6 border-b border-white/10 bg-slate-900/30 backdrop-blur-sm">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Dashboard Overview</h1>
-            <p className="text-slate-400 mt-1">Welcome back, {user?.name}</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm text-slate-400">Last login</p>
-              <p className="text-sm text-white">{new Date().toLocaleDateString()}</p>
-            </div>
-          </div>
-        </header>
-
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-6 text-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-blue-100 text-sm font-medium">Total Users</p>
-                    <p className="text-3xl font-bold mt-2">{stats?.totalUsers || 0}</p>
-                  </div>
-                  <div className="text-4xl">👥</div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-6 text-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-green-100 text-sm font-medium">Enrollments</p>
-                    <p className="text-3xl font-bold mt-2">{stats?.totalEnrollments || 0}</p>
-                  </div>
-                  <div className="text-4xl">📚</div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl p-6 text-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-purple-100 text-sm font-medium">Revenue</p>
-                    <p className="text-3xl font-bold mt-2">₦{stats?.totalRevenue?.toLocaleString() || 0}</p>
-                  </div>
-                  <div className="text-4xl">💰</div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-orange-600 to-orange-700 rounded-xl p-6 text-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-orange-100 text-sm font-medium">Contacts</p>
-                    <p className="text-3xl font-bold mt-2">{stats?.totalContacts || 0}</p>
-                  </div>
-                  <div className="text-4xl">📞</div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Recent Activity */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-              <h3 className="text-lg font-semibold text-white mb-4">Recent Users</h3>
-              <div className="space-y-3">
-                {stats?.recentUsers?.slice(0, 5).map((user) => (
-                  <div key={user.id} className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-lg">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">
-                        {user.name.charAt(0).toUpperCase()}
-                      </span>
+            {/* Recent Users */}
+            <div className="rounded-2xl bg-[#111B2E] border border-white/[0.06] p-5">
+              <h3 className="text-sm font-semibold text-[#EAF0FF] mb-4">Recent Users</h3>
+              <div className="space-y-2">
+                {stats?.recentUsers?.slice(0, 5).map((u) => (
+                  <div key={u.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#16233A]/60">
+                    <div className="w-7 h-7 rounded-full bg-[#6366F1]/25 flex items-center justify-center text-xs font-bold text-[#EAF0FF]">
+                      {u.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{user.name}</p>
-                      <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                      <p className="text-sm font-medium text-[#EAF0FF] truncate">{u.name}</p>
+                      <p className="text-xs text-[#6B7A99] truncate">{u.email}</p>
                     </div>
-                    <span className="text-xs px-2 py-1 bg-slate-600 rounded-full text-slate-300 capitalize">
-                      {user.role}
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#16233A] text-[#A9B4CC] capitalize font-medium">
+                      {u.role}
                     </span>
                   </div>
-                )) || (
-                  <p className="text-slate-400 text-sm">No recent users</p>
-                )}
+                )) || <p className="text-[#6B7A99] text-sm">No recent users</p>}
               </div>
             </div>
 
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-              <h3 className="text-lg font-semibold text-white mb-4">Recent Enrollments</h3>
-              <div className="space-y-3">
-                {stats?.recentEnrollments?.slice(0, 5).map((enrollment, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-lg">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">📚</span>
-                    </div>
+            {/* Recent Enrollments */}
+            <div className="rounded-2xl bg-[#111B2E] border border-white/[0.06] p-5">
+              <h3 className="text-sm font-semibold text-[#EAF0FF] mb-4">Recent Enrollments</h3>
+              <div className="space-y-2">
+                {stats?.recentEnrollments?.slice(0, 5).map((e, i) => (
+                  <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#16233A]/60">
+                    <div className="w-7 h-7 rounded-full bg-emerald-500/20 flex items-center justify-center text-xs">📚</div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{enrollment.course_slug}</p>
-                      <p className="text-xs text-slate-400 truncate">{enrollment.user_name}</p>
+                      <p className="text-sm font-medium text-[#EAF0FF] truncate">{e.course_slug}</p>
+                      <p className="text-xs text-[#6B7A99] truncate">{e.user_name}</p>
                     </div>
-                    <span className="text-xs px-2 py-1 bg-slate-600 rounded-full text-slate-300">
-                      ₦{enrollment.amount_paid}
-                    </span>
+                    <span className="text-xs text-[#A9B4CC] font-medium">₦{e.amount_paid}</span>
                   </div>
-                )) || (
-                  <p className="text-slate-400 text-sm">No recent enrollments</p>
-                )}
+                )) || <p className="text-[#6B7A99] text-sm">No recent enrollments</p>}
               </div>
             </div>
           </div>
-        </div>
-      </main>
+
+          {/* Top Courses + Top Teachers */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            <div className="rounded-2xl bg-[#111B2E] border border-white/[0.06] p-5">
+              <h3 className="text-sm font-semibold text-[#EAF0FF] mb-4">Top Courses</h3>
+              <div className="space-y-2">
+                {stats?.topCourses?.slice(0, 5).map((c, i) => (
+                  <div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#16233A]/60">
+                    <span className="text-sm text-[#EAF0FF] truncate">{c.course_slug}</span>
+                    <div className="flex items-center gap-4 shrink-0">
+                      <span className="text-xs text-[#A9B4CC]">{c.enrollment_count} enrolled</span>
+                      <span className="text-xs text-emerald-400 font-medium">₦{c.total_revenue}</span>
+                    </div>
+                  </div>
+                )) || <p className="text-[#6B7A99] text-sm">No data</p>}
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-[#111B2E] border border-white/[0.06] p-5">
+              <h3 className="text-sm font-semibold text-[#EAF0FF] mb-4">Top Teachers</h3>
+              <div className="space-y-2">
+                {stats?.topTeachers?.slice(0, 5).map((t) => (
+                  <div key={t.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#16233A]/60">
+                    <div className="w-7 h-7 rounded-full bg-amber-500/20 flex items-center justify-center text-xs font-bold text-amber-300">
+                      {t.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[#EAF0FF] truncate">{t.name}</p>
+                      <p className="text-xs text-[#6B7A99]">{t.course_count} courses</p>
+                    </div>
+                    <span className="text-xs text-emerald-400 font-medium">₦{t.total_revenue}</span>
+                  </div>
+                )) || <p className="text-[#6B7A99] text-sm">No data</p>}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
