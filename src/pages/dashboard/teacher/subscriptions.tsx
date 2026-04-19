@@ -4,18 +4,27 @@ import TeacherDashboardLayout from '../../../components/layout/TeacherDashboardL
 type Plan = {
   id: string;
   name: string;
-  price: number;
+  priceNgn: number;
   participants: number;
   hours: number;
   storage: number;
   features: string[];
+  popular?: boolean;
+};
+
+type Addon = {
+  id: string;
+  name: string;
+  priceNgn: number;
+  unit: string;
+  icon: string;
 };
 
 const plans: Plan[] = [
   {
     id: "starter",
     name: "Starter",
-    price: 5,
+    priceNgn: 7500,
     participants: 10,
     hours: 20,
     storage: 5,
@@ -24,22 +33,32 @@ const plans: Plan[] = [
   {
     id: "growth",
     name: "Growth",
-    price: 12,
+    priceNgn: 18000,
     participants: 30,
     hours: 60,
     storage: 20,
-    features: ["Recording", "Student Video", "HD Optional"]
+    features: ["Recording", "Student Video", "HD Optional"],
+    popular: true
   },
   {
     id: "pro",
     name: "Pro",
-    price: 25,
+    priceNgn: 37500,
     participants: 80,
     hours: 150,
     storage: 100,
-    features: ["HD Enabled", "Large Classes", "Priority"]
+    features: ["HD Enabled", "Large Classes", "Priority Support"]
   },
 ];
+
+const addons: Addon[] = [
+  { id: "recording", name: "Recording", priceNgn: 4500, unit: "/month", icon: "🎙️" },
+  { id: "hd_video", name: "HD Video", priceNgn: 4500, unit: "/month", icon: "🎥" },
+  { id: "extra_hours", name: "Extra Hours (+10h)", priceNgn: 3000, unit: "one-time", icon: "⏱" },
+  { id: "more_students", name: "More Students (+20)", priceNgn: 5000, unit: "/month", icon: "👥" },
+];
+
+const fmtNgn = (v: number) => `₦${v.toLocaleString()}`;
 
 export default function TeacherSubscriptionsPage() {
   const [currentPlan, setCurrentPlan] = useState("starter");
@@ -54,7 +73,7 @@ export default function TeacherSubscriptionsPage() {
             Subscription & Billing
           </h1>
           <p className="text-sm text-slate-500">
-            Manage your plan, usage and profit impact
+            Choose your plan, manage usage, and purchase add-ons
           </p>
         </div>
 
@@ -82,7 +101,6 @@ export default function TeacherSubscriptionsPage() {
 
         {/* USAGE + PROFIT WARNING */}
         <div className="grid md:grid-cols-3 gap-4">
-
           <div className="bg-white p-4 rounded-xl border">
             <p className="text-sm text-slate-500">Hours Used</p>
             <p className="text-xl font-bold text-slate-900">18 / 20</p>
@@ -103,30 +121,34 @@ export default function TeacherSubscriptionsPage() {
               Student video increasing cost
             </p>
           </div>
-
         </div>
 
         {/* PLAN CARDS */}
         <div className="grid md:grid-cols-3 gap-6">
-
           {plans.map(plan => {
             const isCurrent = currentPlan === plan.id;
 
             return (
               <div
                 key={plan.id}
-                className={`rounded-2xl border p-5 bg-white transition ${
+                className={`relative rounded-2xl border p-5 bg-white transition ${
                   isCurrent
                     ? "border-slate-900 shadow-lg"
                     : "hover:shadow-md"
                 }`}
               >
+                {plan.popular && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">
+                    Most Popular
+                  </span>
+                )}
+
                 <h3 className="text-lg font-bold text-slate-900">
                   {plan.name}
                 </h3>
 
                 <p className="mt-1 text-2xl font-bold text-slate-900">
-                  ${plan.price}
+                  {fmtNgn(plan.priceNgn)}
                   <span className="text-sm text-slate-500">/month</span>
                 </p>
 
@@ -163,30 +185,25 @@ export default function TeacherSubscriptionsPage() {
           </h2>
 
           <div className="mt-4 grid md:grid-cols-4 gap-4">
-
-            {[
-              { name: "Recording", price: "$3/month" },
-              { name: "HD Video", price: "$3/month" },
-              { name: "Extra Hours", price: "$2" },
-              { name: "More Students", price: "$5" }
-            ].map(addon => (
+            {addons.map(addon => (
               <div
-                key={addon.name}
+                key={addon.id}
                 className="border rounded-xl p-4 text-center"
               >
-                <p className="font-semibold text-slate-900">
+                <span className="text-2xl">{addon.icon}</span>
+                <p className="mt-2 font-semibold text-slate-900">
                   {addon.name}
                 </p>
-                <p className="text-sm text-slate-500">
-                  {addon.price}
+                <p className="text-sm font-bold text-emerald-700">
+                  {fmtNgn(addon.priceNgn)}
                 </p>
+                <p className="text-xs text-slate-500">{addon.unit}</p>
 
-                <button className="mt-3 text-sm bg-slate-900 text-white px-3 py-1 rounded-lg">
+                <button className="mt-3 text-sm bg-slate-900 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800">
                   Add
                 </button>
               </div>
             ))}
-
           </div>
         </div>
 
