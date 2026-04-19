@@ -5,6 +5,7 @@ import Card from '../Card';
 import Button from '../Button';
 import Modal from '../Modal';
 import CodeEditor from '../CodeEditor';
+import MobileBottomNav, { BottomNavItem } from '../layout/MobileBottomNav';
 
 interface TeacherDashboardProps {
   user: User;
@@ -91,12 +92,22 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, courses, subm
     return <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${styles[status]}`}>{status}</span>
   }
 
+  const ungradedCount = teacherSubmissions.filter(s=>!s.grade).length;
+
+  const mobileNavItems: BottomNavItem[] = [
+    { key: 'courses', label: 'Courses', icon: '📚', onClick: () => setView('courses') },
+    { key: 'submissions', label: 'Submissions', icon: '📝', onClick: () => setView('submissions'), badge: ungradedCount },
+    { key: 'earnings', label: 'Earnings', icon: '💰', onClick: () => setView('earnings') },
+    { key: 'profile', label: 'Profile', icon: '👤', onClick: () => setView('profile') },
+    { key: 'messages', label: 'Messages', icon: '💬', onClick: () => onNavigate('messages') },
+  ];
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
+    <div className="pb-2">
+      <div className="flex justify-between items-center mb-4 md:mb-6">
         <div>
-            <h2 className="text-3xl font-bold">Teacher Dashboard</h2>
-            <p className="text-slate-600">Manage your profile, courses, and student progress.</p>
+            <h2 className="text-2xl md:text-3xl font-bold">Teacher Dashboard</h2>
+            <p className="text-slate-600 text-sm md:text-base">Manage your profile, courses, and student progress.</p>
         </div>
         {canGoBack && (
             <Button variant="secondary" onClick={onBack}>
@@ -105,15 +116,19 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ user, courses, subm
         )}
       </div>
 
-      <div className="mb-6 border-b border-slate-200 overflow-x-auto">
+      {/* Desktop tab navigation - hidden on mobile */}
+      <div className="mb-6 border-b border-slate-200 overflow-x-auto hidden md:block">
         <nav className="flex space-x-2 sm:space-x-4 min-w-max pb-1">
           <button onClick={() => setView('courses')} className={`px-4 py-2 font-semibold rounded-md transition-colors ${view === 'courses' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'}`}>My Courses</button>
-          <button onClick={() => setView('submissions')} className={`px-4 py-2 font-semibold rounded-md transition-colors ${view === 'submissions' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'}`}>Submissions <span className="ml-1 px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full">{teacherSubmissions.filter(s=>!s.grade).length}</span></button>
+          <button onClick={() => setView('submissions')} className={`px-4 py-2 font-semibold rounded-md transition-colors ${view === 'submissions' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'}`}>Submissions <span className="ml-1 px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full">{ungradedCount}</span></button>
           <button onClick={() => setView('earnings')} className={`px-4 py-2 font-semibold rounded-md transition-colors ${view === 'earnings' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'}`}>Earnings</button>
           <button onClick={() => setView('profile')} className={`px-4 py-2 font-semibold rounded-md transition-colors ${view === 'profile' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'}`}>Profile</button>
           <button onClick={() => onNavigate('messages')} className="px-4 py-2 font-semibold rounded-md text-slate-600 hover:bg-slate-200">Messages</button>
         </nav>
       </div>
+
+      {/* Mobile bottom navigation */}
+      <MobileBottomNav items={mobileNavItems} activeKey={view} />
 
       {view === 'courses' && (
         <div>

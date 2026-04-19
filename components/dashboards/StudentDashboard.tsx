@@ -7,6 +7,7 @@ import Button from '../Button';
 import CodeEditor from '../CodeEditor';
 import Modal from '../Modal';
 import { api } from '../../lib/api';
+import MobileBottomNav, { BottomNavItem } from '../layout/MobileBottomNav';
 
 interface StudentDashboardProps {
   user: User;
@@ -255,7 +256,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, courses, subm
         )}
       </div>
 
-      <div className="mb-6 border-b border-slate-200">
+      <div className="mb-6 border-b border-slate-200 hidden md:block">
         <nav className="flex space-x-4 overflow-x-auto pb-1">
           <TabButton view="overview" label="Overview" />
           <TabButton view="grades" label="Grades" />
@@ -264,6 +265,18 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, courses, subm
           <TabButton view="live" label="Live Classroom" />
         </nav>
       </div>
+
+      {/* Mobile bottom navigation for student internal tabs */}
+      <MobileBottomNav
+        items={[
+          { key: 'overview', label: 'Overview', icon: '🏠', onClick: () => setActiveTab('overview') },
+          { key: 'grades', label: 'Grades', icon: '📋', onClick: () => setActiveTab('grades') },
+          { key: 'practice', label: 'Practice', icon: '🎯', onClick: () => setActiveTab('practice') },
+          { key: 'messages', label: 'Messages', icon: '💬', onClick: () => onNavigate('messages') },
+          { key: 'live', label: 'Live Class', icon: '🎙️', onClick: () => onNavigate('liveClassroom') },
+        ]}
+        activeKey={activeTab}
+      />
 
       <div>
         {activeTab === 'overview' && (

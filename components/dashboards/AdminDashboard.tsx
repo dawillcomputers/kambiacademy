@@ -7,6 +7,7 @@ import Button from '../Button';
 import Modal from '../Modal';
 import { BankIcon, IdentificationIcon } from '../icons/Icons';
 import DocumentViewerModal from '../DocumentViewerModal';
+import MobileBottomNav, { BottomNavItem } from '../layout/MobileBottomNav';
 
 const StatCard: React.FC<{ title: string; value: string | number, subtext?: string }> = ({ title, value, subtext }) => (
     <Card className="p-6">
@@ -240,7 +241,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </div>
 
       <div className="mb-6 border-b border-slate-200">
-        <nav className="flex flex-wrap space-x-2 sm:space-x-4">
+        <nav className="hidden md:flex flex-wrap space-x-2 sm:space-x-4">
           <button onClick={() => setActiveTab('analytics')} className={`px-3 sm:px-4 py-2 font-semibold rounded-md ${activeTab === 'analytics' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'}`}>Analytics</button>
           <button onClick={() => setActiveTab('financials')} className={`px-3 sm:px-4 py-2 font-semibold rounded-md ${activeTab === 'financials' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'}`}>Financials</button>
           <button onClick={() => setActiveTab('users')} className={`px-3 sm:px-4 py-2 font-semibold rounded-md ${activeTab === 'users' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'}`}>Users</button>
@@ -251,6 +252,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button onClick={() => setActiveTab('settings')} className={`px-3 sm:px-4 py-2 font-semibold rounded-md ${activeTab === 'settings' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-200'}`}>Settings</button>
         </nav>
       </div>
+
+      {/* Mobile bottom navigation for admin */}
+      <MobileBottomNav
+        items={[
+          { key: 'analytics', label: 'Analytics', icon: '📊', onClick: () => setActiveTab('analytics') },
+          { key: 'financials', label: 'Finance', icon: '💰', onClick: () => setActiveTab('financials') },
+          { key: 'users', label: 'Users', icon: '👥', onClick: () => setActiveTab('users') },
+          { key: 'courses', label: 'Courses', icon: '📚', onClick: () => setActiveTab('courses') },
+          { key: 'reports', label: 'Reports', icon: '🚨', onClick: () => setActiveTab('reports'), badge: reports.filter(r=>r.status==='open').length },
+          { key: 'testimonials', label: 'Testimonials', icon: '⭐', onClick: () => setActiveTab('testimonials') },
+          { key: 'profile', label: 'Profile', icon: '👤', onClick: () => setActiveTab('profile') },
+          { key: 'settings', label: 'Settings', icon: '⚙️', onClick: () => setActiveTab('settings') },
+        ]}
+        activeKey={activeTab}
+        maxVisible={5}
+      />
       
        {activeTab === 'analytics' && (
          <div className="space-y-8">

@@ -78,12 +78,31 @@ self.addEventListener('fetch', (event) => {
     return true;
   };
 
-  // Handle API requests with network-first strategy
+  // Handle API requests with network-first strategy (only cache GET requests)
   if (url.pathname.startsWith('/api/')) {
+    // Only use cache strategy for GET requests; POST/PUT/DELETE can't be cached
+    if (request.method !== 'GET') {
+      event.respondWith(
+        fetch(request).catch(() => {
+          return new Response(
+            JSON.stringify({
+              error: 'Offline',
+              message: 'This feature requires an internet connection'
+            }),
+            {
+              status: 503,
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+        })
+      );
+      return;
+    }
+
     event.respondWith(
       fetch(request)
         .then((response) => {
-          // Cache successful API responses for offline use
+          // Cache successful GET API responses for offline use
           if (response.status === 200) {
             const responseClone = response.clone();
             caches.open(DYNAMIC_CACHE)

@@ -58,6 +58,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile bottom nav safe area for notched devices */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Slide-up animation for mobile "More" menu */
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-slide-up {
+  animation: slideUp 0.2s ease-out;
+}
+
 :root {
   color-scheme: light;
   --app-bg: #f6f8fc;
