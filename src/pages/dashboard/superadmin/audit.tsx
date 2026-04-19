@@ -1,36 +1,111 @@
-import React from 'react'; import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { api } from '../../../../lib/api';
+
+interface AuditEntry {
+  id: number;
+  user_id: number;
+  user_name: string;
+  user_email: string;
+  old_role: string;
+  new_role: string;
+  changed_by: number;
+  changed_by_name: string;
+  reason?: string;
+  created_at: string;
+}
+
 const SuperAdminAudit: React.FC = () => {
+  const [log, setLog] = useState<AuditEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadLog = async () => {
+      try {
+        const response = await api.getAuditLog();
+        setLog(response.log || []);
+      } catch (error) {
+        console.error('Failed to load audit log:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    void loadLog();
+  }, []);
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'super_admin': return 'bg-purple-100 text-purple-800';
+      case 'admin': return 'bg-blue-100 text-blue-800';
+      case 'teacher': return 'bg-green-100 text-green-800';
+      case 'student': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-      <aside className="w-72 h-screen overflow-y-auto border-r border-white/10 bg-slate-900/50 backdrop-blur-sm">
-        <div className="p-6 border-b border-white/10"><h1 className="text-xl font-bold text-white">Super Admin</h1><p className="text-sm text-slate-400 mt-1">Kambi Academy</p></div>
-        <nav className="p-4 space-y-2">
-          {[
-            { name: 'Dashboard', icon: '📊', path: '/superadmin', active: false },
-            { name: 'Users', icon: '👥', path: '/superadmin/users', active: false },
-            { name: 'Courses', icon: '📚', path: '/superadmin/courses', active: false },
-            { name: 'Analytics', icon: '📈', path: '/superadmin/analytics', active: false },
-            { name: 'Finance', icon: '💰', path: '/superadmin/finance', active: false },
-            { name: 'Settings', icon: '⚙️', path: '/superadmin/settings', active: false },
-            { name: 'Audit Log', icon: '📋', path: '/superadmin/audit', active: true },
-          ].map((item) => (
-            <Link key={item.name} to={item.path} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${item.active ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}>
-              <span className="text-lg">{item.icon}</span><span className="font-medium">{item.name}</span>
-            </Link>
-          ))}
-        </nav>
-      </aside>
-      <main className="flex-1 flex flex-col min-h-0">
-        <header className="flex items-center justify-between p-6 border-b border-white/10 bg-slate-900/30 backdrop-blur-sm">
-          <div><h1 className="text-2xl font-bold text-white">Audit Log</h1><p className="text-slate-400 mt-1">System activity and change tracking</p></div>
-        </header>
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-white/10 p-8 text-center">
-            <div className="text-6xl mb-4">📋</div><h2 className="text-xl font-semibold text-white mb-2">Audit Log</h2><p className="text-slate-400">Activity tracking and audit features coming soon...</p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Audit Log</h1>
+        <p className="mt-1 text-sm text-slate-500">Track role changes and administrative actions</p>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-slate-900" />
           </div>
-        </div>
-      </main>
+        ) : log.length === 0 ? (
+          <div className="py-16 text-center text-sm text-slate-500">
+            No audit log entries found.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">User</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Change</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Changed By</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Reason</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {log.map((entry) => (
+                  <tr key={entry.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <p className="text-sm font-semibold text-slate-900">{entry.user_name}</p>
+                      <p className="text-xs text-slate-500">{entry.user_email}</p>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${getRoleColor(entry.old_role)}`}>
+                          {entry.old_role?.replace('_', ' ') || '—'}
+                        </span>
+                        <span className="text-slate-400">→</span>
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${getRoleColor(entry.new_role)}`}>
+                          {entry.new_role?.replace('_', ' ') || '—'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
+                      {entry.changed_by_name}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-500 max-w-xs truncate">
+                      {entry.reason || '—'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                      {new Date(entry.created_at).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
+
 export default SuperAdminAudit;

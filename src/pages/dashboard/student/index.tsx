@@ -10,9 +10,10 @@ interface StudentDashboardHomeProps {
   courses: Course[];
   submissions: Submission[];
   liveSessions?: any[];
+  progressMap?: Record<string, number>;
 }
 
-const StudentDashboardHome: React.FC<StudentDashboardHomeProps> = ({ user, courses, submissions, liveSessions = [] }) => {
+const StudentDashboardHome: React.FC<StudentDashboardHomeProps> = ({ user, courses, submissions, liveSessions = [], progressMap = {} }) => {
   const enrolledCourses = courses.filter(c => user.enrolledCourses?.includes(c.id));
   const completedCourses = enrolledCourses.filter(c => {
     const courseSubmissions = submissions.filter((submission) => submission.courseId === c.id && submission.grade !== null && submission.grade !== undefined);
@@ -68,10 +69,10 @@ const StudentDashboardHome: React.FC<StudentDashboardHomeProps> = ({ user, cours
               <div className="mb-4">
                 <div className="flex justify-between text-sm mb-1">
                   <span>How far I've gone</span>
-                  <span>60%</span>
+                  <span>{progressMap[course.slug] ?? 0}%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-green-500 h-2 rounded-full" style={{ width: '60%' }}></div>
+                  <div className="bg-green-500 h-2 rounded-full" style={{ width: `${progressMap[course.slug] ?? 0}%` }}></div>
                 </div>
               </div>
 

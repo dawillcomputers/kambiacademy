@@ -8,9 +8,10 @@ interface StudentCoursesProps {
   user: AuthUser;
   courses: Course[];
   onSelectCourse: (course: Course) => void;
+  progressMap?: Record<string, number>;
 }
 
-const StudentCourses: React.FC<StudentCoursesProps> = ({ user, courses, onSelectCourse }) => {
+const StudentCourses: React.FC<StudentCoursesProps> = ({ user, courses, onSelectCourse, progressMap = {} }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'all' | 'enrolled' | 'available'>('enrolled');
 
@@ -124,10 +125,10 @@ const StudentCourses: React.FC<StudentCoursesProps> = ({ user, courses, onSelect
                 <div className="mt-4">
                   <div className="flex justify-between text-sm mb-1">
                     <span>Progress</span>
-                    <span>60%</span>
+                    <span>{progressMap[course.slug] ?? 0}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-blue-500 h-2 rounded-full" style={{ width: '60%' }}></div>
+                    <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${progressMap[course.slug] ?? 0}%` }}></div>
                   </div>
                 </div>
               )}

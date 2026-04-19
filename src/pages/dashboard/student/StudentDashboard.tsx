@@ -102,12 +102,13 @@ const StudentDashboard: React.FC = () => {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [quizResponses, setQuizResponses] = useState<any[]>([]);
   const [liveSessions, setLiveSessions] = useState<any[]>([]);
+  const [progressMap, setProgressMap] = useState<Record<string, number>>({});
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showMaterialsEnabled, setShowMaterialsEnabled] = useState(false);
 
   const loadStudentData = useCallback(async () => {
-    const [site, settings, assignmentResult, submissionResult, materialResult, quizResult, quizResponseResult, liveSessionResult] = await Promise.allSettled([
+    const [site, settings, assignmentResult, submissionResult, materialResult, quizResult, quizResponseResult, liveSessionResult, progressResult] = await Promise.allSettled([
       api.getSite(),
       api.getSettings(),
       api.getAssignments(),
@@ -116,6 +117,7 @@ const StudentDashboard: React.FC = () => {
       api.getQuizzes(),
       api.getQuizResponses(),
       api.getLiveSessions(),
+      api.getProgress(),
     ]);
 
     setCourses(site.status === 'fulfilled' ? (site.value.courses || []).map(normalizeCourse) : []);
@@ -126,6 +128,15 @@ const StudentDashboard: React.FC = () => {
     setQuizzes(quizResult.status === 'fulfilled' ? (quizResult.value.quizzes || []).map(normalizeQuiz) : []);
     setQuizResponses(quizResponseResult.status === 'fulfilled' ? (quizResponseResult.value.responses || []) : []);
     setLiveSessions(liveSessionResult.status === 'fulfilled' ? (liveSessionResult.value.sessions || []) : []);
+
+    if (progressResult.status === 'fulfilled') {
+      const entries = progressResult.value.progress || [];
+      const map: Record<string, number> = {};
+      for (const entry of entries) {
+        if (entry.course_slug) map[entry.course_slug] = entry.progress_pct ?? 0;
+      }
+      setProgressMap(map);
+    }
   }, []);
 
   useEffect(() => {
@@ -202,6 +213,7 @@ const StudentDashboard: React.FC = () => {
               courses={courses}
               submissions={submissions}
               liveSessions={liveSessions}
+              progressMap={progressMap}
             />
           }
         />
@@ -209,7 +221,7 @@ const StudentDashboard: React.FC = () => {
         <Route path="chat" element={<StudentChat user={user} />} />
         <Route
           path="courses"
-          element={<StudentCourses user={user} courses={courses} onSelectCourse={handleSelectCourse} />}
+          element={<StudentCourses user={user} courses={courses} onSelectCourse={handleSelectCourse} progressMap={progressMap} />}
         />
         <Route
           path="courses/:courseId"
