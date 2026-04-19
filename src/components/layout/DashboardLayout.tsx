@@ -24,17 +24,14 @@ const buildStudentMenu = (showMaterials = false) => [
 ];
 
 const buildTeacherMenu = () => [
-  { name: 'Dashboard', path: '/teacher', icon: '🏠' },
-  { name: 'Courses', path: '/teacher/courses', icon: '📚' },
+  { name: 'Overview', path: '/teacher', icon: '🏠' },
+  { name: 'My Courses', path: '/teacher/courses', icon: '📚' },
   { name: 'Classes', path: '/teacher/classes', icon: '🏫' },
-  { name: 'Materials', path: '/teacher/materials', icon: '📁' },
   { name: 'Assignments', path: '/teacher/assignments', icon: '📝' },
   { name: 'Quizzes', path: '/teacher/quizzes', icon: '❓' },
-  { name: 'Live Classes', path: '/teacher/live', icon: '🎥' },
-  { name: 'AI Studio', path: '/teacher/ai', icon: '🤖' },
-  { name: 'Students', path: '/teacher/students', icon: '👥' },
-  { name: 'Payments Due', path: '/teacher/billing', icon: '💳' },
-  { name: 'Settings', path: '/teacher/settings', icon: '⚙️' },
+  { name: 'Subscriptions', path: '/teacher/subscriptions', icon: '💳' },
+  { name: 'Wallet', path: '/teacher/wallet', icon: '💰' },
+  { name: 'Profile', path: '/teacher/profile', icon: '👤' },
 ];
 
 export default function DashboardLayout({ children, user, showMaterials = false }: DashboardLayoutProps) {
@@ -122,10 +119,10 @@ export default function DashboardLayout({ children, user, showMaterials = false 
             {/* Right side */}
             <div className="flex items-center gap-3">
               <button
-                onClick={() => navigate(isTeacher ? '/teacher/settings' : '/student/profile')}
+                onClick={() => navigate(isTeacher ? '/teacher/profile' : '/student/profile')}
                 className="hidden sm:inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
-                {isTeacher ? 'Teaching Settings' : 'Edit Profile'}
+                {isTeacher ? 'My Profile' : 'Edit Profile'}
               </button>
 
               <button className="text-gray-600 hover:text-gray-900 relative">
