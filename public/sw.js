@@ -1,7 +1,7 @@
 // Service Worker for Offline Mode Support
-const CACHE_NAME = 'kambi-academy-v3';
-const STATIC_CACHE = 'kambi-static-v3';
-const DYNAMIC_CACHE = 'kambi-dynamic-v3';
+const CACHE_NAME = 'kambi-academy-v4';
+const STATIC_CACHE = 'kambi-static-v4';
+const DYNAMIC_CACHE = 'kambi-dynamic-v4';
 
 // Resources to cache immediately (Vite builds hashed assets – only cache shell resources)
 const STATIC_ASSETS = [

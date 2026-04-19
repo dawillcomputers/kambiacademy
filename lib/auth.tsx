@@ -53,15 +53,20 @@ const clearStoredTokenIfMatches = (token: string | null) => {
 
 const authFetch = async (path: string, init?: RequestInit) => {
   const token = localStorage.getItem('auth_token');
-  const res = await fetch(`${apiBaseUrl}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init?.headers,
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${apiBaseUrl}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init?.headers,
+      },
+    });
+  } catch (networkError) {
+    throw new Error('Network error. Please check your internet connection and try again.');
+  }
 
   const contentType = res.headers.get('content-type') || '';
   const data = contentType.includes('application/json') ? await res.json() : null;
@@ -69,6 +74,11 @@ const authFetch = async (path: string, init?: RequestInit) => {
   if (!res.ok) {
     if ((res.status === 401 || res.status === 403) && token) {
       clearStoredTokenIfMatches(token);
+    }
+
+    // Handle SW offline fallback responses
+    if (res.status === 503) {
+      throw new Error('Unable to connect to the server. Please check your internet connection, clear your browser cache, or try again.');
     }
 
     const message = data && typeof data === 'object' && 'error' in data
