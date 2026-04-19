@@ -31,6 +31,7 @@ interface TableConfig {
 const SYSTEM_MONITOR_USER_ID = 0;
 const FLUTTERWAVE_PAYMENT_GATEWAY = 'flutterwave_live';
 const BILLING_START_DATE = '2026-05-01T00:00:00.000Z';
+const PRODUCTION_SITE_ORIGIN = 'https://kambiacademy.com';
 
 const PLATFORM_FEES: FeeConfig = {
   monthly: 4.00,
@@ -97,6 +98,17 @@ function getTypeLabel(type: SubscriptionType) {
 
 function getRequirementTimestamp(type: SubscriptionType) {
   return new Date(getFees(type).effectiveDate).getTime();
+}
+
+function resolvePaymentOrigin(request: Request) {
+  const requestUrl = new URL(request.url);
+  const hostname = requestUrl.hostname.toLowerCase();
+
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') {
+    return (request.headers.get('origin') || requestUrl.origin).replace(/\/$/, '');
+  }
+
+  return PRODUCTION_SITE_ORIGIN;
 }
 
 async function insertSubscriptionRecord(options: {
@@ -759,7 +771,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const amount = pendingItems.reduce((sum, item) => sum + item.amount, 0);
-    const origin = request.headers.get('origin') || new URL(request.url).origin;
+    const origin = resolvePaymentOrigin(request);
     const redirectQuery = new URLSearchParams({
       type: 'bundle',
       sid: pendingItems.map((item) => item.subscriptionId).join(','),
@@ -833,7 +845,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const subscriptionId = crypto.randomUUID();
   const transactionRef = `${type}-${subscriptionId}-${Date.now()}`;
-  const origin = request.headers.get('origin') || new URL(request.url).origin;
+  const origin = resolvePaymentOrigin(request);
   if (!env.FLUTTERWAVE_SECRET_KEY) {
     return Response.json({ error: 'Flutterwave live gateway is not configured' }, { status: 503 });
   }

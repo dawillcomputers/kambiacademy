@@ -16,6 +16,15 @@ wrangler pages secret put FLUTTERWAVE_SECRET
 # When prompted, paste your Flutterwave secret key
 ```
 
+### Step 2b: Update Flutterwave Redirect Domain
+In the Flutterwave dashboard, set the production checkout redirect/callback URL to:
+
+```text
+https://kambiacademy.com/payment-callback
+```
+
+Do not leave any old `*.kambiacademy.pages.dev` callback hostnames configured for production payments.
+
 ### Step 3: Apply Database Migration
 ```bash
 # For local development

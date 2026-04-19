@@ -244,7 +244,9 @@ The platform includes full PWA support:
    npx wrangler pages secret put FLUTTERWAVE_ENCRYPTION_KEY --project-name kambiacademy
    ```
 3. Configure D1 database and R2 bucket bindings
-4. Deploy automatically on push
+4. In Flutterwave, register `https://kambiacademy.com/payment-callback` as the production redirect/callback URL for checkout flows.
+5. Ensure your Cloudflare Pages project serves `https://kambiacademy.com` as the primary production domain. Any legacy `*.kambiacademy.pages.dev` host will be redirected to the primary domain by Pages Functions.
+6. Deploy automatically on push
 
 Do not store service credentials in `wrangler.jsonc`. Keep local values in `.dev.vars` and remote values in Cloudflare Pages secrets.
 
