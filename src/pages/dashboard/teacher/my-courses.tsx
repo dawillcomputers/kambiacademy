@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import { api } from '../../../../lib/api';
 
-type Tab = 'listed' | 'enrolled' | 'draft';
+type Tab = 'listed' | 'enrolled' | 'ai' | 'draft';
 
 interface CourseRecord {
   id: number;
@@ -76,14 +76,16 @@ export default function TeacherCoursesPage() {
   const listed = useMemo(() => courses.filter(c => norm(c.status) === 'approved'), [courses]);
   const enrolled = useMemo(() => courses.filter(c => norm(c.status) === 'approved' && Number(c.enrollment_count || 0) > 0), [courses]);
   const drafts = useMemo(() => courses.filter(c => ['draft', 'pending', 'rejected'].includes(norm(c.status))), [courses]);
+  const aiCourses = useMemo(() => courses.filter(c => c.category?.toLowerCase().includes('ai') || c.title?.toLowerCase().includes('ai')), [courses]);
 
   const tabs: { key: Tab; label: string; count: number }[] = [
     { key: 'listed', label: 'Listed Courses', count: listed.length },
     { key: 'enrolled', label: 'Enrolled Courses', count: enrolled.length },
+    { key: 'ai', label: 'AI Courses', count: aiCourses.length },
     { key: 'draft', label: 'Draft Courses', count: drafts.length },
   ];
 
-  const visibleCourses = tab === 'listed' ? listed : tab === 'enrolled' ? enrolled : drafts;
+  const visibleCourses = tab === 'listed' ? listed : tab === 'enrolled' ? enrolled : tab === 'ai' ? aiCourses : drafts;
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
