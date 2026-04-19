@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import DashboardLayout from '../../../components/layout/DashboardLayout';
+import TeacherDashboardLayout from '../../../components/layout/TeacherDashboardLayout';
 import { api } from '../../../../lib/api';
 import { useAuth } from '../../../../lib/auth';
 
@@ -72,7 +72,7 @@ export default function TeacherProfilePage() {
   };
 
   return (
-    <DashboardLayout>
+    <TeacherDashboardLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Profile</h1>
@@ -165,6 +165,6 @@ export default function TeacherProfilePage() {
           </div>
         )}
       </div>
-    </DashboardLayout>
+    </TeacherDashboardLayout>
   );
 }

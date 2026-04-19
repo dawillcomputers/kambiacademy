@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import DashboardLayout from '../../../components/layout/DashboardLayout';
+import TeacherDashboardLayout from '../../../components/layout/TeacherDashboardLayout';
 
 export default function TeacherLive() {
   const [activeSession, setActiveSession] = useState<number | null>(null);
@@ -11,7 +11,7 @@ export default function TeacherLive() {
   ];
 
   return (
-    <DashboardLayout>
+    <TeacherDashboardLayout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Live Classes</h1>
@@ -161,6 +161,6 @@ export default function TeacherLive() {
           </form>
         </div>
       </div>
-    </DashboardLayout>
+    </TeacherDashboardLayout>
   );
 }

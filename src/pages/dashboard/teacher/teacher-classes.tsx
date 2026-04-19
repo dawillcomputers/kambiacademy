@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import DashboardLayout from '../../../components/layout/DashboardLayout';
+import TeacherDashboardLayout from '../../../components/layout/TeacherDashboardLayout';
 import { api } from '../../../../lib/api';
 
 type Tab = 'classes' | 'live' | 'schedule';
@@ -148,7 +148,7 @@ export default function TeacherClassesPage() {
   ];
 
   return (
-    <DashboardLayout>
+    <TeacherDashboardLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Classes</h1>
@@ -339,6 +339,6 @@ export default function TeacherClassesPage() {
           </>
         )}
       </div>
-    </DashboardLayout>
+    </TeacherDashboardLayout>
   );
 }

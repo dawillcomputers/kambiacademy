@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../../../lib/api';
-import DashboardLayout from '../../../components/layout/DashboardLayout';
+import TeacherDashboardLayout from '../../../components/layout/TeacherDashboardLayout';
 
 export default function TeacherWalletPage() {
   const [loading, setLoading] = useState(true);
@@ -35,7 +35,7 @@ export default function TeacherWalletPage() {
   const fmtUSD = (v: number) => `$${(v || 0).toFixed(2)}`;
 
   return (
-    <DashboardLayout>
+    <TeacherDashboardLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Wallet</h1>
@@ -192,6 +192,6 @@ export default function TeacherWalletPage() {
           </>
         )}
       </div>
-    </DashboardLayout>
+    </TeacherDashboardLayout>
   );
 }

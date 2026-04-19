@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../../../lib/api';
-import DashboardLayout from '../../../components/layout/DashboardLayout';
+import TeacherDashboardLayout from '../../../components/layout/TeacherDashboardLayout';
 
 export default function TeacherOverview() {
   const [loading, setLoading] = useState(true);
@@ -52,7 +52,7 @@ export default function TeacherOverview() {
   const recentClasses = classes.slice(0, 4);
 
   return (
-    <DashboardLayout>
+    <TeacherDashboardLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Overview</h1>
@@ -151,6 +151,6 @@ export default function TeacherOverview() {
           </>
         )}
       </div>
-    </DashboardLayout>
+    </TeacherDashboardLayout>
   );
 }

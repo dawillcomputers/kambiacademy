@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../../../../lib/api';
-import DashboardLayout from '../../../components/layout/DashboardLayout';
+import TeacherDashboardLayout from '../../../components/layout/TeacherDashboardLayout';
 
 type MaterialType = 'file' | 'youtube';
 
@@ -256,7 +256,7 @@ export default function TeacherMaterials() {
   };
 
   return (
-    <DashboardLayout>
+    <TeacherDashboardLayout>
       <div className="space-y-8">
         <section className="rounded-[32px] border border-slate-200 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.18),transparent_28%),linear-gradient(135deg,#ffffff,#f8fafc_45%,#ecfeff)] px-6 py-8 shadow-xl shadow-slate-200/70">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Materials Library</p>
@@ -473,6 +473,6 @@ export default function TeacherMaterials() {
           </>
         )}
       </div>
-    </DashboardLayout>
+    </TeacherDashboardLayout>
   );
 }

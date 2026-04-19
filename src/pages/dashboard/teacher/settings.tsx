@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import DashboardLayout from '../../../components/layout/DashboardLayout';
+import TeacherDashboardLayout from '../../../components/layout/TeacherDashboardLayout';
 import { api } from '../../../../lib/api';
 import { useAuth } from '../../../../lib/auth';
 
@@ -133,7 +133,7 @@ export default function TeacherSettings() {
   const liveHours = overview?.liveHours;
 
   return (
-    <DashboardLayout>
+    <TeacherDashboardLayout>
       <div className="space-y-8">
         <section className="rounded-[32px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,rgba(244,114,182,0.18),transparent_28%),linear-gradient(135deg,#ffffff,#f8fafc_45%,#fef2f2)] px-6 py-8 shadow-xl shadow-slate-200/70">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Teaching Settings</p>
@@ -303,6 +303,6 @@ export default function TeacherSettings() {
           </div>
         )}
       </div>
-    </DashboardLayout>
+    </TeacherDashboardLayout>
   );
 }

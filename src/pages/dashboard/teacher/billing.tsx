@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../../../../lib/api';
-import DashboardLayout from '../../../components/layout/DashboardLayout';
+import TeacherDashboardLayout from '../../../components/layout/TeacherDashboardLayout';
 
 type PlanType = 'monthly' | 'yearly';
 type ServiceKey = 'platform' | 'storage' | 'liveClass';
@@ -152,7 +152,7 @@ export default function TeacherBillingPage() {
   };
 
   return (
-    <DashboardLayout>
+    <TeacherDashboardLayout>
       <div className="space-y-8">
         <section className="rounded-[32px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.18),transparent_28%),linear-gradient(135deg,#ffffff,#f8fafc_50%,#ecfeff)] px-6 py-8 shadow-xl shadow-slate-200/70">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Teacher Payments</p>
@@ -303,6 +303,6 @@ export default function TeacherBillingPage() {
           </>
         )}
       </div>
-    </DashboardLayout>
+    </TeacherDashboardLayout>
   );
 }

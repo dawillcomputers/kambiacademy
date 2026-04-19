@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../lib/auth';
 import { User } from '../../../types';
@@ -41,7 +41,9 @@ export default function DashboardLayout({ children, user, showMaterials = false 
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>(() => localStorage.getItem('student_profile_avatar') || '');
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handleProfileUpdate = () => {
@@ -54,7 +56,19 @@ export default function DashboardLayout({ children, user, showMaterials = false 
   // Close mobile sidebar on route change
   useEffect(() => {
     setSidebarOpen(false);
+    setProfileMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, []);
 
   const effectiveUser = (user || (authUser as unknown as User | undefined));
   const isTeacher = (authUser?.role === 'teacher') || ((effectiveUser as any)?.role === 'teacher');
@@ -65,6 +79,8 @@ export default function DashboardLayout({ children, user, showMaterials = false 
   };
 
   const menu = isTeacher ? buildTeacherMenu() : buildStudentMenu(showMaterials);
+  const profilePath = isTeacher ? '/teacher/profile' : '/student/profile';
+  const avatarSrc = avatarUrl || (effectiveUser as any)?.avatar || 'https://via.placeholder.com/32x32';
 
   // Determine active path — exact match for root, startsWith for sub-paths
   const isActive = (path: string) => {
@@ -146,23 +162,17 @@ export default function DashboardLayout({ children, user, showMaterials = false 
 
         {/* Bottom Section */}
         <div className="shrink-0 border-t border-gray-200 p-3">
-          {collapsed ? (
-            <button
-              onClick={handleLogout}
-              className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              title="Logout"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-              </svg>
-            </button>
-          ) : (
-            <div className="flex items-center gap-3 rounded-lg px-3 py-2">
-              <img
-                src={avatarUrl || (effectiveUser as any)?.avatar || 'https://via.placeholder.com/32x32'}
-                alt="Avatar"
-                className="h-9 w-9 shrink-0 rounded-full border border-gray-200 object-cover"
-              />
+          <Link
+            to={profilePath}
+            className={`flex items-center rounded-lg px-3 py-2 transition hover:bg-gray-100 ${collapsed ? 'justify-center' : 'gap-3'}`}
+            title="Open profile"
+          >
+            <img
+              src={avatarSrc}
+              alt="Avatar"
+              className="h-9 w-9 shrink-0 rounded-full border border-gray-200 object-cover"
+            />
+            {!collapsed && (
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-gray-900">
                   {effectiveUser?.name || (isTeacher ? 'Teacher' : 'Student')}
@@ -171,17 +181,8 @@ export default function DashboardLayout({ children, user, showMaterials = false 
                   {isTeacher ? 'Teacher' : 'Student'}
                 </p>
               </div>
-              <button
-                onClick={handleLogout}
-                className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                title="Logout"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-                </svg>
-              </button>
-            </div>
-          )}
+            )}
+          </Link>
         </div>
       </aside>
 
@@ -212,15 +213,73 @@ export default function DashboardLayout({ children, user, showMaterials = false 
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
             </button>
 
-            <div className="hidden sm:flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5">
-              <img
-                src={avatarUrl || (effectiveUser as any)?.avatar || 'https://via.placeholder.com/24x24'}
-                alt="Avatar"
-                className="h-6 w-6 rounded-full object-cover"
-              />
-              <span className="text-sm font-medium text-gray-700">
-                {effectiveUser?.name || (isTeacher ? 'Teacher' : 'Student')}
-              </span>
+            <div className="relative" ref={profileMenuRef}>
+              <button
+                type="button"
+                onClick={() => setProfileMenuOpen((open) => !open)}
+                className="hidden sm:flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 hover:bg-white"
+              >
+                <img
+                  src={avatarSrc}
+                  alt="Avatar"
+                  className="h-6 w-6 rounded-full object-cover"
+                />
+                <span className="text-sm font-medium text-gray-700">
+                  {effectiveUser?.name || (isTeacher ? 'Teacher' : 'Student')}
+                </span>
+                <svg className={`h-4 w-4 text-gray-400 transition-transform ${profileMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setProfileMenuOpen((open) => !open)}
+                className="sm:hidden rounded-full border border-gray-200 bg-white p-1"
+                aria-label="Open profile menu"
+              >
+                <img
+                  src={avatarSrc}
+                  alt="Avatar"
+                  className="h-8 w-8 rounded-full object-cover"
+                />
+              </button>
+
+              {profileMenuOpen && (
+                <div className="absolute right-0 top-12 z-50 w-64 rounded-2xl border border-gray-200 bg-white p-2 shadow-xl shadow-slate-200/70">
+                  <div className="flex items-center gap-3 rounded-xl px-3 py-3">
+                    <img
+                      src={avatarSrc}
+                      alt="Avatar"
+                      className="h-10 w-10 rounded-full border border-gray-200 object-cover"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-gray-900">
+                        {effectiveUser?.name || (isTeacher ? 'Teacher' : 'Student')}
+                      </p>
+                      <p className="truncate text-xs text-gray-500">
+                        {(effectiveUser as any)?.email || (isTeacher ? 'Teacher account' : 'Student account')}
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    to={profilePath}
+                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    onClick={() => setProfileMenuOpen(false)}
+                  >
+                    <span className="text-base">👤</span>
+                    <span>Open profile</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-rose-600 hover:bg-rose-50"
+                  >
+                    <span className="text-base">🚪</span>
+                    <span>Logout</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>

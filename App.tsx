@@ -27,6 +27,12 @@ const TeacherQuizzes = lazy(() => import('./src/pages/dashboard/teacher/quizzes'
 const TeacherSubscriptions = lazy(() => import('./src/pages/dashboard/teacher/subscriptions'));
 const TeacherWallet = lazy(() => import('./src/pages/dashboard/teacher/wallet'));
 const TeacherProfile = lazy(() => import('./src/pages/dashboard/teacher/profile'));
+const TeacherChat = lazy(() => import('./src/pages/dashboard/teacher/chat'));
+const TeacherMaterials = lazy(() => import('./src/pages/dashboard/teacher/materials'));
+const TeacherStudents = lazy(() => import('./src/pages/dashboard/teacher/students'));
+const TeacherBilling = lazy(() => import('./src/pages/dashboard/teacher/billing'));
+const TeacherSettings = lazy(() => import('./src/pages/dashboard/teacher/settings'));
+const TeacherAI = lazy(() => import('./src/pages/dashboard/teacher/ai'));
 import { api } from './lib/api';
 import { AuthProvider, useAuth } from './lib/auth';
 import { BrandingContent, SiteData } from './types';
@@ -275,6 +281,14 @@ const AppShell: React.FC = () => {
             <Route path="/teacher/subscriptions" element={<RequireTutor><TeacherSubscriptions /></RequireTutor>} />
             <Route path="/teacher/wallet" element={<RequireTutor><TeacherWallet /></RequireTutor>} />
             <Route path="/teacher/profile" element={<RequireTutor><TeacherProfile /></RequireTutor>} />
+            <Route path="/teacher/chat" element={<RequireTutor><TeacherChat /></RequireTutor>} />
+            <Route path="/teacher/materials" element={<RequireTutor><TeacherMaterials /></RequireTutor>} />
+            <Route path="/teacher/students" element={<RequireTutor><TeacherStudents /></RequireTutor>} />
+            <Route path="/teacher/billing" element={<RequireTutor><TeacherBilling /></RequireTutor>} />
+            <Route path="/teacher/settings" element={<RequireTutor><TeacherSettings /></RequireTutor>} />
+            <Route path="/teacher/ai" element={<RequireTutor><TeacherAI /></RequireTutor>} />
+            <Route path="/teacher/ai-courses" element={<RequireTutor><Navigate to="/teacher/ai" replace /></RequireTutor>} />
+            <Route path="/teacher/live" element={<RequireTutor><Navigate to="/teacher/classes" replace /></RequireTutor>} />
             <Route path="/teacher/*" element={<RequireTutor><Navigate to="/teacher" replace /></RequireTutor>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
@@ -323,6 +337,14 @@ const AppShell: React.FC = () => {
               <Route path="/teacher/subscriptions" element={<RequireTutor><TeacherSubscriptions /></RequireTutor>} />
               <Route path="/teacher/wallet" element={<RequireTutor><TeacherWallet /></RequireTutor>} />
               <Route path="/teacher/profile" element={<RequireTutor><TeacherProfile /></RequireTutor>} />
+              <Route path="/teacher/chat" element={<RequireTutor><TeacherChat /></RequireTutor>} />
+              <Route path="/teacher/materials" element={<RequireTutor><TeacherMaterials /></RequireTutor>} />
+              <Route path="/teacher/students" element={<RequireTutor><TeacherStudents /></RequireTutor>} />
+              <Route path="/teacher/billing" element={<RequireTutor><TeacherBilling /></RequireTutor>} />
+              <Route path="/teacher/settings" element={<RequireTutor><TeacherSettings /></RequireTutor>} />
+              <Route path="/teacher/ai" element={<RequireTutor><TeacherAI /></RequireTutor>} />
+              <Route path="/teacher/ai-courses" element={<RequireTutor><Navigate to="/teacher/ai" replace /></RequireTutor>} />
+              <Route path="/teacher/live" element={<RequireTutor><Navigate to="/teacher/classes" replace /></RequireTutor>} />
               <Route path="/" element={<Home siteData={resolvedSiteData} />} />
               <Route path="/about" element={<About about={resolvedSiteData.about} instructors={resolvedSiteData.instructors} stats={resolvedSiteData.stats} />} />
               <Route path="/contact" element={<Contact contact={resolvedSiteData.contact} />} />

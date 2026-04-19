@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import DashboardLayout from '../../../components/layout/DashboardLayout';
+import TeacherDashboardLayout from '../../../components/layout/TeacherDashboardLayout';
 import { api } from '../../../../lib/api';
 
 interface StudentRow {
@@ -229,7 +229,7 @@ export default function TeacherStudents() {
   }, [students]);
 
   return (
-    <DashboardLayout>
+    <TeacherDashboardLayout>
       <div className="space-y-8">
         <section className="rounded-[32px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_28%),linear-gradient(135deg,#ffffff,#f8fafc_45%,#eff6ff)] px-6 py-8 shadow-xl shadow-slate-200/70">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Student Overview</p>
@@ -348,6 +348,6 @@ export default function TeacherStudents() {
           </div>
         </section>
       </div>
-    </DashboardLayout>
+    </TeacherDashboardLayout>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import DashboardLayout from '../../../components/layout/DashboardLayout';
+import TeacherDashboardLayout from '../../../components/layout/TeacherDashboardLayout';
 import { api } from '../../../../lib/api';
 
 type TabType = 'all' | 'create' | 'submissions' | 'review';
@@ -99,7 +99,7 @@ export default function TeacherAssignments() {
   const ungradedSubmissions = submissions.filter(s => s.score === null || s.score === undefined);
 
   return (
-    <DashboardLayout>
+    <TeacherDashboardLayout>
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Assignments</h1>
 
@@ -379,6 +379,6 @@ export default function TeacherAssignments() {
           </>
         )}
       </div>
-    </DashboardLayout>
+    </TeacherDashboardLayout>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import DashboardLayout from '../../../components/layout/DashboardLayout';
+import TeacherDashboardLayout from '../../../components/layout/TeacherDashboardLayout';
 import AICourses from '../student/ai-courses';
 import { api } from '../../../../lib/api';
 import { Course } from '../../../../types';
@@ -78,7 +78,7 @@ export default function TeacherAI() {
   const recentCourses = useMemo(() => courses.slice(0, 4), [courses]);
 
   return (
-    <DashboardLayout>
+    <TeacherDashboardLayout>
       <div className="space-y-8">
         <section className="rounded-[32px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_28%),linear-gradient(135deg,#ffffff,#f8fafc_45%,#eef2ff)] px-6 py-8 shadow-xl shadow-slate-200/70">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">AI Teaching Studio</p>
@@ -134,6 +134,6 @@ export default function TeacherAI() {
           </div>
         </section>
       </div>
-    </DashboardLayout>
+    </TeacherDashboardLayout>
   );
 }

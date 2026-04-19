@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import DashboardLayout from '../../../components/layout/DashboardLayout';
+import TeacherDashboardLayout from '../../../components/layout/TeacherDashboardLayout';
 import { api } from '../../../../lib/api';
 
 type TabType = 'all' | 'create' | 'results';
@@ -106,7 +106,7 @@ export default function TeacherQuizzes() {
     responses.filter(r => r.quiz_id === quizId).length;
 
   return (
-    <DashboardLayout>
+    <TeacherDashboardLayout>
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Quizzes</h1>
 
@@ -361,6 +361,6 @@ export default function TeacherQuizzes() {
           </>
         )}
       </div>
-    </DashboardLayout>
+    </TeacherDashboardLayout>
   );
 }
