@@ -38,6 +38,7 @@
     "functions/**",
     "migrations/**",
     "seed/**",
+    "workers/**",
     "dist/**",
     "node_modules"
   ]

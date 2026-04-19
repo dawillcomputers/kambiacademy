@@ -10,7 +10,7 @@ interface StudentSubmissionsProps {
 }
 
 const StudentSubmissions: React.FC<StudentSubmissionsProps> = ({ user, submissions, courses }) => {
-  const userSubmissions = submissions.filter(s => s.studentId === user.id);
+  const userSubmissions = submissions.filter(s => s.studentId === String(user.id));
 
   const getStatusColor = (grade: string | null) => {
     if (!grade) return 'bg-yellow-100 text-yellow-800';
@@ -32,28 +32,29 @@ const StudentSubmissions: React.FC<StudentSubmissionsProps> = ({ user, submissio
       {/* Submissions List */}
       <div className="space-y-4">
         {userSubmissions.map(submission => {
-          // Find the course and assignment for this submission
           const course = courses.find(c => c.id === submission.courseId);
-          const assignment = course?.assignments.find(a => a.id === submission.assignmentId);
+          const assignmentTitle = submission.assignmentTitle || 'Assignment';
+          const submittedAt = submission.submittedAt ? new Date(submission.submittedAt) : null;
+          const content = submission.content || submission.fileName || 'No submission content available.';
 
           return (
             <Card key={submission.id} className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
                   <h3 className="font-bold text-lg mb-2">
-                    {assignment?.title || 'Assignment'}
+                    {assignmentTitle}
                   </h3>
                   <p className="text-gray-600 mb-2">
                     {course?.title || 'Course'}
                   </p>
                   <p className="text-sm text-gray-500">
-                    Submitted on {new Date(submission.submittedAt).toLocaleDateString('en-US', {
+                    Submitted on {submittedAt ? submittedAt.toLocaleDateString('en-US', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric',
                       hour: '2-digit',
                       minute: '2-digit'
-                    })}
+                    }) : 'Unknown date'}
                   </p>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(submission.grade)}`}>
@@ -64,26 +65,26 @@ const StudentSubmissions: React.FC<StudentSubmissionsProps> = ({ user, submissio
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-semibold mb-2">Your Submission</h4>
                 <div className="text-sm text-gray-700">
-                  {submission.content.startsWith('http') ? (
+                  {content.startsWith('http') ? (
                     <a
-                      href={submission.content}
+                      href={content}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:text-blue-800 underline"
                     >
-                      {submission.content}
+                      {content}
                     </a>
                   ) : (
                     <pre className="whitespace-pre-wrap font-mono text-xs bg-white p-3 rounded border">
-                      {submission.content}
+                      {content}
                     </pre>
                   )}
                 </div>
               </div>
 
-              {assignment && (
+              {submission.maxScore !== undefined && (
                 <div className="mt-4 flex justify-between items-center text-sm text-gray-500">
-                  <span>Max Score: {assignment.maxScore} points</span>
+                  <span>Max Score: {submission.maxScore} points</span>
                   {submission.grade && (
                     <span>Scored: {submission.grade}</span>
                   )}

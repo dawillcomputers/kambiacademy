@@ -18,7 +18,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   let results;
-  if (user.role === 'admin') {
+  if (isFullAdmin(user)) {
     const q = await env.DB.prepare(`
       SELECT tc.*, u.name as tutor_name, u.email as tutor_email
       FROM tutor_courses tc JOIN users u ON tc.tutor_id = u.id

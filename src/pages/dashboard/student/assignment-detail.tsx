@@ -1,32 +1,63 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Course, Submission, User } from '../../../../types';
+import { Assignment, Course, Submission, User } from '../../../../types';
+import { api } from '../../../../lib/api';
 import Card from '../../../../components/Card';
 import Button from '../../../../components/Button';
 
 interface StudentAssignmentDetailProps {
   user: User;
   courses: Course[];
+  assignments: Assignment[];
   submissions: Submission[];
+  onSubmitted: () => Promise<void>;
 }
 
-const StudentAssignmentDetail: React.FC<StudentAssignmentDetailProps> = ({ user, courses, submissions }) => {
+const StudentAssignmentDetail: React.FC<StudentAssignmentDetailProps> = ({ user, courses, assignments, submissions, onSubmitted }) => {
   const { assignmentId } = useParams<{ assignmentId: string }>();
+  const [content, setContent] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
 
-  const assignment = courses
-    .flatMap((course) =>
-      (course.assignments || []).map((item) => ({
-        ...item,
-        courseTitle: course.title,
-        courseId: course.id,
-        courseSlug: course.slug,
-      }))
-    )
-    .find((item) => item.id === assignmentId);
+  const assignment = useMemo(() => {
+    const record = assignments.find((item) => item.id === assignmentId);
+    if (!record) {
+      return null;
+    }
+
+    const course = courses.find((item) => item.id === record.courseId);
+    return {
+      ...record,
+      courseTitle: course?.title || 'Course',
+      courseSlug: course?.slug || record.courseId,
+    };
+  }, [assignmentId, assignments, courses]);
 
   const submission = submissions.find(
-    (item) => item.assignmentId === assignmentId && item.studentId === user.id
+    (item) => item.assignmentId === assignmentId && item.studentId === String(user.id)
   );
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!assignmentId || (!content.trim() && !file)) {
+      return;
+    }
+
+    setSubmitting(true);
+    setStatusMessage('');
+    try {
+      await api.submitAssignment(Number(assignmentId), content.trim() || undefined, file || undefined);
+      setStatusMessage('Assignment submitted successfully.');
+      setContent('');
+      setFile(null);
+      await onSubmitted();
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to submit assignment.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (!assignment) {
     return (
@@ -72,14 +103,35 @@ const StudentAssignmentDetail: React.FC<StudentAssignmentDetailProps> = ({ user,
           {submission ? (
             <div className="mt-6 rounded-2xl bg-green-50 p-4 text-sm text-green-800">
               <p className="font-semibold">Submission received</p>
-              <p>{submission.content || 'No submission details are available.'}</p>
-              {submission.grade && <p className="mt-2">Grade: {submission.grade}</p>}
+              <p>{submission.content || submission.fileName || 'No submission details are available.'}</p>
+              {submission.grade !== null && submission.grade !== undefined && <p className="mt-2">Grade: {submission.grade}</p>}
             </div>
           ) : (
-            <div className="mt-6 rounded-2xl bg-yellow-50 p-4 text-sm text-yellow-800">
-              <p className="font-semibold">No submission yet</p>
-              <p>Use the assignment list to submit your work, or ask your tutor if you need help.</p>
-            </div>
+            <form onSubmit={handleSubmit} className="mt-6 space-y-4 rounded-2xl bg-yellow-50 p-4 text-sm text-yellow-900">
+              <div>
+                <p className="font-semibold">Submit your work</p>
+                <p className="mt-1 text-yellow-800">Send a written answer, upload a file, or use both.</p>
+              </div>
+              <textarea
+                value={content}
+                onChange={(event) => setContent(event.target.value)}
+                rows={6}
+                className="w-full rounded-2xl border border-yellow-200 bg-white px-4 py-3 text-slate-900"
+                placeholder="Paste your response, notes, or a link to your work."
+              />
+              <input
+                type="file"
+                onChange={(event) => setFile(event.target.files?.[0] || null)}
+                className="w-full rounded-2xl border border-yellow-200 bg-white px-4 py-3 text-slate-900"
+              />
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-yellow-800">Accepted file uploads are checked by the server on submission.</span>
+                <Button type="submit" disabled={submitting || (!content.trim() && !file)}>
+                  {submitting ? 'Submitting...' : 'Submit Assignment'}
+                </Button>
+              </div>
+              {statusMessage && <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-700">{statusMessage}</div>}
+            </form>
           )}
         </Card>
 

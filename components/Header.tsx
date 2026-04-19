@@ -52,6 +52,13 @@ const Header: React.FC<HeaderProps> = ({ branding }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const dashboardPath = user?.role === 'super_admin' || user?.role === 'SOU'
+    ? '/superadmin'
+    : user?.role === 'admin'
+      ? '/admin'
+      : user?.role === 'teacher' || user?.role === 'tutor'
+        ? '/teacher'
+        : '/student';
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/60 bg-white/80 backdrop-blur-xl">
@@ -86,7 +93,7 @@ const Header: React.FC<HeaderProps> = ({ branding }) => {
           {user ? (
             <>
               <Link
-                to={user.role === 'admin' ? '/admin' : user.role === 'teacher' ? '/tutor' : '/student'}
+                to={dashboardPath}
                 className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
               >
                 Dashboard
@@ -150,7 +157,7 @@ const Header: React.FC<HeaderProps> = ({ branding }) => {
             {user ? (
               <>
                 <Link
-                  to={user.role === 'admin' ? '/admin' : user.role === 'teacher' ? '/tutor' : '/student'}
+                  to={dashboardPath}
                   onClick={() => setIsMenuOpen(false)}
                   className="mt-2 rounded-2xl bg-indigo-600 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-indigo-700"
                 >

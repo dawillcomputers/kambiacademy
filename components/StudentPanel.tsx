@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
-import LiveClassroom from './LiveClassroomLiveKit';
+import LiveClassroom from './LiveClassroom';
 
 interface Enrollment {
   course_slug: string; amount_paid: number; created_at: string;

@@ -8,6 +8,8 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "cf:typegen": "wrangler types",
+    "realtime:dev": "wrangler dev --config workers/realtime/wrangler.jsonc",
+    "realtime:deploy": "wrangler deploy --config workers/realtime/wrangler.jsonc",
     "dev:api": "wrangler pages dev dist --port 8788",
     "cf:dev": "npm run build && wrangler pages dev dist",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
@@ -17,12 +19,8 @@
     "deploy:pages": "npm run build && wrangler pages deploy dist --project-name kambiacademy"
   },
   "dependencies": {
-    "@livekit/components-react": "^2.9.20",
-    "@livekit/components-styles": "^1.2.0",
     "@monaco-editor/react": "^4.7.0",
     "hono": "^4.12.14",
-    "livekit-client": "^2.18.1",
-    "livekit-server-sdk": "^2.15.1",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-router-dom": "^7.2.0"

@@ -1,4 +1,4 @@
-import { getAuthUser, requireSubscription } from '../../_shared/auth';
+import { checkSubscription, getAuthUser, isFullAdmin, requireSubscription } from '../../_shared/auth';
 
 interface Env {
   DB: D1Database;
@@ -7,14 +7,18 @@ interface Env {
 // GET: list all settings (admin only)
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const admin = await getAuthUser(request, env.DB);
-  if (!admin || admin.role !== 'admin') {
+  if (!admin || !isFullAdmin(admin)) {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  // Check subscription for admin access (enforce after one week of non-payment)
-  const subscriptionError = await requireSubscription(request, env.DB);
-  if (subscriptionError) {
-    return subscriptionError;
+  if (admin.role !== 'super_admin' && admin.role !== 'SOU') {
+    const hasSubscription = await checkSubscription(admin, env.DB);
+    if (!hasSubscription) {
+      const subscriptionError = await requireSubscription(request, env.DB);
+      if (subscriptionError) {
+        return subscriptionError;
+      }
+    }
   }
 
   const { results } = await env.DB.prepare('SELECT key, value FROM platform_settings').all();
@@ -29,14 +33,18 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 // PATCH: update a setting
 export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
   const admin = await getAuthUser(request, env.DB);
-  if (!admin || admin.role !== 'admin') {
+  if (!admin || !isFullAdmin(admin)) {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  // Check subscription for admin access (enforce after one week of non-payment)
-  const subscriptionError = await requireSubscription(request, env.DB);
-  if (subscriptionError) {
-    return subscriptionError;
+  if (admin.role !== 'super_admin' && admin.role !== 'SOU') {
+    const hasSubscription = await checkSubscription(admin, env.DB);
+    if (!hasSubscription) {
+      const subscriptionError = await requireSubscription(request, env.DB);
+      if (subscriptionError) {
+        return subscriptionError;
+      }
+    }
   }
 
   const body = await request.json<{ key: string; value: string }>();

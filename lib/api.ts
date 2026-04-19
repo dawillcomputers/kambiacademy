@@ -5,6 +5,13 @@ import {
   SubmissionResult,
   TutorApplicationPayload,
 } from '../types';
+import type {
+  RealtimeJoinResponse,
+  RealtimeMediaSessionResponse,
+  RealtimeMediaTrackRequest,
+  RealtimeMediaTracksResponse,
+  RealtimeSessionDescription,
+} from './liveClassroomProtocol';
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
@@ -133,6 +140,9 @@ export const api = {
   adminGetSettings: () =>
     request<{ settings: Record<string, string> }>('/api/admin/settings'),
 
+  getBillingOverview: () =>
+    request<any>('/api/billing'),
+
   adminUpdateSetting: (key: string, value: string) =>
     request<any>('/api/admin/settings', {
       method: 'PATCH',
@@ -161,6 +171,12 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  tutorUpdateCourse: (data: { courseId: number; title?: string; description?: string; level?: string; price?: number; duration_label?: string; category?: string }) =>
+    request<any>('/api/tutor/courses', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
   tutorGetClasses: () =>
     request<{ classes: any[] }>('/api/tutor/classes'),
 
@@ -172,18 +188,56 @@ export const api = {
 
   // Tutor subscriptions and billing
   getTeacherSubscription: () =>
-    request<{ platform: any; liveClass: any }>('/api/subscriptions?action=current'),
+    request<{ platform: any; liveClass: any; storage: any }>('/api/subscriptions?action=current'),
 
-  createTeacherSubscription: (planType: string, subscriptionType: 'platform' | 'liveClass' | 'storage' = 'platform', paymentGateway?: string) =>
+  createTeacherSubscription: (planType: string, subscriptionType: 'platform' | 'liveClass' | 'live_class' | 'storage' = 'platform', paymentGateway?: string) =>
     request<any>('/api/subscriptions', {
       method: 'POST',
       body: JSON.stringify({ planType, subscriptionType, paymentGateway }),
     }),
 
-  getTeacherSubscriptionHistory: (subscriptionType: 'platform' | 'liveClass' | 'storage' = 'platform') =>
+  createTeacherSubscriptionBundle: (items: Array<{ subscriptionType: 'platform' | 'liveClass' | 'live_class' | 'storage'; planType: 'monthly' | 'yearly' }>) =>
+    request<any>('/api/subscriptions', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'bundleCheckout',
+        items,
+      }),
+    }),
+
+  verifyTeacherSubscriptionPayment: (data: {
+    subscriptionId: string;
+    transactionRef: string;
+    flutterwaveTransactionId?: string;
+    status?: string;
+    subscriptionType?: 'platform' | 'liveClass' | 'storage' | 'live_class';
+  }) =>
+    request<any>('/api/subscriptions', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'verify',
+        ...data,
+      }),
+    }),
+
+  verifyTeacherSubscriptionBundlePayment: (data: {
+    items: Array<{ subscriptionId: string; subscriptionType: 'platform' | 'liveClass' | 'storage' | 'live_class' }>;
+    transactionRef: string;
+    flutterwaveTransactionId?: string;
+    status?: string;
+  }) =>
+    request<any>('/api/subscriptions', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'verifyBundle',
+        ...data,
+      }),
+    }),
+
+  getTeacherSubscriptionHistory: (subscriptionType: 'platform' | 'liveClass' | 'live_class' | 'storage' = 'platform') =>
     request<any>(`/api/subscriptions?action=history&type=${subscriptionType}`),
 
-  cancelTeacherSubscription: (subscriptionId: string, subscriptionType: 'platform' | 'liveClass' | 'storage' = 'platform') =>
+  cancelTeacherSubscription: (subscriptionId: string, subscriptionType: 'platform' | 'liveClass' | 'live_class' | 'storage' = 'platform') =>
     request<any>('/api/subscriptions', {
       method: 'PATCH',
       body: JSON.stringify({ subscriptionId, subscriptionType }),
@@ -337,6 +391,48 @@ export const api = {
 
   getLiveSession: (id: number) =>
     request<{ session: any; participants: any[]; messages: any[] }>(`/api/live-sessions?id=${id}`),
+
+  joinLiveRoom: (sessionId: number) =>
+    request<RealtimeJoinResponse>('/api/realtime/join', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId }),
+    }),
+
+  realtimeCreateMediaSession: (sessionId: number, sessionDescription?: RealtimeSessionDescription) =>
+    request<RealtimeMediaSessionResponse>('/api/realtime/media/session', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId, sessionDescription }),
+    }),
+
+  realtimeAddMediaTracks: (
+    sessionId: number,
+    mediaSessionId: string,
+    tracks: RealtimeMediaTrackRequest[],
+    sessionDescription?: RealtimeSessionDescription,
+  ) =>
+    request<RealtimeMediaTracksResponse>('/api/realtime/media/tracks', {
+      method: 'POST',
+      body: JSON.stringify({
+        session_id: sessionId,
+        media_session_id: mediaSessionId,
+        sessionDescription,
+        tracks,
+      }),
+    }),
+
+  realtimeRenegotiateMediaSession: (
+    sessionId: number,
+    mediaSessionId: string,
+    sessionDescription: RealtimeSessionDescription,
+  ) =>
+    request<{ sessionDescription?: RealtimeSessionDescription | null }>('/api/realtime/media/renegotiate', {
+      method: 'PUT',
+      body: JSON.stringify({
+        session_id: sessionId,
+        media_session_id: mediaSessionId,
+        sessionDescription,
+      }),
+    }),
 
   startLiveSession: (classId: number, title?: string) =>
     request<{ id: number; message: string }>('/api/live-sessions', {

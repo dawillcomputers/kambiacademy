@@ -1,5 +1,5 @@
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import About from './components/About';
 import BecomeTutor from './components/BecomeTutor';
@@ -11,24 +11,31 @@ import Footer from './components/Footer';
 import Header from './components/Header';
 import Home from './components/Home';
 import Login from './components/Login';
+import PaymentCallback from './components/PaymentCallback';
 import SignUp from './components/SignUp';
-import AdminPanel from './components/AdminPanel';
-import TutorPanel from './components/TutorPanel';
-import SuperAdminRoutes from './src/pages/dashboard/superadmin';
-import StudentDashboard from './src/pages/dashboard/student/StudentDashboard';
 import ChangePassword from './components/ChangePassword';
 import JoinClass from './components/JoinClass';
-// New teacher dashboard components
-import TeacherDashboard from './src/pages/dashboard/teacher/index';
-import TeacherCourses from './src/pages/dashboard/teacher/courses';
-import TeacherMaterials from './src/pages/dashboard/teacher/materials';
-import TeacherAssignments from './src/pages/dashboard/teacher/assignments';
-import TeacherQuizzes from './src/pages/dashboard/teacher/quizzes';
-import TeacherClasses from './src/pages/dashboard/teacher/classes';
-import TeacherLive from './src/pages/dashboard/teacher/live';
+// Lazy-loaded dashboard chunks
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
+const SuperAdminRoutes = lazy(() => import('./src/pages/dashboard/superadmin'));
+const StudentDashboard = lazy(() => import('./src/pages/dashboard/student/StudentDashboard'));
+const TeacherDashboard = lazy(() => import('./src/pages/dashboard/teacher/index'));
+const TeacherCourses = lazy(() => import('./src/pages/dashboard/teacher/courses'));
+const TeacherMaterials = lazy(() => import('./src/pages/dashboard/teacher/materials'));
+const TeacherAssignments = lazy(() => import('./src/pages/dashboard/teacher/assignments'));
+const TeacherQuizzes = lazy(() => import('./src/pages/dashboard/teacher/quizzes'));
+const TeacherClasses = lazy(() => import('./src/pages/dashboard/teacher/classes'));
+const TeacherLive = lazy(() => import('./src/pages/dashboard/teacher/live'));
+const TeacherBilling = lazy(() => import('./src/pages/dashboard/teacher/billing'));
+const TeacherAI = lazy(() => import('./src/pages/dashboard/teacher/ai'));
+const TeacherStudents = lazy(() => import('./src/pages/dashboard/teacher/students'));
+const TeacherSettings = lazy(() => import('./src/pages/dashboard/teacher/settings'));
 import { api } from './lib/api';
 import { AuthProvider, useAuth } from './lib/auth';
 import { BrandingContent, SiteData } from './types';
+
+const isTeacherRole = (role?: string) => role === 'teacher' || role === 'tutor';
+const isSuperAdminConsoleRole = (role?: string) => role === 'super_admin' || role === 'SOU';
 
 const fallbackBranding: BrandingContent = {
   name: 'Kambi Academy',
@@ -96,7 +103,7 @@ const RequireSuperAdmin: React.FC<{ children: React.ReactElement }> = ({ childre
   const { user, isLoading } = useAuth();
 
   if (isLoading) return <LoadingState />;
-  if (!user || user.role !== 'super_admin') return <Navigate to="/" replace />;
+  if (!user || !isSuperAdminConsoleRole(user.role)) return <Navigate to="/" replace />;
   if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
 
   return children;
@@ -106,7 +113,7 @@ const RequireTutor: React.FC<{ children: React.ReactElement }> = ({ children }) 
   const { user, isLoading } = useAuth();
 
   if (isLoading) return <LoadingState />;
-  if (!user || user.role !== 'tutor') return <Navigate to="/" replace />;
+  if (!user || !isTeacherRole(user.role)) return <Navigate to="/" replace />;
   if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
 
   return children;
@@ -119,9 +126,9 @@ const RequireChangePassword: React.FC<{ children: React.ReactElement }> = ({ chi
   if (!user) return <Navigate to="/login" replace />;
   if (!user.mustChangePassword) {
     // User doesn't need to change password, redirect to appropriate dashboard
-    if (user.role === 'super_admin') return <Navigate to="/superadmin" replace />;
+    if (isSuperAdminConsoleRole(user.role)) return <Navigate to="/superadmin" replace />;
     if (user.role === 'admin') return <Navigate to="/admin" replace />;
-    if (user.role === 'teacher') return <Navigate to="/tutor" replace />;
+    if (isTeacherRole(user.role)) return <Navigate to="/teacher" replace />;
     return <Navigate to="/student" replace />;
   }
 
@@ -256,16 +263,28 @@ const AppShell: React.FC = () => {
         {isLoading ? (
           <LoadingState />
         ) : (
+          <Suspense fallback={<LoadingState />}>
           <Routes>
             <Route path="/admin" element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
             <Route path="/superadmin/*" element={<RequireSuperAdmin><SuperAdminRoutes /></RequireSuperAdmin>} />
-            <Route path="/tutor" element={<RequireTutor><TutorPanel /></RequireTutor>} />
+            <Route path="/tutor" element={<RequireTutor><Navigate to="/teacher" replace /></RequireTutor>} />
             <Route path="/student/*" element={<RequireAuth><StudentDashboard /></RequireAuth>} />
             <Route path="/change-password" element={<RequireChangePassword><ChangePassword /></RequireChangePassword>} />
             <Route path="/teacher" element={<RequireTutor><TeacherDashboard /></RequireTutor>} />
-            <Route path="/teacher/*" element={<RequireTutor><TeacherDashboard /></RequireTutor>} />
+            <Route path="/teacher/courses" element={<RequireTutor><TeacherCourses /></RequireTutor>} />
+            <Route path="/teacher/materials" element={<RequireTutor><TeacherMaterials /></RequireTutor>} />
+            <Route path="/teacher/assignments" element={<RequireTutor><TeacherAssignments /></RequireTutor>} />
+            <Route path="/teacher/quizzes" element={<RequireTutor><TeacherQuizzes /></RequireTutor>} />
+            <Route path="/teacher/classes" element={<RequireTutor><TeacherClasses /></RequireTutor>} />
+            <Route path="/teacher/live" element={<RequireTutor><TeacherLive /></RequireTutor>} />
+            <Route path="/teacher/billing" element={<RequireTutor><TeacherBilling /></RequireTutor>} />
+            <Route path="/teacher/ai" element={<RequireTutor><TeacherAI /></RequireTutor>} />
+            <Route path="/teacher/students" element={<RequireTutor><TeacherStudents /></RequireTutor>} />
+            <Route path="/teacher/settings" element={<RequireTutor><TeacherSettings /></RequireTutor>} />
+            <Route path="/teacher/*" element={<RequireTutor><Navigate to="/teacher" replace /></RequireTutor>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         )}
       </div>
     );
@@ -290,16 +309,18 @@ const AppShell: React.FC = () => {
           {isLoading ? (
             <LoadingState />
           ) : (
+            <Suspense fallback={<LoadingState />}>
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<SignUp />} />
+              <Route path="/payment-callback" element={<PaymentCallback />} />
               <Route path="/admin" element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
               <Route path="/superadmin/*" element={<RequireSuperAdmin><SuperAdminRoutes /></RequireSuperAdmin>} />
-              <Route path="/tutor" element={<RequireTutor><TutorPanel /></RequireTutor>} />
+              <Route path="/tutor" element={<RequireTutor><Navigate to="/teacher" replace /></RequireTutor>} />
               <Route path="/student/*" element={<RequireAuth><StudentDashboard /></RequireAuth>} />
               <Route path="/change-password" element={<RequireChangePassword><ChangePassword /></RequireChangePassword>} />
               <Route path="/join/:code" element={<JoinClass />} />
-              {/* New Teacher Dashboard Routes */}
+              {/* Teacher Dashboard Routes */}
               <Route path="/teacher" element={<RequireTutor><TeacherDashboard /></RequireTutor>} />
               <Route path="/teacher/courses" element={<RequireTutor><TeacherCourses /></RequireTutor>} />
               <Route path="/teacher/materials" element={<RequireTutor><TeacherMaterials /></RequireTutor>} />
@@ -307,6 +328,10 @@ const AppShell: React.FC = () => {
               <Route path="/teacher/quizzes" element={<RequireTutor><TeacherQuizzes /></RequireTutor>} />
               <Route path="/teacher/classes" element={<RequireTutor><TeacherClasses /></RequireTutor>} />
               <Route path="/teacher/live" element={<RequireTutor><TeacherLive /></RequireTutor>} />
+              <Route path="/teacher/billing" element={<RequireTutor><TeacherBilling /></RequireTutor>} />
+              <Route path="/teacher/ai" element={<RequireTutor><TeacherAI /></RequireTutor>} />
+              <Route path="/teacher/students" element={<RequireTutor><TeacherStudents /></RequireTutor>} />
+              <Route path="/teacher/settings" element={<RequireTutor><TeacherSettings /></RequireTutor>} />
               <Route path="/" element={<Home siteData={resolvedSiteData} />} />
               <Route path="/about" element={<About about={resolvedSiteData.about} instructors={resolvedSiteData.instructors} stats={resolvedSiteData.stats} />} />
               <Route path="/contact" element={<Contact contact={resolvedSiteData.contact} />} />
@@ -316,6 +341,7 @@ const AppShell: React.FC = () => {
               <Route path="/teach" element={<BecomeTutor />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            </Suspense>
           )}
         </div>
       </main>

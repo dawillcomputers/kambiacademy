@@ -221,7 +221,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'student' | 'teacher' | 'admin' | 'super_admin';
+  role: 'student' | 'teacher' | 'admin' | 'super_admin' | 'SOU';
   status: 'active' | 'pending' | 'suspended';
   kycStatus?: 'verified' | 'pending' | 'rejected' | 'unverified';
   enrolledCourses?: string[];
@@ -258,11 +258,17 @@ export interface Submission {
   id: string;
   assignmentId: string;
   studentId: string;
-  grade?: number | null;
+  grade?: number | string | null;
   feedback?: string;
   content?: string;
   submittedAt?: string;
   score?: number;
+  courseId?: string;
+  courseSlug?: string;
+  assignmentTitle?: string;
+  maxScore?: number;
+  fileName?: string;
+  status?: string;
 }
 
 export interface Assignment {
@@ -345,6 +351,10 @@ export interface Material {
   type: 'video' | 'pdf' | 'link' | 'text';
   url?: string;
   uploadedAt?: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+  youtubeUrl?: string;
 }
 
 export interface LiveClassLink {

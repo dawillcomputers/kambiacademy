@@ -1,79 +1,150 @@
-import React, { useEffect, useState } from 'react';
-import { Link, Routes, Route, useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Link, Route, Routes, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../lib/auth';
 import { api } from '../../../../lib/api';
-import { Course, Submission, Material } from '../../../../types';
+import { Assignment, Course, Material, Quiz, Submission } from '../../../../types';
 import DashboardLayout from '../../../../components/layout/DashboardLayout';
-import StudentDashboardHome from './index';
-import StudentCourses from './courses';
-import StudentMaterials from './materials';
-import StudentAssignments from './assignments';
-import StudentSubmissions from './submissions';
-import StudentLive from './live';
-import StudentRequestClass from './request-class';
+import PaymentModal from '../../../../components/PaymentModal';
 import AICourses from './ai-courses';
-import StudentProfile from './profile';
+import StudentAssignmentDetail from './assignment-detail';
+import StudentAssignments from './assignments';
 import StudentChat from './chat';
 import StudentCourseDetail from './course-detail';
-import StudentAssignmentDetail from './assignment-detail';
-import PaymentModal from '../../../../components/PaymentModal';
+import StudentCourses from './courses';
+import StudentDashboardHome from './index';
+import StudentLive from './live';
+import StudentMaterials from './materials';
+import StudentProfile from './profile';
+import StudentQuizzes from './quizzes';
+import StudentRequestClass from './request-class';
+import StudentSubmissions from './submissions';
+
+const normalizeCourse = (course: Course): Course => ({
+  ...course,
+  id: course.slug,
+  instructor: course.instructor || 'Kambi Academy',
+  assignments: course.assignments || [],
+  materials: course.materials || [],
+  liveClassLinks: course.liveClassLinks || [],
+  announcements: course.announcements || [],
+});
+
+const normalizeAssignment = (assignment: any): Assignment => ({
+  id: String(assignment.id),
+  courseId: String(assignment.course_slug || assignment.courseId || ''),
+  title: assignment.title || 'Untitled assignment',
+  description: assignment.description || '',
+  dueDate: assignment.due_date || 'No due date',
+  maxScore: Number(assignment.max_score ?? 100),
+  type: assignment.type || 'file',
+});
+
+const normalizeSubmission = (submission: any): Submission => ({
+  id: String(submission.id),
+  assignmentId: String(submission.assignment_id ?? submission.assignmentId ?? ''),
+  studentId: String(submission.student_id ?? submission.studentId ?? ''),
+  grade: submission.score ?? submission.grade ?? null,
+  feedback: submission.feedback || '',
+  content: submission.content || '',
+  submittedAt: submission.submitted_at ?? submission.submittedAt ?? '',
+  score: submission.score ?? undefined,
+  courseId: submission.course_slug || submission.courseId || '',
+  courseSlug: submission.course_slug || submission.courseSlug || '',
+  assignmentTitle: submission.assignment_title || submission.assignmentTitle,
+  maxScore: submission.max_score ?? undefined,
+  fileName: submission.file_name || undefined,
+  status: submission.status || undefined,
+});
+
+const inferMaterialType = (material: any): Material['type'] => {
+  if (material.youtube_url || material.type === 'youtube') {
+    return 'link';
+  }
+  if (typeof material.mime_type === 'string' && material.mime_type.startsWith('video/')) {
+    return 'video';
+  }
+  if (typeof material.mime_type === 'string' && material.mime_type.includes('pdf')) {
+    return 'pdf';
+  }
+  return 'text';
+};
+
+const normalizeMaterial = (material: any): Material => ({
+  id: String(material.id),
+  courseId: String(material.course_slug || material.courseId || ''),
+  title: material.title || 'Untitled material',
+  description: material.description || '',
+  type: inferMaterialType(material),
+  url: material.youtube_url || api.getMaterialDownloadUrl(Number(material.id)),
+  uploadedAt: material.created_at || material.uploadedAt || '',
+  fileName: material.file_name || undefined,
+  fileSize: material.file_size ? Number(material.file_size) : undefined,
+  mimeType: material.mime_type || undefined,
+  youtubeUrl: material.youtube_url || undefined,
+});
+
+const normalizeQuiz = (quiz: any): Quiz => ({
+  id: String(quiz.id),
+  courseId: String(quiz.course_slug || quiz.courseId || ''),
+  title: quiz.title || 'Untitled quiz',
+  description: quiz.description || '',
+  timeLimit: quiz.time_limit_minutes ? Number(quiz.time_limit_minutes) : undefined,
+  questions: [],
+});
 
 const StudentDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [courses, setCourses] = useState<Course[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [quizResponses, setQuizResponses] = useState<any[]>([]);
+  const [liveSessions, setLiveSessions] = useState<any[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showMaterialsEnabled, setShowMaterialsEnabled] = useState(false);
 
-  useEffect(() => {
-    void api.getSettings()
-      .then((data) => {
-        setShowMaterialsEnabled(data.settings.student_materials_enabled === 'true');
-      })
-      .catch(() => {
-        setShowMaterialsEnabled(false);
-      });
+  const loadStudentData = useCallback(async () => {
+    const [site, settings, assignmentResult, submissionResult, materialResult, quizResult, quizResponseResult, liveSessionResult] = await Promise.allSettled([
+      api.getSite(),
+      api.getSettings(),
+      api.getAssignments(),
+      api.getSubmissions(),
+      api.getMaterials(),
+      api.getQuizzes(),
+      api.getQuizResponses(),
+      api.getLiveSessions(),
+    ]);
 
-    void (async () => {
-      try {
-        const site = await api.getSite();
-        setCourses(site.courses || []);
-      } catch {
-        setCourses([]);
-      }
-
-      try {
-        const submissionResult = await api.getSubmissions();
-        setSubmissions(submissionResult.submissions || []);
-      } catch {
-        setSubmissions([]);
-      }
-
-      try {
-        const materialsResult = await api.getMaterials();
-        setMaterials(materialsResult.materials || []);
-      } catch {
-        setMaterials([]);
-      }
-    })();
+    setCourses(site.status === 'fulfilled' ? (site.value.courses || []).map(normalizeCourse) : []);
+    setShowMaterialsEnabled(settings.status === 'fulfilled' ? settings.value.settings.student_materials_enabled === 'true' : false);
+    setAssignments(assignmentResult.status === 'fulfilled' ? (assignmentResult.value.assignments || []).map(normalizeAssignment) : []);
+    setSubmissions(submissionResult.status === 'fulfilled' ? (submissionResult.value.submissions || []).map(normalizeSubmission) : []);
+    setMaterials(materialResult.status === 'fulfilled' ? (materialResult.value.materials || []).map(normalizeMaterial) : []);
+    setQuizzes(quizResult.status === 'fulfilled' ? (quizResult.value.quizzes || []).map(normalizeQuiz) : []);
+    setQuizResponses(quizResponseResult.status === 'fulfilled' ? (quizResponseResult.value.responses || []) : []);
+    setLiveSessions(liveSessionResult.status === 'fulfilled' ? (liveSessionResult.value.sessions || []) : []);
   }, []);
+
+  useEffect(() => {
+    void loadStudentData();
+  }, [loadStudentData]);
 
   if (!user) {
     return <div>Please log in to access the dashboard.</div>;
   }
 
   const handleSelectCourse = (course: Course) => {
-    const isEnrolled = user.enrolledCourses?.includes(course.id);
+    const isEnrolled = user.enrolledCourses?.includes(course.slug);
     if (isEnrolled) {
-      navigate(`/student/courses/${course.id}`);
+      navigate(`/student/courses/${course.slug}`);
       return;
     }
 
     if (course.price === 0) {
-      handlePaymentSuccess(course);
+      void handlePaymentSuccess(course);
       return;
     }
 
@@ -82,48 +153,42 @@ const StudentDashboard: React.FC = () => {
   };
 
   const handlePaymentSuccess = async (course: Course) => {
-    // Record revenue transaction if course has a price
     if (course.price > 0) {
       try {
-        // Determine location markup (10% for US and EU countries)
         const euCountries = [
           'Germany', 'France', 'Italy', 'Spain', 'Netherlands', 'Belgium', 'Austria',
           'Sweden', 'Denmark', 'Finland', 'Poland', 'Czech Republic', 'Hungary',
           'Portugal', 'Greece', 'Ireland', 'Slovenia', 'Estonia', 'Latvia', 'Lithuania',
-          'Slovakia', 'Luxembourg', 'Malta', 'Cyprus', 'Croatia', 'Bulgaria', 'Romania'
+          'Slovakia', 'Luxembourg', 'Malta', 'Cyprus', 'Croatia', 'Bulgaria', 'Romania',
         ];
         const isUSOrEU = user.country === 'United States' || euCountries.includes(user.country || '');
-        const locationMarkup = isUSOrEU ? 10 : 0;
+        const teacherId = Number.parseInt(course.instructorId, 10);
 
-        await api.recordRevenue({
-          course_id: course.id,
-          teacher_id: parseInt(course.instructorId),
-          base_amount: course.price,
-          location_markup_percentage: locationMarkup,
-          student_country: user.country
-        });
+        if (Number.isFinite(teacherId)) {
+          await api.recordRevenue({
+            course_id: course.slug,
+            teacher_id: teacherId,
+            base_amount: course.price,
+            location_markup_percentage: isUSOrEU ? 10 : 0,
+            student_country: user.country,
+          });
+        }
       } catch (error) {
         console.error('Failed to record revenue:', error);
-        // Continue with enrollment even if revenue recording fails
       }
     }
 
-    setCourses((currentCourses) => {
-      if (currentCourses.some((item) => item.id === course.id)) {
-        return currentCourses;
-      }
-      return [...currentCourses, course];
-    });
-
-    if (user.enrolledCourses) {
-      if (!user.enrolledCourses.includes(course.id)) {
-        user.enrolledCourses.push(course.id);
-      }
-    } else {
-      user.enrolledCourses = [course.id];
+    try {
+      await api.enroll(course.slug);
+      await refreshUser();
+      await loadStudentData();
+    } catch (error) {
+      console.error('Failed to enroll in course:', error);
     }
 
-    navigate(`/student/courses/${course.id}`);
+    setShowPaymentModal(false);
+    setSelectedCourse(null);
+    navigate(`/student/courses/${course.slug}`);
   };
 
   return (
@@ -136,6 +201,7 @@ const StudentDashboard: React.FC = () => {
               user={user}
               courses={courses}
               submissions={submissions}
+              liveSessions={liveSessions}
             />
           }
         />
@@ -143,13 +209,7 @@ const StudentDashboard: React.FC = () => {
         <Route path="chat" element={<StudentChat user={user} />} />
         <Route
           path="courses"
-          element={
-            <StudentCourses
-              user={user}
-              courses={courses}
-              onSelectCourse={handleSelectCourse}
-            />
-          }
+          element={<StudentCourses user={user} courses={courses} onSelectCourse={handleSelectCourse} />}
         />
         <Route
           path="courses/:courseId"
@@ -157,6 +217,9 @@ const StudentDashboard: React.FC = () => {
             <StudentCourseDetail
               user={user}
               courses={courses}
+              assignments={assignments}
+              materials={materials}
+              quizzes={quizzes}
               onSelectCourse={handleSelectCourse}
             />
           }
@@ -165,11 +228,7 @@ const StudentDashboard: React.FC = () => {
           path="materials"
           element={
             showMaterialsEnabled ? (
-              <StudentMaterials
-                user={user}
-                courses={courses}
-                materials={materials}
-              />
+              <StudentMaterials user={user} courses={courses} materials={materials} />
             ) : (
               <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-10 text-center">
                 <h2 className="text-2xl font-semibold mb-3">Materials are not available yet</h2>
@@ -185,13 +244,7 @@ const StudentDashboard: React.FC = () => {
         />
         <Route
           path="assignments"
-          element={
-            <StudentAssignments
-              user={user}
-              courses={courses}
-              submissions={submissions}
-            />
-          }
+          element={<StudentAssignments user={user} courses={courses} assignments={assignments} submissions={submissions} />}
         />
         <Route
           path="assignments/:assignmentId"
@@ -199,47 +252,42 @@ const StudentDashboard: React.FC = () => {
             <StudentAssignmentDetail
               user={user}
               courses={courses}
+              assignments={assignments}
               submissions={submissions}
+              onSubmitted={loadStudentData}
             />
           }
         />
         <Route
           path="submissions"
+          element={<StudentSubmissions user={user} submissions={submissions} courses={courses} />}
+        />
+        <Route
+          path="quizzes"
           element={
-            <StudentSubmissions
+            <StudentQuizzes
               user={user}
-              submissions={submissions}
               courses={courses}
+              quizzes={quizzes}
+              quizResponses={quizResponses}
+              onSubmitted={loadStudentData}
             />
           }
         />
-        <Route
-          path="live"
-          element={<StudentLive user={user} />}
-        />
-        <Route
-          path="request-class"
-          element={
-            <StudentRequestClass
-              user={user}
-              courses={courses}
-            />
-          }
-        />
-        <Route
-          path="ai-courses"
-          element={<AICourses onRequestPayment={handleSelectCourse} />}
-        />
+        <Route path="live" element={<StudentLive user={user} liveSessions={liveSessions} onSessionClosed={loadStudentData} />} />
+        <Route path="request-class" element={<StudentRequestClass user={user} courses={courses} />} />
+        <Route path="ai-courses" element={<AICourses onRequestPayment={handleSelectCourse} />} />
       </Routes>
       {showPaymentModal && selectedCourse && (
         <PaymentModal
           course={selectedCourse}
           user={user}
-          onClose={() => setShowPaymentModal(false)}
-          onConfirm={() => {
-            handlePaymentSuccess(selectedCourse);
+          onClose={() => {
             setShowPaymentModal(false);
             setSelectedCourse(null);
+          }}
+          onConfirm={() => {
+            void handlePaymentSuccess(selectedCourse);
           }}
           moneyBackGuaranteeDays={30}
         />

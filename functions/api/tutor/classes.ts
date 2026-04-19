@@ -26,8 +26,17 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const q = await env.DB.prepare(`
-    SELECT pc.*, (SELECT COUNT(*) FROM private_class_members WHERE class_id = pc.id) as member_count
-    FROM private_classes pc WHERE pc.tutor_id = ? ORDER BY pc.created_at DESC
+    SELECT
+      pc.*,
+      COUNT(DISTINCT pcm.id) as member_count,
+      GROUP_CONCAT(DISTINCT u.name) as member_names,
+      GROUP_CONCAT(DISTINCT u.email) as member_emails
+    FROM private_classes pc
+    LEFT JOIN private_class_members pcm ON pcm.class_id = pc.id
+    LEFT JOIN users u ON u.id = pcm.user_id
+    WHERE pc.tutor_id = ?
+    GROUP BY pc.id
+    ORDER BY pc.created_at DESC
   `).bind(user.id).all();
 
   return Response.json({ classes: q.results });

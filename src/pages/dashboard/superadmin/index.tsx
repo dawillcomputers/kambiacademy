@@ -8,11 +8,13 @@ import SuperAdminAnalytics from './analytics';
 import SuperAdminFinance from './finance';
 import SuperAdminSettings from './settings';
 import SuperAdminAudit from './audit';
+import SuperAdminBilling from './billing';
 
 const sidebarItems: SidebarItem[] = [
   { name: 'Dashboard', icon: '📊', path: '/superadmin' },
   { name: 'Users', icon: '👥', path: '/superadmin/users' },
   { name: 'Courses', icon: '📚', path: '/superadmin/courses' },
+  { name: 'Billing', icon: '💳', path: '/superadmin/billing' },
   { name: 'Finance', icon: '💰', path: '/superadmin/finance' },
   { name: 'Analytics', icon: '📈', path: '/superadmin/analytics' },
   { name: 'Settings', icon: '⚙️', path: '/superadmin/settings' },
@@ -31,6 +33,7 @@ const SuperAdminRoutes: React.FC = () => {
         <Route path="/" element={<SuperAdminDashboard />} />
         <Route path="/users" element={<SuperAdminUsers />} />
         <Route path="/courses" element={<SuperAdminCourses />} />
+        <Route path="/billing" element={<SuperAdminBilling />} />
         <Route path="/analytics" element={<SuperAdminAnalytics />} />
         <Route path="/finance" element={<SuperAdminFinance />} />
         <Route path="/settings" element={<SuperAdminSettings />} />

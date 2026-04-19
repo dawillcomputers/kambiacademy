@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Course } from '../../../../types';
+import { Assignment, Course, Material, Quiz } from '../../../../types';
 import { AuthUser } from '../../../../lib/auth';
 import Card from '../../../../components/Card';
 import Button from '../../../../components/Button';
@@ -8,13 +8,19 @@ import Button from '../../../../components/Button';
 interface StudentCourseDetailProps {
   user: AuthUser;
   courses: Course[];
+  assignments: Assignment[];
+  materials: Material[];
+  quizzes: Quiz[];
   onSelectCourse: (course: Course) => void;
 }
 
-const StudentCourseDetail: React.FC<StudentCourseDetailProps> = ({ user, courses, onSelectCourse }) => {
+const StudentCourseDetail: React.FC<StudentCourseDetailProps> = ({ user, courses, assignments, materials, quizzes, onSelectCourse }) => {
   const { courseId } = useParams<{ courseId: string }>();
   const course = courses.find((item) => item.id === courseId);
   const isEnrolled = course && user.enrolledCourses?.includes(course.id);
+  const courseAssignments = assignments.filter((item) => item.courseId === courseId);
+  const courseMaterials = materials.filter((item) => item.courseId === courseId);
+  const courseQuizzes = quizzes.filter((item) => item.courseId === courseId);
 
   if (!course) {
     return (
@@ -51,6 +57,21 @@ const StudentCourseDetail: React.FC<StudentCourseDetailProps> = ({ user, courses
               <div className="rounded-2xl bg-slate-50 p-4">
                 <span className="text-sm text-slate-500">Price</span>
                 <p className="mt-2 font-semibold text-slate-900">{course.priceLabel}</p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <span className="text-sm text-slate-500">Assignments</span>
+                <p className="mt-2 font-semibold text-slate-900">{courseAssignments.length}</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <span className="text-sm text-slate-500">Materials</span>
+                <p className="mt-2 font-semibold text-slate-900">{courseMaterials.length}</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <span className="text-sm text-slate-500">Quizzes</span>
+                <p className="mt-2 font-semibold text-slate-900">{courseQuizzes.length}</p>
               </div>
             </div>
 

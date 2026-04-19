@@ -43,7 +43,7 @@ const SignUp: React.FC = () => {
         // Show pending approval message
         setError('Your tutor account has been created and is pending admin approval. You will receive an email once approved.');
       } else if (u?.role === 'teacher') {
-        navigate('/tutor', { replace: true });
+        navigate('/teacher', { replace: true });
       } else {
         navigate('/student', { replace: true });
       }

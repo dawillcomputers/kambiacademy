@@ -1,100 +1,77 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { User } from '../../../../types';
-import Card from '../../../../components/Card';
 import Button from '../../../../components/Button';
-import { api } from '../../../../lib/api';
-
-interface LiveSession {
-  id: string;
-  title: string;
-  courseTitle: string;
-  instructor: string;
-  scheduledTime: Date;
-  duration: number; // in minutes
-  status: 'upcoming' | 'live' | 'ended';
-  participants: number;
-  description?: string;
-}
+import Card from '../../../../components/Card';
+import LiveClassroom from '../../../../components/LiveClassroom';
 
 interface StudentLiveProps {
   user: User;
+  liveSessions: any[];
+  onSessionClosed: () => Promise<void>;
 }
 
-const StudentLive: React.FC<StudentLiveProps> = ({ user }) => {
-  const [filter, setFilter] = useState<'all' | 'upcoming' | 'live'>('all');
-  const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
+const StudentLive: React.FC<StudentLiveProps> = ({ user, liveSessions, onSessionClosed }) => {
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [filter, setFilter] = useState<'all' | 'live'>('all');
 
-  useEffect(() => {
-    void api.getLiveSessions()
-      .then((data) => {
-        const sessions = (data.sessions || []).map((session: any) => ({
-          id: String(session.id),
-          title: session.title || session.class_title || 'Live Session',
-          courseTitle: session.class_title || session.title || 'Live Class',
-          instructor: session.instructor || session.host_name || 'TBA',
-          scheduledTime: session.started_at || session.scheduled_time || new Date().toISOString(),
-          duration: session.duration || 60,
-          status: session.status || 'upcoming',
-          participants: session.member_count || session.participants || 0,
-          description: session.description || '',
-        }));
-        setLiveSessions(sessions);
-      })
-      .catch(() => {
-        setLiveSessions([]);
-      });
-  }, []);
+  const normalizedSessions = useMemo(() => liveSessions.map((session) => ({
+    id: Number(session.id),
+    title: session.title || session.class_title || 'Live Session',
+    classTitle: session.class_title || session.title || 'Live Class',
+    startedAt: session.started_at || new Date().toISOString(),
+    participants: Number(session.member_count || 0),
+    status: session.status || 'active',
+  })), [liveSessions]);
 
-  const filteredSessions = liveSessions.filter(session => {
-    if (filter === 'all') return true;
-    return session.status === filter;
-  });
+  if (activeSessionId !== null) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-bold">Live Classroom</h1>
+            <p className="text-slate-600">You are connected to a realtime teacher session.</p>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setActiveSessionId(null);
+              void onSessionClosed();
+            }}
+          >
+            Leave session list
+          </Button>
+        </div>
+        <LiveClassroom
+          sessionId={activeSessionId}
+          user={{ id: Number(user.id), name: user.name, role: user.role }}
+          onLeave={() => {
+            setActiveSessionId(null);
+            void onSessionClosed();
+          }}
+        />
+      </div>
+    );
+  }
 
-  const liveSessionExists = liveSessions.some(session => session.status === 'live');
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'live': return 'bg-red-100 text-red-800';
-      case 'upcoming': return 'bg-green-100 text-green-800';
-      case 'ended': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const filteredSessions = normalizedSessions.filter((session) => filter === 'all' || session.status === 'active');
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold mb-2">Live Classes</h1>
-        <p className="text-black">Join interactive live sessions with your instructors</p>
+        <p className="text-slate-600">Join the live sessions your teachers are running right now.</p>
       </div>
 
-      {/* Filter Tabs */}
       <Card className="p-4">
         <div className="flex gap-2">
           {[
-            { key: 'all', label: 'All Sessions' },
-            { key: 'live', label: 'Live Now' },
-            { key: 'upcoming', label: 'Upcoming' }
+            { key: 'all', label: 'All Active Rooms' },
+            { key: 'live', label: 'Joinable Now' },
           ].map(({ key, label }) => (
             <button
               key={key}
-              onClick={() => setFilter(key as any)}
-              className={`px-4 py-2 rounded-lg font-medium ${
-                filter === key
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              onClick={() => setFilter(key as 'all' | 'live')}
+              className={`px-4 py-2 rounded-lg font-medium ${filter === key ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
             >
               {label}
             </button>
@@ -102,121 +79,31 @@ const StudentLive: React.FC<StudentLiveProps> = ({ user }) => {
         </div>
       </Card>
 
-      {!liveSessionExists && (
-        <Card className="p-6 bg-yellow-50 border-yellow-200">
-          <h2 className="text-xl font-bold text-slate-900 mb-2">No Live Class Available</h2>
-          <p className="text-sm text-slate-600">
-            There are no live sessions running right now. Check upcoming sessions or request a new class.
-          </p>
+      {filteredSessions.length ? (
+        <div className="space-y-4">
+          {filteredSessions.map((session) => (
+            <Card key={session.id} className="p-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-3 w-3 rounded-full bg-red-500 animate-pulse" />
+                    <span className="text-xs font-bold uppercase tracking-[0.24em] text-red-600">Live now</span>
+                  </div>
+                  <h3 className="mt-3 text-xl font-bold text-slate-900">{session.title}</h3>
+                  <p className="mt-1 text-slate-600">{session.classTitle}</p>
+                  <p className="mt-2 text-sm text-slate-500">Started {new Date(session.startedAt).toLocaleString()} • {session.participants} participants</p>
+                </div>
+                <Button onClick={() => setActiveSessionId(session.id)}>Join Classroom</Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card className="p-10 text-center bg-yellow-50 border-yellow-200">
+          <h2 className="text-xl font-bold text-slate-900 mb-2">No live classes are running</h2>
+          <p className="text-sm text-slate-600">When your teacher starts a session, it will appear here and you can join directly.</p>
         </Card>
       )}
-
-      {/* Live Sessions */}
-      <div className="space-y-4">
-        {filteredSessions.map(session => (
-          <Card key={session.id} className="p-6">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h3 className="font-bold text-lg">{session.title}</h3>
-                  {session.status === 'live' && (
-                    <span className="px-2 py-1 bg-red-500 text-white text-xs rounded-full animate-pulse">
-                      🔴 LIVE
-                    </span>
-                  )}
-                </div>
-                <p className="text-slate-900 mb-2">{session.courseTitle}</p>
-                <p className="text-sm text-slate-900 mb-3">by {session.instructor}</p>
-                {session.description && (
-                  <p className="text-slate-900 mb-4">{session.description}</p>
-                )}
-              </div>
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(session.status)}`}>
-                {session.status.charAt(0).toUpperCase() + session.status.slice(1)}
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <div className="text-sm text-slate-900">
-                <div className="flex items-center gap-4">
-                  <span>📅 {formatTime(session.scheduledTime)}</span>
-                  <span>⏱️ {session.duration} minutes</span>
-                  <span>👥 {session.participants} participants</span>
-                </div>
-              </div>
-              <Button
-                variant={session.status === 'live' ? 'primary' : 'secondary'}
-                disabled={session.status !== 'live'}
-                onClick={() => {
-                  if (session.status === 'live') {
-                    alert('Live video is not available in this demo yet. Please join through the scheduled class link.');
-                  }
-                }}
-              >
-                {session.status === 'live' ? 'Join Live Class' :
-                 session.status === 'upcoming' ? 'Scheduled' : 'Ended'}
-              </Button>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      {filteredSessions.length === 0 && (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">🎥</div>
-          <h3 className="text-xl font-semibold mb-2">No Live Sessions Found</h3>
-          <p className="text-gray-600">
-            {filter === 'all'
-              ? "There are no live sessions scheduled at the moment."
-              : `No ${filter} live sessions found.`
-            }
-          </p>
-        </div>
-      )}
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6 text-center hover:shadow-lg transition-shadow cursor-pointer">
-          <div className="text-4xl mb-4">📝</div>
-          <h3 className="font-bold mb-2 text-slate-900">Request Class</h3>
-          <p className="text-slate-900 text-sm">Request a live session on a specific topic</p>
-        </Card>
-        <Card className="p-6 text-center hover:shadow-lg transition-shadow cursor-pointer">
-          <div className="text-4xl mb-4">📚</div>
-          <h3 className="font-bold mb-2 text-slate-900">Study Groups</h3>
-          <p className="text-slate-900 text-sm">Join study groups for collaborative learning</p>
-        </Card>
-        <Card className="p-6 text-center hover:shadow-lg transition-shadow cursor-pointer">
-          <div className="text-4xl mb-4">💬</div>
-          <h3 className="font-bold mb-2 text-slate-900">Q&A Sessions</h3>
-          <p className="text-slate-900 text-sm">Get your questions answered live</p>
-        </Card>
-      </div>
-
-      {/* Live Class Tips */}
-      <Card className="p-6 bg-blue-50 border-blue-200">
-        <h2 className="text-xl font-bold text-slate-900 mb-4">Live Class Tips 💡</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h3 className="font-semibold text-sky-900 mb-2">Before Class</h3>
-            <ul className="text-sm text-slate-900 space-y-1">
-              <li>• Test your camera and microphone</li>
-              <li>• Ensure stable internet connection</li>
-              <li>• Prepare questions in advance</li>
-              <li>• Review relevant materials</li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="font-semibold text-sky-900 mb-2">During Class</h3>
-            <ul className="text-sm text-slate-900 space-y-1">
-              <li>• Stay engaged and participate</li>
-              <li>• Use the chat for questions</li>
-              <li>• Take notes actively</li>
-              <li>• Respect other participants</li>
-            </ul>
-          </div>
-        </div>
-      </Card>
     </div>
   );
 };

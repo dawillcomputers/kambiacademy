@@ -1,7 +1,7 @@
 # Copy this file to .dev.vars for local Wrangler/Pages development.
-LIVEKIT_URL=wss://your-livekit-server.livekit.cloud
-LIVEKIT_API_KEY=your-livekit-api-key
-LIVEKIT_API_SECRET=your-livekit-api-secret
+REALTIME_JOIN_SECRET=replace-with-a-random-secret
+CLOUDFLARE_REALTIME_APP_ID=your-cloudflare-realtime-app-id
+CLOUDFLARE_REALTIME_APP_SECRET=your-cloudflare-realtime-app-secret
 FLUTTERWAVE_PUBLIC_KEY=your-flutterwave-public-key
 FLUTTERWAVE_SECRET_KEY=your-flutterwave-secret-key
 FLUTTERWAVE_ENCRYPTION_KEY=your-flutterwave-encryption-key

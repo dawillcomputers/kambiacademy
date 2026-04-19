@@ -1,0 +1,27 @@
+{
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"name": "kambiacademy-realtime",
+	"main": "./src/index.ts",
+	"compatibility_date": "2026-04-17",
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "CLASSROOM_ROOMS",
+				"class_name": "ClassroomRoom"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": ["ClassroomRoom"]
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "kambiacademy-db",
+			"database_id": "d89ff5f6-5197-4469-ba2a-8bbe4da62e48"
+		}
+	]
+}

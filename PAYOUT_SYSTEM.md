@@ -14,7 +14,7 @@ The Kambi Academy Payout System provides automated, reliable tutor payment proce
 ## System Architecture
 
 ```
-Weekly Cron (MON 02:00 UTC)
+Monthly Cron (MON 02:00 UTC)
     ↓
 Payout Scheduler (payouts-scheduler.ts)
     ├→ Batch Creation

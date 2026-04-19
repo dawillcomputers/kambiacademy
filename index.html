@@ -17,44 +17,5 @@
   <body class="antialiased">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
-    <script type="module">
-      if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then((registration) => {
-              console.log('SW registered: ', registration);
-
-              registration.addEventListener('updatefound', () => {
-                const newWorker = registration.installing;
-                if (newWorker) {
-                  newWorker.addEventListener('statechange', () => {
-                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                      if (confirm('New content is available. Reload to update?')) {
-                        window.location.reload();
-                      }
-                    }
-                  });
-                }
-              });
-            })
-            .catch((registrationError) => {
-              console.log('SW registration failed: ', registrationError);
-            });
-        });
-      }
-
-      window.addEventListener('online', () => {
-        console.log('Back online - syncing data...');
-        if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
-          navigator.serviceWorker.ready.then(registration => {
-            registration.sync.register('background-sync');
-          });
-        }
-      });
-
-      window.addEventListener('offline', () => {
-        console.log('Gone offline');
-      });
-    </script>
   </body>
 </html>

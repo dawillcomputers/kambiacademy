@@ -88,7 +88,7 @@ export default function DashboardShell({
 
   const isActive = (path?: string) => {
     if (!path) return false;
-    if (path === '/superadmin' || path === '/tutor' || path === '/student')
+    if (path === '/superadmin' || path === '/teacher' || path === '/tutor' || path === '/student')
       return location.pathname === path;
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };

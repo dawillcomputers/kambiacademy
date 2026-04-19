@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
@@ -8,6 +8,8 @@ interface AdminStats {
   totalUsers: number;
   totalEnrollments: number;
   totalRevenue: number;
+  pendingPaymentsDueCount: number;
+  pendingPaymentsDueAmount: number;
   totalContacts: number;
   totalTutorApps: number;
   totalLikes: number;
@@ -33,11 +35,42 @@ interface AuditLogEntry {
   id: number; user_name: string; changed_by_name: string; old_role: string; new_role: string; reason: string; created_at: string;
 }
 
-const StatCard: React.FC<{ label: string; value: string | number; detail?: string }> = ({ label, value, detail }) => (
-  <div className="rounded-[24px] border border-white/70 bg-white/85 px-5 py-5 shadow-lg shadow-slate-200/50">
-    <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">{label}</p>
-    <p className="mt-3 font-display text-3xl font-bold text-slate-950">{value}</p>
-    {detail && <p className="mt-1 text-sm text-slate-500">{detail}</p>}
+type AdminSubscriptionType = 'platform' | 'storage' | 'liveClass';
+
+interface AdminDueItem {
+  key: AdminSubscriptionType;
+  label: string;
+  amount: number;
+  icon: string;
+  tone: string;
+  planType: 'monthly' | 'yearly';
+}
+
+const subscriptionPresentation: Record<AdminSubscriptionType, { label: string; icon: string; monthly: number; yearly: number }> = {
+  platform: { label: 'Platform Access', icon: '🧭', monthly: 4, yearly: 44 },
+  storage: { label: 'Cloudflare Storage', icon: '☁️', monthly: 2, yearly: 24 },
+  liveClass: { label: 'Live Class Access', icon: '🎥', monthly: 2.2, yearly: 26.4 },
+};
+
+const statToneStyles: Record<string, string> = {
+  indigo: 'from-indigo-100 via-indigo-50 to-white border-indigo-200 text-indigo-950',
+  amber: 'from-amber-100 via-orange-50 to-white border-amber-200 text-amber-950',
+  emerald: 'from-emerald-100 via-teal-50 to-white border-emerald-200 text-emerald-950',
+  sky: 'from-sky-100 via-cyan-50 to-white border-sky-200 text-sky-950',
+  rose: 'from-rose-100 via-pink-50 to-white border-rose-200 text-rose-950',
+  violet: 'from-violet-100 via-fuchsia-50 to-white border-violet-200 text-violet-950',
+};
+
+const StatCard: React.FC<{ label: string; value: string | number; detail?: string; icon: string; tone: keyof typeof statToneStyles }> = ({ label, value, detail, icon, tone }) => (
+  <div className={`rounded-[24px] border bg-gradient-to-br px-5 py-5 shadow-lg shadow-slate-200/50 ${statToneStyles[tone]}`}>
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.28em] opacity-70">{label}</p>
+        <p className="mt-3 font-display text-3xl font-bold">{value}</p>
+      </div>
+      <div className="text-3xl">{icon}</div>
+    </div>
+    {detail && <p className="mt-4 text-sm opacity-75">{detail}</p>}
   </div>
 );
 
@@ -55,8 +88,13 @@ const AdminPanel: React.FC = () => {
   // Subscription state
   const [subscriptions, setSubscriptions] = useState<any>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
-  const [selectedSubscriptionType, setSelectedSubscriptionType] = useState<'platform' | 'liveClass'>('platform');
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
+  const [selectedSubscriptionType, setSelectedSubscriptionType] = useState<AdminSubscriptionType>('platform');
+  const [selectedPlans, setSelectedPlans] = useState<Record<AdminSubscriptionType, 'monthly' | 'yearly'>>({
+    platform: 'monthly',
+    storage: 'monthly',
+    liveClass: 'monthly',
+  });
+  const [selectedBundleItems, setSelectedBundleItems] = useState<Partial<Record<AdminSubscriptionType, boolean>>>({});
   const [subscriptionHistory, setSubscriptionHistory] = useState<any[]>([]);
 
   // Role change modal
@@ -108,6 +146,48 @@ const AdminPanel: React.FC = () => {
     }
   }, [tab, selectedSubscriptionType]);
 
+  const resolveSubscriptionState = (type: AdminSubscriptionType) => {
+    if (type === 'platform') {
+      return subscriptions?.platform;
+    }
+
+    if (type === 'storage') {
+      return subscriptions?.storage;
+    }
+
+    return subscriptions?.liveClass;
+  };
+
+  const dueSubscriptionItems = useMemo<AdminDueItem[]>(() => {
+    if (!subscriptions) {
+      return [];
+    }
+
+    const items: AdminDueItem[] = [];
+    (['platform', 'storage', 'liveClass'] as AdminSubscriptionType[]).forEach((type) => {
+      const state = resolveSubscriptionState(type);
+      if (!state?.requiresSubscription || state?.hasActiveSubscription) {
+        return;
+      }
+
+      const planType = selectedPlans[type];
+      const meta = subscriptionPresentation[type];
+      items.push({
+        key: type,
+        label: meta.label,
+        amount: state?.fees?.[planType] ?? meta[planType],
+        icon: meta.icon,
+        tone: type === 'platform' ? 'amber' : type === 'storage' ? 'sky' : 'rose',
+        planType,
+      });
+    });
+
+    return items;
+  }, [selectedPlans, subscriptions]);
+
+  const selectedDueItems = dueSubscriptionItems.filter((item) => selectedBundleItems[item.key] ?? true);
+  const selectedDueAmount = selectedDueItems.reduce((sum, item) => sum + item.amount, 0);
+
   const doAction = async (userId: number, action: string, extra?: any) => {
     setActionMsg('');
     try {
@@ -154,16 +234,38 @@ const AdminPanel: React.FC = () => {
     } catch (e: any) { setActionMsg(e.message); }
   };
 
-  const handleSubscribe = async () => {
+  const handleSubscribe = async (overrideType?: AdminSubscriptionType) => {
     setActionMsg('');
+    const effectiveType = overrideType || selectedSubscriptionType;
     try {
-      const res = await api.createTeacherSubscription(selectedPlan, selectedSubscriptionType);
-      setActionMsg(`${selectedSubscriptionType === 'liveClass' ? 'Live class' : 'Platform'} subscription created successfully. Redirecting to payment...`);
+      const res = await api.createTeacherSubscription(selectedPlans[effectiveType], effectiveType);
+      setActionMsg(`${subscriptionPresentation[effectiveType].label} checkout created successfully. Redirecting to Flutterwave Live...`);
       if (res.payment_url) {
         window.location.href = res.payment_url;
       }
     } catch (e: any) {
       setActionMsg(e.message || 'Failed to create subscription');
+    }
+  };
+
+  const handleBundleSubscribe = async () => {
+    if (!selectedDueItems.length) {
+      setActionMsg('Select at least one due item to continue.');
+      return;
+    }
+
+    setActionMsg('');
+    try {
+      const response = await api.createTeacherSubscriptionBundle(selectedDueItems.map((item) => ({
+        subscriptionType: item.key,
+        planType: item.planType,
+      })));
+      setActionMsg(`Combined checkout created for ${selectedDueItems.length} selected item${selectedDueItems.length === 1 ? '' : 's'}. Redirecting to Flutterwave Live...`);
+      if (response.payment_url) {
+        window.location.href = response.payment_url;
+      }
+    } catch (error: any) {
+      setActionMsg(error.message || 'Failed to create combined checkout.');
     }
   };
 
@@ -229,6 +331,9 @@ const AdminPanel: React.FC = () => {
     { key: 'subscription', label: 'Subscription' },
   ];
 
+  const selectedSubscriptionState = resolveSubscriptionState(selectedSubscriptionType);
+  const selectedSubscriptionMeta = subscriptionPresentation[selectedSubscriptionType];
+
   return (
     <div className="flex min-h-screen bg-slate-50 overflow-hidden">
       {/* Sidebar */}
@@ -271,15 +376,16 @@ const AdminPanel: React.FC = () => {
         <>
           <section className="mb-8 rounded-[32px] border border-white/70 bg-white px-6 py-6 shadow-lg">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard label="Total Users" value={stats.totalUsers} />
-              <StatCard label="Enrollments" value={stats.totalEnrollments} />
-              <StatCard label="Revenue" value={`$${stats.totalRevenue.toLocaleString()}`} />
-              <StatCard label="Page Views" value={stats.totalViews.toLocaleString()} />
+              <StatCard label="Total Users" value={stats.totalUsers} icon="👥" tone="indigo" detail="All active and pending users in the system" />
+              <StatCard label="Enrollments" value={stats.totalEnrollments} icon="🎓" tone="sky" detail="Student enrollments recorded across courses" />
+              <StatCard label="Revenue" value={`$${stats.totalRevenue.toLocaleString()}`} icon="💵" tone="emerald" detail="Total enrollment revenue recorded so far" />
+              <StatCard label="Page Views" value={stats.totalViews.toLocaleString()} icon="📈" tone="violet" detail="Aggregated course page interest and traffic" />
             </div>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <StatCard label="Course Likes" value={stats.totalLikes} />
-              <StatCard label="Contact Forms" value={stats.totalContacts} />
-              <StatCard label="Tutor Applications" value={stats.totalTutorApps} />
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard label="Course Likes" value={stats.totalLikes} icon="❤️" tone="rose" detail="Learner likes across tracked course pages" />
+              <StatCard label="Contact Forms" value={stats.totalContacts} icon="✉️" tone="amber" detail="Inbound contact forms submitted by visitors" />
+              <StatCard label="Tutor Applications" value={stats.totalTutorApps} icon="🧑‍🏫" tone="sky" detail="Applications waiting in the tutor funnel" />
+              <StatCard label="Payments Due" value={`$${stats.pendingPaymentsDueAmount.toLocaleString()}`} icon="💳" tone="emerald" detail={`${stats.pendingPaymentsDueCount} pending subscription payment${stats.pendingPaymentsDueCount === 1 ? '' : 's'} awaiting completion`} />
             </div>
           </section>
 
@@ -678,10 +784,83 @@ const AdminPanel: React.FC = () => {
             </div>
           ) : (
             <div className="mt-6 space-y-6">
+              {dueSubscriptionItems.length > 0 && (
+                <div className="rounded-2xl border border-white/70 bg-white/85 px-6 py-5 shadow-sm">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="font-semibold text-slate-900">Payments Due</h3>
+                      <p className="mt-1 text-sm text-slate-500">Choose 1, 2, or all 3 active dues and clear them in a single Flutterwave Live checkout.</p>
+                    </div>
+                    <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+                      Selected total: ${selectedDueAmount.toFixed(2)}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 xl:grid-cols-3">
+                    {dueSubscriptionItems.map((item) => (
+                      <div key={item.key} className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                        <label className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={selectedBundleItems[item.key] ?? true}
+                            onChange={(event) => setSelectedBundleItems((current) => ({ ...current, [item.key]: event.target.checked }))}
+                            className="h-4 w-4 rounded border-slate-300 text-indigo-600"
+                          />
+                          Include
+                        </label>
+                        <div className="mt-4 flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-2xl">{item.icon}</p>
+                            <h4 className="mt-2 font-semibold text-slate-900">{item.label}</h4>
+                            <p className="mt-2 text-2xl font-bold text-slate-950">${item.amount.toFixed(2)}</p>
+                          </div>
+                          <select
+                            value={selectedPlans[item.key]}
+                            onChange={(event) => setSelectedPlans((current) => ({
+                              ...current,
+                              [item.key]: event.target.value as 'monthly' | 'yearly',
+                            }))}
+                            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+                          >
+                            <option value="monthly">Monthly</option>
+                            <option value="yearly">Yearly</option>
+                          </select>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setSelectedSubscriptionType(item.key);
+                            void handleSubscribe(item.key);
+                          }}
+                          className="mt-4 w-full rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                        >
+                          Pay this one
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                    <button
+                      onClick={() => setSelectedBundleItems({ platform: true, storage: true, liveClass: true })}
+                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                    >
+                      Select all due items
+                    </button>
+                    <button
+                      onClick={() => { void handleBundleSubscribe(); }}
+                      disabled={!selectedDueItems.length}
+                      className="rounded-full bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Pay selected items together
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Subscription Type Selector */}
               <div className="rounded-2xl border border-white/70 bg-white/85 px-6 py-5 shadow-sm">
                 <h3 className="font-semibold text-slate-900 mb-4">Subscription Type</h3>
-                <div className="flex gap-4">
+                <div className="flex flex-wrap gap-4">
                   <button
                     onClick={() => setSelectedSubscriptionType('platform')}
                     className={`px-4 py-2 rounded-lg text-sm font-medium ${
@@ -693,6 +872,16 @@ const AdminPanel: React.FC = () => {
                     Platform Access ($4/month)
                   </button>
                   <button
+                    onClick={() => setSelectedSubscriptionType('storage')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                      selectedSubscriptionType === 'storage'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    Cloudflare Storage ($2/month)
+                  </button>
+                  <button
                     onClick={() => setSelectedSubscriptionType('liveClass')}
                     className={`px-4 py-2 rounded-lg text-sm font-medium ${
                       selectedSubscriptionType === 'liveClass'
@@ -700,7 +889,7 @@ const AdminPanel: React.FC = () => {
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     }`}
                   >
-                    Live Classes ($2/month)
+                    Live Class Access ($2.20/month)
                   </button>
                 </div>
               </div>
@@ -708,49 +897,49 @@ const AdminPanel: React.FC = () => {
               {/* Current Subscription Status */}
               <div className="rounded-2xl border border-white/70 bg-white/85 px-6 py-5 shadow-sm">
                 <h3 className="font-semibold text-slate-900 mb-4">
-                  Current {selectedSubscriptionType === 'liveClass' ? 'Live Class' : 'Platform'} Subscription
+                  Current {selectedSubscriptionMeta.label} Subscription
                 </h3>
-                {subscriptions && subscriptions[selectedSubscriptionType]?.subscription ? (
+                {selectedSubscriptionState?.subscription ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-600">Status:</span>
                       <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        subscriptions[selectedSubscriptionType].subscription.status === 'active' ? 'bg-green-100 text-green-700' :
-                        subscriptions[selectedSubscriptionType].subscription.status === 'expired' ? 'bg-red-100 text-red-700' :
+                        selectedSubscriptionState.subscription.status === 'active' ? 'bg-green-100 text-green-700' :
+                        selectedSubscriptionState.subscription.status === 'expired' ? 'bg-red-100 text-red-700' :
                         'bg-yellow-100 text-yellow-700'
                       }`}>
-                        {subscriptions[selectedSubscriptionType].subscription.status}
+                        {selectedSubscriptionState.subscription.status}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-600">Plan:</span>
                       <span className="font-medium text-slate-900">
-                        {subscriptions[selectedSubscriptionType].subscription.plan_type}
+                        {selectedSubscriptionState.subscription.planType}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-600">Expires:</span>
                       <span className="font-medium text-slate-900">
-                        {new Date(subscriptions[selectedSubscriptionType].subscription.endDate).toLocaleDateString()}
+                        {new Date(selectedSubscriptionState.subscription.endDate).toLocaleDateString()}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-600">Payment Method:</span>
                       <span className="font-medium text-slate-900">
-                        {subscriptions[selectedSubscriptionType].subscription.paymentGateway}
+                        {selectedSubscriptionState.subscription.paymentGateway}
                       </span>
                     </div>
                   </div>
                 ) : (
                   <div className="text-center py-8">
                     <p className="text-sm text-slate-500 mb-4">
-                      No active {selectedSubscriptionType === 'liveClass' ? 'live class' : 'platform'} subscription found
+                      No active {selectedSubscriptionMeta.label.toLowerCase()} subscription found
                     </p>
-                    {subscriptions && subscriptions[selectedSubscriptionType]?.requiresSubscription && (
+                    {selectedSubscriptionState?.requiresSubscription && (
                       <button
                         onClick={() => {
-                          setSelectedPlan('monthly');
-                          handleSubscribe();
+                          setSelectedPlans((current) => ({ ...current, [selectedSubscriptionType]: 'monthly' }));
+                          void handleSubscribe();
                         }}
                         className="rounded-full bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
                         Subscribe Now
@@ -767,13 +956,13 @@ const AdminPanel: React.FC = () => {
                   <div className="rounded-xl border border-slate-200 p-4">
                     <h4 className="font-semibold text-slate-900">Monthly Plan</h4>
                     <p className="text-2xl font-bold text-indigo-600 mt-1">
-                      ${selectedSubscriptionType === 'liveClass' ? '2' : '4'}
+                      ${selectedSubscriptionState?.fees?.monthly ?? selectedSubscriptionMeta.monthly}
                       <span className="text-sm font-normal text-slate-500">/month</span>
                     </p>
                     <button
                       onClick={() => {
-                        setSelectedPlan('monthly');
-                        handleSubscribe();
+                        setSelectedPlans((current) => ({ ...current, [selectedSubscriptionType]: 'monthly' }));
+                        void handleSubscribe();
                       }}
                       className="mt-3 w-full rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
                       Subscribe Monthly
@@ -782,13 +971,13 @@ const AdminPanel: React.FC = () => {
                   <div className="rounded-xl border border-slate-200 p-4">
                     <h4 className="font-semibold text-slate-900">Yearly Plan</h4>
                     <p className="text-2xl font-bold text-indigo-600 mt-1">
-                      ${selectedSubscriptionType === 'liveClass' ? '24' : '44'}
+                      ${selectedSubscriptionState?.fees?.yearly ?? selectedSubscriptionMeta.yearly}
                       <span className="text-sm font-normal text-slate-500">/year</span>
                     </p>
                     <button
                       onClick={() => {
-                        setSelectedPlan('yearly');
-                        handleSubscribe();
+                        setSelectedPlans((current) => ({ ...current, [selectedSubscriptionType]: 'yearly' }));
+                        void handleSubscribe();
                       }}
                       className="mt-3 w-full rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
                       Subscribe Yearly
@@ -807,12 +996,12 @@ const AdminPanel: React.FC = () => {
                     {subscriptionHistory.map((payment, i) => (
                       <div key={i} className="flex items-center justify-between rounded-xl border border-slate-100 bg-white px-4 py-3">
                         <div>
-                          <p className="font-medium text-slate-900">{payment.plan_type} Plan</p>
-                          <p className="text-sm text-slate-500">{new Date(payment.created_at).toLocaleDateString()}</p>
+                          <p className="font-medium text-slate-900">{payment.planType} Plan</p>
+                          <p className="text-sm text-slate-500">{new Date(payment.createdAt || payment.paymentDate).toLocaleDateString()}</p>
                         </div>
                         <div className="text-right">
                           <p className="font-semibold text-emerald-600">${payment.amount}</p>
-                          <p className="text-xs text-slate-400">{payment.payment_gateway}</p>
+                          <p className="text-xs text-slate-400">{payment.paymentGateway}</p>
                         </div>
                       </div>
                     ))}

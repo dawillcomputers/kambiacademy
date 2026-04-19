@@ -9,16 +9,18 @@ interface StudentDashboardHomeProps {
   user: AuthUser;
   courses: Course[];
   submissions: Submission[];
+  liveSessions?: any[];
 }
 
-const StudentDashboardHome: React.FC<StudentDashboardHomeProps> = ({ user, courses, submissions }) => {
+const StudentDashboardHome: React.FC<StudentDashboardHomeProps> = ({ user, courses, submissions, liveSessions = [] }) => {
   const enrolledCourses = courses.filter(c => user.enrolledCourses?.includes(c.id));
   const completedCourses = enrolledCourses.filter(c => {
-    const courseSubmissions = submissions.filter(s => enrolledCourses.some(ec => ec.id === c.id));
-    return courseSubmissions.length > 0 && courseSubmissions.every(s => s.grade);
+    const courseSubmissions = submissions.filter((submission) => submission.courseId === c.id && submission.grade !== null && submission.grade !== undefined);
+    return courseSubmissions.length > 0;
   });
 
   const continueLearning = enrolledCourses.slice(0, 3);
+  const upcomingSessions = liveSessions.slice(0, 2);
 
   return (
     <div className="space-y-8">
@@ -111,30 +113,32 @@ const StudentDashboardHome: React.FC<StudentDashboardHomeProps> = ({ user, cours
       <Card className="p-6">
         <h2 className="text-xl font-bold mb-4 text-slate-900">Live Classes Coming Up</h2>
         <div className="space-y-3">
-          <div className="flex justify-between items-center p-3 bg-white rounded-lg shadow-sm">
-            <div>
-              <h3 className="font-semibold text-slate-900">React Masterclass</h3>
-              <p className="text-sm text-slate-700">Advanced React patterns that help you build faster.</p>
+          {upcomingSessions.length ? upcomingSessions.map((session: any) => (
+            <div key={session.id} className="flex justify-between items-center p-3 bg-white rounded-lg shadow-sm">
+              <div>
+                <h3 className="font-semibold text-slate-900">{session.title || session.class_title || 'Live Session'}</h3>
+                <p className="text-sm text-slate-700">{session.class_title || 'Teacher live classroom session'}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-medium text-slate-900">{new Date(session.started_at || Date.now()).toLocaleString()}</p>
+                <Link to="/student/live">
+                  <Button size="small" variant="secondary">Go to Live Classes</Button>
+                </Link>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm font-medium text-slate-900">Tomorrow 10:00 AM</p>
-              <Link to="/student/live">
-                <Button size="small" variant="secondary">Go to Live Classes</Button>
-              </Link>
+          )) : (
+            <div className="flex justify-between items-center p-3 bg-white rounded-lg shadow-sm">
+              <div>
+                <h3 className="font-semibold text-slate-900">No live session is active yet</h3>
+                <p className="text-sm text-slate-700">Join a teacher class or check back when a live session starts.</p>
+              </div>
+              <div className="text-right">
+                <Link to="/student/live">
+                  <Button size="small" variant="secondary">Open Live Classes</Button>
+                </Link>
+              </div>
             </div>
-          </div>
-          <div className="flex justify-between items-center p-3 bg-white rounded-lg shadow-sm">
-            <div>
-              <h3 className="font-semibold text-slate-900">JavaScript Basics</h3>
-              <p className="text-sm text-slate-700">Core JavaScript ideas made easy to follow.</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-medium text-slate-900">Friday 2:00 PM</p>
-              <Link to="/student/live">
-                <Button size="small" variant="secondary">Go to Live Classes</Button>
-              </Link>
-            </div>
-          </div>
+          )}
         </div>
       </Card>
     </div>

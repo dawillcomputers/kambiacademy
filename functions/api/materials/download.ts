@@ -1,4 +1,4 @@
-import { getAuthUser } from '../../_shared/auth';
+import { checkSubscription, getAuthUser } from '../../_shared/auth';
 
 interface Env {
   DB: D1Database;
@@ -43,6 +43,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (user.role === 'teacher') {
     if (material.tutor_id !== user.id) {
       return Response.json({ error: 'Access denied.' }, { status: 403 });
+    }
+
+    const hasStorageAccess = await checkSubscription(user, env.DB, 'storage');
+    if (!hasStorageAccess) {
+      return Response.json({ error: 'Active cloud storage subscription required.' }, { status: 402 });
     }
   } else {
     const enrolled = await env.DB.prepare('SELECT 1 FROM enrollments WHERE user_id = ? AND course_slug = ?')

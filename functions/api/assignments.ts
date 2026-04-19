@@ -69,6 +69,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: 'course_slug and title are required.' }, { status: 400 });
   }
 
+  const course = await env.DB.prepare(
+    'SELECT id FROM tutor_courses WHERE tutor_id = ? AND (slug = ? OR title = ?)',
+  ).bind(user.id, body.course_slug, body.course_slug).first();
+
+  if (!course) {
+    return Response.json({ error: 'Course not found for this teacher.' }, { status: 404 });
+  }
+
   const result = await env.DB.prepare(
     `INSERT INTO assignments (course_slug, tutor_id, title, description, type, due_date, max_score)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,

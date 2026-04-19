@@ -84,7 +84,7 @@ export default function TeacherLive() {
             <div className="bg-black rounded-lg aspect-video mb-4 flex items-center justify-center">
               <div className="text-center text-white/50">
                 <div className="text-6xl mb-4">🎥</div>
-                <p>LiveKit Video Conference</p>
+                <p>Cloudflare Realtime Classroom</p>
                 <p className="text-sm">Video feed would appear here</p>
               </div>
             </div>

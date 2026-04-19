@@ -41,9 +41,9 @@ const ChangePassword: React.FC = () => {
       await refreshUser(); // Update user state to reflect password change
       setSuccess('Password changed successfully. Redirecting...');
       setTimeout(() => {
-        if (response.user.role === 'super_admin') navigate('/superadmin');
+        if (response.user.role === 'super_admin' || response.user.role === 'SOU') navigate('/superadmin');
         else if (response.user.role === 'admin') navigate('/admin');
-        else if (response.user.role === 'teacher') navigate('/tutor');
+        else if (response.user.role === 'teacher' || response.user.role === 'tutor') navigate('/teacher');
         else navigate('/student');
       }, 1500);
     } catch (err: any) {

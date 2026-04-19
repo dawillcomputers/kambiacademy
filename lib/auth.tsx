@@ -4,7 +4,7 @@ export interface AuthUser {
   id: number;
   name: string;
   email: string;
-  role: 'student' | 'teacher' | 'admin' | 'super_admin';
+  role: 'student' | 'teacher' | 'admin' | 'super_admin' | 'SOU';
   status?: string;
   mustChangePassword?: boolean;
   enrolledCourses?: string[];

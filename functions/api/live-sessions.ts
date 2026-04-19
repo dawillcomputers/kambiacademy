@@ -1,4 +1,5 @@
 import { getAuthUser, requireSubscription } from '../_shared/auth';
+import { getTeacherLiveHoursUsage } from '../_shared/liveUsage';
 
 interface Env { DB: D1Database }
 
@@ -98,6 +99,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       return subscriptionError;
     }
 
+    const liveHours = await getTeacherLiveHoursUsage(db, user.id);
+    if (liveHours.blocked) {
+      return Response.json({
+        error: 'Live class hours limit reached for this month',
+        message: 'Your live classroom allowance has been exhausted. Pay any due teacher fees or wait until the monthly reset before starting another session.',
+        liveHours,
+      }, { status: 402 });
+    }
+
     const body = await request.json<{ class_id: number; title?: string }>();
     if (!body.class_id) return Response.json({ error: 'class_id is required' }, { status: 400 });
 
@@ -127,12 +137,6 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   if (request.method === 'PATCH') {
     if (user.role !== 'teacher') {
       return Response.json({ error: 'Only teachers can end live sessions' }, { status: 403 });
-    }
-
-    // Check live class subscription for teachers
-    const subscriptionError = await requireSubscription(request, db, 'live_class');
-    if (subscriptionError) {
-      return subscriptionError;
     }
 
     const body = await request.json<{ session_id: number }>();

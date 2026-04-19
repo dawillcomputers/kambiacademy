@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
-import LiveClassroom from './LiveClassroomLiveKit';
+import LiveClassroom from './LiveClassroom';
 
 type Tab = 'courses' | 'classes' | 'create-course' | 'create-class' | 'assignments' | 'submissions' | 'quizzes' | 'create-quiz' | 'quiz-results' | 'materials' | 'live' | 'billing';
 
@@ -90,6 +90,10 @@ const TutorPanel: React.FC = () => {
   const [subscriptionHistory, setSubscriptionHistory] = useState<any[]>([]);
   const [platformFees, setPlatformFees] = useState<{ monthly: number; yearly: number; effectiveDate: string } | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
+  const [storageSubscription, setStorageSubscription] = useState<any | null>(null);
+  const [storageHistory, setStorageHistory] = useState<any[]>([]);
+  const [storageFees, setStorageFees] = useState<{ monthly: number; yearly: number; effectiveDate: string; freePeriodMonths?: number } | null>(null);
+  const [selectedStoragePlan, setSelectedStoragePlan] = useState<'monthly' | 'yearly'>('monthly');
   const [billingLoading, setBillingLoading] = useState(false);
 
   // Live session state
@@ -122,14 +126,24 @@ const TutorPanel: React.FC = () => {
       setBillingLoading(true);
       api.getTeacherSubscription()
         .then((d) => {
-          setSubscription(d.platform || null);
-          setPlatformFees(d.liveClass || null);
-          setSelectedPlan(d.platform?.planType || 'monthly');
+          const storage = d.storage || d.liveClass || null;
+          setSubscription(d.platform?.subscription || null);
+          setStorageSubscription(storage?.subscription || null);
+          setPlatformFees(d.platform?.fees || null);
+          setStorageFees(storage?.fees || null);
+          setSelectedPlan(d.platform?.subscription?.planType || 'monthly');
+          setSelectedStoragePlan(storage?.subscription?.planType || 'monthly');
         })
         .catch((error) => setErr(error.message || String(error)))
         .finally(() => setBillingLoading(false));
-      api.getTeacherSubscriptionHistory()
-        .then((d) => setSubscriptionHistory(d.payments || []))
+      Promise.all([
+        api.getTeacherSubscriptionHistory(),
+        api.getTeacherSubscriptionHistory('storage'),
+      ])
+        .then(([platformHistory, storagePaymentHistory]) => {
+          setSubscriptionHistory(platformHistory.payments || []);
+          setStorageHistory(storagePaymentHistory.payments || []);
+        })
         .catch(() => {});
     }
   }, [tab]);
@@ -188,27 +202,21 @@ const TutorPanel: React.FC = () => {
     finally { setGrading(false); }
   };
 
-  const subscribeToPlan = async (planType: 'monthly' | 'yearly') => {
+  const subscribeToPlan = async (planType: 'monthly' | 'yearly', subscriptionType: 'platform' | 'storage' = 'platform') => {
     setMsg(''); setErr(''); setBillingLoading(true);
     try {
-      const response = await api.createTeacherSubscription(planType, 'platform');
-      setMsg(`Subscription ${planType} plan activated. You will be billed $${response.amount.toFixed(2)}.`);
-      setSubscription(response);
-      setSelectedPlan(planType);
-      setSubscriptionHistory((current) => [
-        {
-          id: response.transactionRef,
-          subscriptionId: response.subscriptionId,
-          amount: response.amount,
-          currency: 'USD',
-          status: 'success',
-          paymentGateway: response.paymentGateway,
-          transactionRef: response.transactionRef,
-          paymentDate: response.startDate,
-          createdAt: response.startDate,
-        },
-        ...current,
-      ]);
+      const response = await api.createTeacherSubscription(planType, subscriptionType);
+      if (subscriptionType === 'platform') {
+        setSelectedPlan(planType);
+      } else {
+        setSelectedStoragePlan(planType);
+      }
+
+      setMsg(response.message || `Redirecting to Flutterwave Live for ${subscriptionType === 'platform' ? 'platform access' : 'Cloudflare Storage'} payment...`);
+      if (response.payment_url) {
+        window.location.href = response.payment_url;
+        return;
+      }
     } catch (e: any) {
       setErr(e.message);
     } finally {
@@ -216,17 +224,23 @@ const TutorPanel: React.FC = () => {
     }
   };
 
-  const cancelSubscription = async () => {
-    if (!subscription?.id) {
-      setErr('No active subscription to cancel.');
+  const cancelSubscription = async (subscriptionType: 'platform' | 'storage' = 'platform') => {
+    const currentSubscription = subscriptionType === 'platform' ? subscription : storageSubscription;
+    if (!currentSubscription?.id) {
+      setErr(`No active ${subscriptionType === 'platform' ? 'platform' : 'Cloudflare Storage'} subscription to cancel.`);
       return;
     }
     setMsg(''); setErr(''); setBillingLoading(true);
     try {
-      await api.cancelTeacherSubscription(subscription.id);
-      setMsg('Subscription cancelled successfully.');
-      setSubscription(null);
-      setSubscriptionHistory((prev) => prev.map((item) => item.subscriptionId === subscription.id ? { ...item, status: 'cancelled' } : item));
+      await api.cancelTeacherSubscription(currentSubscription.id, subscriptionType);
+      setMsg(`${subscriptionType === 'platform' ? 'Platform' : 'Cloudflare Storage'} subscription cancelled successfully.`);
+      if (subscriptionType === 'platform') {
+        setSubscription(null);
+        setSubscriptionHistory((prev) => prev.map((item) => item.subscriptionId === currentSubscription.id ? { ...item, status: 'cancelled' } : item));
+      } else {
+        setStorageSubscription(null);
+        setStorageHistory((prev) => prev.map((item) => item.subscriptionId === currentSubscription.id ? { ...item, status: 'cancelled' } : item));
+      }
     } catch (e: any) {
       setErr(e.message);
     } finally {
@@ -490,86 +504,162 @@ const TutorPanel: React.FC = () => {
             <p className="text-sm text-slate-500">Loading billing details…</p>
           ) : (
             <div className="space-y-6">
-              <div className="rounded-3xl border border-slate-200 bg-white/90 p-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h3 className="font-semibold text-slate-900">Platform Management Fee</h3>
-                    <p className="text-sm text-slate-500 mt-1">Teacher subscriptions are managed separately from student payments and are required for continued tutor access after <strong>May 12, 2026</strong>.</p>
+              <div className="grid gap-6 xl:grid-cols-2">
+                <div className="rounded-3xl border border-slate-200 bg-white/90 p-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="font-semibold text-slate-900">Platform Management Fee</h3>
+                      <p className="text-sm text-slate-500 mt-1">Teacher access billing starts after <strong>May 12, 2026</strong> and is processed through Flutterwave Live on Cloudflare Pages.</p>
+                    </div>
+                    <div className="space-y-2 text-right">
+                      <p className="text-sm text-slate-500">Gateway</p>
+                      <p className="text-sm font-semibold text-slate-900">Flutterwave Live</p>
+                    </div>
                   </div>
-                  <div className="space-y-2 text-right">
-                    <p className="text-sm text-slate-500">Gateway</p>
-                    <p className="text-sm font-semibold text-slate-900">flutterwave_v3</p>
+                  <div className="mt-6 grid gap-4 md:grid-cols-2">
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Monthly Plan</p>
+                      <p className="mt-3 text-3xl font-bold text-slate-950">${platformFees?.monthly ?? 4}</p>
+                      <p className="mt-2 text-sm text-slate-500">Billed monthly for tutor dashboard access.</p>
+                    </div>
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Yearly Plan</p>
+                      <p className="mt-3 text-3xl font-bold text-slate-950">${platformFees?.yearly ?? 44}</p>
+                      <p className="mt-2 text-sm text-slate-500">Billed yearly for tutor dashboard access.</p>
+                    </div>
                   </div>
-                </div>
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                    <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Monthly Plan</p>
-                    <p className="mt-3 text-3xl font-bold text-slate-950">${platformFees?.monthly ?? 4}</p>
-                    <p className="mt-2 text-sm text-slate-500">Billed monthly through the teacher gateway.</p>
-                  </div>
-                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                    <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Yearly Plan</p>
-                    <p className="mt-3 text-3xl font-bold text-slate-950">${platformFees?.yearly ?? 44}</p>
-                    <p className="mt-2 text-sm text-slate-500">Billed yearly through the teacher gateway.</p>
-                  </div>
-                </div>
-                <p className="mt-4 text-xs text-slate-500">Effective date: <strong>{platformFees?.effectiveDate ? new Date(platformFees.effectiveDate).toLocaleDateString() : 'May 12, 2026'}</strong></p>
-              </div>
-
-              <div className="rounded-3xl border border-slate-200 bg-white/90 p-6">
-                <h3 className="font-semibold text-slate-900">Subscription Status</h3>
-                {subscription ? (
-                  <div className="mt-4 space-y-2 text-sm text-slate-600">
-                    <p><strong>Status:</strong> {subscription.status || 'active'}</p>
-                    <p><strong>Plan:</strong> {subscription.planType || selectedPlan}</p>
-                    {subscription.startDate && <p><strong>Started:</strong> {new Date(subscription.startDate).toLocaleDateString()}</p>}
-                    {subscription.endsAt && <p><strong>Renews / ends:</strong> {new Date(subscription.endsAt).toLocaleDateString()}</p>}
-                    {subscription.paymentGateway && <p><strong>Payment gateway:</strong> {subscription.paymentGateway}</p>}
-                  </div>
-                ) : (
-                  <p className="mt-4 text-sm text-slate-500">No active subscription found. Please select a plan below to maintain access to tutor features.</p>
-                )}
-              </div>
-
-              <div className="rounded-3xl border border-slate-200 bg-white/90 p-6">
-                <h3 className="font-semibold text-slate-900">Manage Your Plan</h3>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <button type="button" onClick={() => { setSelectedPlan('monthly'); subscribeToPlan('monthly'); }}
-                    className={`rounded-full px-5 py-3 text-sm font-semibold ${selectedPlan === 'monthly' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
-                    Subscribe Monthly
-                  </button>
-                  <button type="button" onClick={() => { setSelectedPlan('yearly'); subscribeToPlan('yearly'); }}
-                    className={`rounded-full px-5 py-3 text-sm font-semibold ${selectedPlan === 'yearly' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
-                    Subscribe Yearly
-                  </button>
-                </div>
-                {subscription && (
-                  <button type="button" onClick={cancelSubscription}
-                    className="mt-4 rounded-full bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-700">
-                    Cancel Subscription
-                  </button>
-                )}
-              </div>
-
-              <div className="rounded-3xl border border-slate-200 bg-white/90 p-6">
-                <h3 className="font-semibold text-slate-900">Payment History</h3>
-                {subscriptionHistory.length === 0 ? (
-                  <p className="mt-4 text-sm text-slate-500">No subscription payments recorded yet.</p>
-                ) : (
-                  <div className="mt-4 space-y-3">
-                    {subscriptionHistory.map((payment) => (
-                      <div key={payment.id || payment.transactionRef} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <div className="flex flex-col gap-1 text-sm text-slate-700">
-                          <span><strong>Amount:</strong> ${payment.amount.toFixed?.() ?? payment.amount}</span>
-                          <span><strong>Status:</strong> {payment.status}</span>
-                          {payment.paymentDate && <span><strong>Date:</strong> {new Date(payment.paymentDate).toLocaleDateString()}</span>}
-                          {payment.paymentGateway && <span><strong>Gateway:</strong> {payment.paymentGateway}</span>}
-                          {payment.transactionRef && <span><strong>Ref:</strong> {payment.transactionRef}</span>}
-                        </div>
+                  <p className="mt-4 text-xs text-slate-500">Effective date: <strong>{platformFees?.effectiveDate ? new Date(platformFees.effectiveDate).toLocaleDateString() : 'May 12, 2026'}</strong></p>
+                  <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    <h4 className="font-semibold text-slate-900">Current Platform Subscription</h4>
+                    {subscription ? (
+                      <div className="mt-4 space-y-2 text-sm text-slate-600">
+                        <p><strong>Status:</strong> {subscription.status || 'active'}</p>
+                        <p><strong>Plan:</strong> {subscription.planType || selectedPlan}</p>
+                        {subscription.startDate && <p><strong>Started:</strong> {new Date(subscription.startDate).toLocaleDateString()}</p>}
+                        {subscription.endDate && <p><strong>Renews / ends:</strong> {new Date(subscription.endDate).toLocaleDateString()}</p>}
+                        {subscription.paymentGateway && <p><strong>Payment gateway:</strong> {subscription.paymentGateway}</p>}
                       </div>
-                    ))}
+                    ) : (
+                      <p className="mt-4 text-sm text-slate-500">No active platform subscription found.</p>
+                    )}
                   </div>
-                )}
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <button type="button" onClick={() => { setSelectedPlan('monthly'); subscribeToPlan('monthly', 'platform'); }}
+                      className={`rounded-full px-5 py-3 text-sm font-semibold ${selectedPlan === 'monthly' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                      Checkout Monthly
+                    </button>
+                    <button type="button" onClick={() => { setSelectedPlan('yearly'); subscribeToPlan('yearly', 'platform'); }}
+                      className={`rounded-full px-5 py-3 text-sm font-semibold ${selectedPlan === 'yearly' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                      Checkout Yearly
+                    </button>
+                  </div>
+                  {subscription && (
+                    <button type="button" onClick={() => cancelSubscription('platform')}
+                      className="mt-4 rounded-full bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-700">
+                      Cancel Platform Subscription
+                    </button>
+                  )}
+                </div>
+
+                <div className="rounded-3xl border border-slate-200 bg-white/90 p-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="font-semibold text-slate-900">Cloudflare Storage</h3>
+                      <p className="text-sm text-slate-500 mt-1">Cloudflare storage billing starts from <strong>May 28, 2026</strong> at <strong>$2/month</strong>. Teachers keep the first <strong>{storageFees?.freePeriodMonths ?? 3} months free</strong> before the storage fee applies.</p>
+                    </div>
+                    <div className="space-y-2 text-right">
+                      <p className="text-sm text-slate-500">Gateway</p>
+                      <p className="text-sm font-semibold text-slate-900">Flutterwave Live</p>
+                    </div>
+                  </div>
+                  <div className="mt-6 grid gap-4 md:grid-cols-2">
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Monthly Plan</p>
+                      <p className="mt-3 text-3xl font-bold text-slate-950">${storageFees?.monthly ?? 2}</p>
+                      <p className="mt-2 text-sm text-slate-500">For live-class media storage and Cloudflare-backed classroom assets.</p>
+                    </div>
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Yearly Plan</p>
+                      <p className="mt-3 text-3xl font-bold text-slate-950">${storageFees?.yearly ?? 24}</p>
+                      <p className="mt-2 text-sm text-slate-500">Annual storage coverage for classroom recordings and uploads.</p>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-xs text-slate-500">Effective date: <strong>{storageFees?.effectiveDate ? new Date(storageFees.effectiveDate).toLocaleDateString() : 'May 28, 2026'}</strong></p>
+                  <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    <h4 className="font-semibold text-slate-900">Current Cloudflare Storage Subscription</h4>
+                    {storageSubscription ? (
+                      <div className="mt-4 space-y-2 text-sm text-slate-600">
+                        <p><strong>Status:</strong> {storageSubscription.status || 'active'}</p>
+                        <p><strong>Plan:</strong> {storageSubscription.planType || selectedStoragePlan}</p>
+                        {storageSubscription.startDate && <p><strong>Started:</strong> {new Date(storageSubscription.startDate).toLocaleDateString()}</p>}
+                        {storageSubscription.endDate && <p><strong>Renews / ends:</strong> {new Date(storageSubscription.endDate).toLocaleDateString()}</p>}
+                        {storageSubscription.paymentGateway && <p><strong>Payment gateway:</strong> {storageSubscription.paymentGateway}</p>}
+                      </div>
+                    ) : (
+                      <p className="mt-4 text-sm text-slate-500">No active Cloudflare Storage subscription found.</p>
+                    )}
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <button type="button" onClick={() => { setSelectedStoragePlan('monthly'); subscribeToPlan('monthly', 'storage'); }}
+                      className={`rounded-full px-5 py-3 text-sm font-semibold ${selectedStoragePlan === 'monthly' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                      Checkout Monthly
+                    </button>
+                    <button type="button" onClick={() => { setSelectedStoragePlan('yearly'); subscribeToPlan('yearly', 'storage'); }}
+                      className={`rounded-full px-5 py-3 text-sm font-semibold ${selectedStoragePlan === 'yearly' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                      Checkout Yearly
+                    </button>
+                  </div>
+                  {storageSubscription && (
+                    <button type="button" onClick={() => cancelSubscription('storage')}
+                      className="mt-4 rounded-full bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-700">
+                      Cancel Cloudflare Storage
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-2">
+                <div className="rounded-3xl border border-slate-200 bg-white/90 p-6">
+                  <h3 className="font-semibold text-slate-900">Platform Payment History</h3>
+                  {subscriptionHistory.length === 0 ? (
+                    <p className="mt-4 text-sm text-slate-500">No platform payments recorded yet.</p>
+                  ) : (
+                    <div className="mt-4 space-y-3">
+                      {subscriptionHistory.map((payment) => (
+                        <div key={payment.id || payment.transactionRef} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                          <div className="flex flex-col gap-1 text-sm text-slate-700">
+                            <span><strong>Amount:</strong> ${payment.amount?.toFixed?.(2) ?? payment.amount}</span>
+                            <span><strong>Status:</strong> {payment.status}</span>
+                            {payment.paymentDate && <span><strong>Date:</strong> {new Date(payment.paymentDate).toLocaleDateString()}</span>}
+                            {payment.paymentGateway && <span><strong>Gateway:</strong> {payment.paymentGateway}</span>}
+                            {payment.transactionRef && <span><strong>Ref:</strong> {payment.transactionRef}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-3xl border border-slate-200 bg-white/90 p-6">
+                  <h3 className="font-semibold text-slate-900">Cloudflare Storage Payment History</h3>
+                  {storageHistory.length === 0 ? (
+                    <p className="mt-4 text-sm text-slate-500">No Cloudflare Storage payments recorded yet.</p>
+                  ) : (
+                    <div className="mt-4 space-y-3">
+                      {storageHistory.map((payment) => (
+                        <div key={payment.id || payment.transactionRef} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                          <div className="flex flex-col gap-1 text-sm text-slate-700">
+                            <span><strong>Amount:</strong> ${payment.amount?.toFixed?.(2) ?? payment.amount}</span>
+                            <span><strong>Status:</strong> {payment.status}</span>
+                            {payment.paymentDate && <span><strong>Date:</strong> {new Date(payment.paymentDate).toLocaleDateString()}</span>}
+                            {payment.paymentGateway && <span><strong>Gateway:</strong> {payment.paymentGateway}</span>}
+                            {payment.transactionRef && <span><strong>Ref:</strong> {payment.transactionRef}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

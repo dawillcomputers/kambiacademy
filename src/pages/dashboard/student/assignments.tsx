@@ -1,35 +1,38 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AuthUser } from '../../../../lib/auth';
-import { Course, Submission } from '../../../../types';
+import { Assignment, Course, Submission } from '../../../../types';
 import Card from '../../../../components/Card';
 import Button from '../../../../components/Button';
 
 interface StudentAssignmentsProps {
   user: AuthUser;
   courses: Course[];
+  assignments: Assignment[];
   submissions: Submission[];
 }
 
-const StudentAssignments: React.FC<StudentAssignmentsProps> = ({ user, courses, submissions }) => {
+const StudentAssignments: React.FC<StudentAssignmentsProps> = ({ user, courses, assignments, submissions }) => {
   const [filter, setFilter] = useState<'all' | 'pending' | 'submitted' | 'graded'>('all');
 
   const enrolledCourses = courses.filter(c => user.enrolledCourses?.includes(c.id));
 
-  const assignments = enrolledCourses.flatMap(course =>
-    course.assignments.map(assignment => {
-      const submission = submissions.find(s => s.assignmentId === assignment.id && s.studentId === user.id);
+  const assignmentRows = assignments
+    .filter((assignment) => enrolledCourses.some((course) => course.id === assignment.courseId))
+    .map((assignment) => {
+      const submission = submissions.find((item) => item.assignmentId === assignment.id && item.studentId === String(user.id));
+      const course = enrolledCourses.find((item) => item.id === assignment.courseId);
+
       return {
         ...assignment,
-        courseTitle: course.title,
-        courseId: course.id,
-        submitted: !!submission,
+        courseTitle: course?.title || 'Course',
+        submitted: Boolean(submission),
         submission,
-        status: submission?.grade ? 'graded' : submission ? 'submitted' : 'pending'
+        status: submission?.grade !== null && submission?.grade !== undefined ? 'graded' : submission ? 'submitted' : 'pending',
       };
-    })
-  );
+    });
 
-  const filteredAssignments = assignments.filter(assignment => {
+  const filteredAssignments = assignmentRows.filter(assignment => {
     if (filter === 'all') return true;
     return assignment.status === filter;
   });
@@ -55,10 +58,10 @@ const StudentAssignments: React.FC<StudentAssignmentsProps> = ({ user, courses, 
       <Card className="p-4">
         <div className="flex gap-2">
           {[
-            { key: 'all', label: 'All Assignments', count: assignments.length },
-            { key: 'pending', label: 'Not Done Yet', count: assignments.filter(a => a.status === 'pending').length },
-            { key: 'submitted', label: 'Submitted', count: assignments.filter(a => a.status === 'submitted').length },
-            { key: 'graded', label: 'Graded', count: assignments.filter(a => a.status === 'graded').length }
+            { key: 'all', label: 'All Assignments', count: assignmentRows.length },
+            { key: 'pending', label: 'Not Done Yet', count: assignmentRows.filter(a => a.status === 'pending').length },
+            { key: 'submitted', label: 'Submitted', count: assignmentRows.filter(a => a.status === 'submitted').length },
+            { key: 'graded', label: 'Graded', count: assignmentRows.filter(a => a.status === 'graded').length }
           ].map(({ key, label, count }) => (
             <button
               key={key}
@@ -113,13 +116,11 @@ const StudentAssignments: React.FC<StudentAssignmentsProps> = ({ user, courses, 
               <div className="text-sm text-gray-500">
                 Max Score: {assignment.maxScore} points
               </div>
-              <Button
-                size="small"
-                variant={assignment.submitted ? 'secondary' : 'primary'}
-                disabled={assignment.submitted}
-              >
-                {assignment.submitted ? 'Submitted' : 'Submit Assignment'}
-              </Button>
+              <Link to={`/student/assignments/${assignment.id}`}>
+                <Button size="small" variant={assignment.submitted ? 'secondary' : 'primary'}>
+                  {assignment.submitted ? 'View Submission' : 'Open Assignment'}
+                </Button>
+              </Link>
             </div>
           </Card>
         ))}
@@ -142,19 +143,19 @@ const StudentAssignments: React.FC<StudentAssignmentsProps> = ({ user, courses, 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6 text-center">
           <div className="text-3xl font-bold text-blue-600 mb-2">
-            {assignments.filter(a => a.status === 'submitted').length}
+            {assignmentRows.filter(a => a.status === 'submitted').length}
           </div>
           <div className="text-gray-600">Submitted</div>
         </Card>
         <Card className="p-6 text-center">
           <div className="text-3xl font-bold text-green-600 mb-2">
-            {assignments.filter(a => a.status === 'graded').length}
+            {assignmentRows.filter(a => a.status === 'graded').length}
           </div>
           <div className="text-gray-600">Graded</div>
         </Card>
         <Card className="p-6 text-center">
           <div className="text-3xl font-bold text-yellow-600 mb-2">
-            {assignments.filter(a => a.status === 'pending').length}
+            {assignmentRows.filter(a => a.status === 'pending').length}
           </div>
           <div className="text-gray-600">Pending</div>
         </Card>

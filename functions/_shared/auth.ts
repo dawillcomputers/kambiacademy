@@ -56,6 +56,15 @@ export function generateToken(): string {
   return crypto.randomUUID();
 }
 
+type SubscriptionGateType = 'platform' | 'storage' | 'live_class';
+
+const BILLING_START_DATE = '2026-05-01T00:00:00.000Z';
+const PLATFORM_FEES = { monthly: 4.0, yearly: 44.0 };
+const STORAGE_FEES = { monthly: 2.0, yearly: 24.0 };
+const LIVE_CLASS_FEES = { monthly: 2.2, yearly: 26.4 };
+
+const getBillingRequirementTimestamp = (_type: SubscriptionGateType) => new Date(BILLING_START_DATE).getTime();
+
 export async function getAuthUser(request: Request, db: D1Database) {
   try {
     const authHeader = request.headers.get('Authorization');
@@ -79,8 +88,62 @@ export async function getAuthUser(request: Request, db: D1Database) {
   }
 }
 
-// Check if user has active subscription (for teachers and live class access)
-export async function checkSubscription(user: any, db: D1Database, type: 'platform' | 'live_class' = 'platform'): Promise<boolean> {
+async function checkServiceSubscription(user: any, db: D1Database, serviceType: 'storage' | 'live_class'): Promise<boolean> {
+  if (Date.now() < getBillingRequirementTimestamp(serviceType)) {
+    return true;
+  }
+
+  try {
+    const subscription = await db
+      .prepare(
+        `SELECT s.id, s.endDate
+         FROM live_class_subscriptions s
+         WHERE s.userId = ?
+           AND s.serviceType = ?
+           AND s.status = 'active'
+           AND s.endDate > datetime('now')
+           AND EXISTS (
+             SELECT 1
+             FROM live_class_subscription_payments p
+             WHERE p.subscriptionId = s.id
+               AND p.serviceType = ?
+               AND p.status = 'success'
+           )
+         ORDER BY createdAt DESC LIMIT 1`,
+      )
+      .bind(user.id, serviceType, serviceType)
+      .first<{ id: string; endDate: string }>();
+
+    return !!subscription;
+  } catch {
+    if (serviceType === 'live_class') {
+      const legacySubscription = await db
+        .prepare(
+          `SELECT s.id, s.endDate
+           FROM live_class_subscriptions s
+           WHERE s.userId = ?
+             AND s.status = 'active'
+             AND s.endDate > datetime('now')
+             AND EXISTS (
+               SELECT 1
+               FROM live_class_subscription_payments p
+               WHERE p.subscriptionId = s.id
+                 AND p.status = 'success'
+             )
+           ORDER BY createdAt DESC LIMIT 1`,
+        )
+        .bind(user.id)
+        .first<{ id: string; endDate: string }>();
+
+      return !!legacySubscription;
+    }
+
+    return false;
+  }
+}
+
+// Check if user has active subscription (for teachers and protected teacher services)
+export async function checkSubscription(user: any, db: D1Database, type: SubscriptionGateType = 'platform'): Promise<boolean> {
   // Students don't need subscriptions
   if (user.role === 'student') {
     return true;
@@ -91,15 +154,17 @@ export async function checkSubscription(user: any, db: D1Database, type: 'platfo
     return true;
   }
 
+  if (type === 'storage') {
+    return await checkStorageSubscription(user, db);
+  }
+
   // For live class access, check live class subscription
   if (type === 'live_class') {
     return await checkLiveClassSubscription(user, db);
   }
 
-  // Platform subscription logic
-  const effectiveDate = user.role === 'admin'
-    ? new Date('2026-04-12T00:00:00.000Z').getTime() + (7 * 24 * 60 * 60 * 1000) // 7 days for admins
-    : new Date('2026-05-12T00:00:00.000Z').getTime() + (6 * 30 * 24 * 60 * 60 * 1000); // 6 months for teachers
+  // All teacher/admin billing is treated as settled for April, then starts from May.
+  const effectiveDate = getBillingRequirementTimestamp(type);
 
   const now = new Date().getTime();
 
@@ -111,8 +176,17 @@ export async function checkSubscription(user: any, db: D1Database, type: 'platfo
   // Check for active subscription
   const subscription = await db
     .prepare(
-      `SELECT id, endDate FROM subscriptions
-       WHERE userId = ? AND status = 'active' AND endDate > datetime('now')
+      `SELECT s.id, s.endDate
+       FROM subscriptions s
+       WHERE s.userId = ?
+         AND s.status = 'active'
+         AND s.endDate > datetime('now')
+         AND EXISTS (
+           SELECT 1
+           FROM subscription_payments p
+           WHERE p.subscriptionId = s.id
+             AND p.status = 'success'
+         )
        ORDER BY createdAt DESC LIMIT 1`,
     )
     .bind(user.id)
@@ -121,31 +195,17 @@ export async function checkSubscription(user: any, db: D1Database, type: 'platfo
   return !!subscription;
 }
 
-// Check live class subscription (separate from platform subscription)
+export async function checkStorageSubscription(user: any, db: D1Database): Promise<boolean> {
+  return checkServiceSubscription(user, db, 'storage');
+}
+
+// Check live class subscription using the live_class service bucket.
 export async function checkLiveClassSubscription(user: any, db: D1Database): Promise<boolean> {
-  // Live class access is free for first 3 months after account creation
-  const accountAge = Date.now() - new Date(user.created_at).getTime();
-  const threeMonths = 3 * 30 * 24 * 60 * 60 * 1000; // 3 months in milliseconds
-
-  if (accountAge < threeMonths) {
-    return true; // Free access for first 3 months
-  }
-
-  // Check for active live class subscription
-  const subscription = await db
-    .prepare(
-      `SELECT id, endDate FROM live_class_subscriptions
-       WHERE userId = ? AND status = 'active' AND endDate > datetime('now')
-       ORDER BY createdAt DESC LIMIT 1`,
-    )
-    .bind(user.id)
-    .first<{ id: string; endDate: string }>();
-
-  return !!subscription;
+  return checkServiceSubscription(user, db, 'live_class');
 }
 
 // Middleware to require subscription for teachers and admins
-export async function requireSubscription(request: Request, db: D1Database, type: 'platform' | 'live_class' = 'platform') {
+export async function requireSubscription(request: Request, db: D1Database, type: SubscriptionGateType = 'platform') {
   const user = await getAuthUser(request, db);
   if (!user) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
@@ -154,12 +214,7 @@ export async function requireSubscription(request: Request, db: D1Database, type
     });
   }
 
-  // Admins have a one-week grace period before subscription is required
-  const adminGracePeriod = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-  const teacherGracePeriod = 6 * 30 * 24 * 60 * 60 * 1000; // 6 months in milliseconds
-  const effectiveDate = user.role === 'admin'
-    ? new Date('2026-04-12T00:00:00.000Z').getTime() + adminGracePeriod
-    : new Date('2026-05-12T00:00:00.000Z').getTime() + teacherGracePeriod;
+  const effectiveDate = getBillingRequirementTimestamp(type);
 
   const now = new Date().getTime();
 
@@ -171,12 +226,14 @@ export async function requireSubscription(request: Request, db: D1Database, type
   const hasSubscription = await checkSubscription(user, db, type);
   if (!hasSubscription) {
     const fees = type === 'live_class'
-      ? { monthly: 2.00, yearly: 24.00 }
-      : { monthly: 4.00, yearly: 44.00 };
+      ? LIVE_CLASS_FEES
+      : type === 'storage'
+        ? STORAGE_FEES
+        : PLATFORM_FEES;
 
     return new Response(JSON.stringify({
-      error: `Active ${type === 'live_class' ? 'live class' : 'platform'} subscription required`,
-      message: `Please subscribe to continue using ${type === 'live_class' ? 'live classes' : 'the platform'}`,
+      error: `Active ${type === 'live_class' ? 'live class' : type === 'storage' ? 'cloud storage' : 'platform'} subscription required`,
+      message: `Please subscribe to continue using ${type === 'live_class' ? 'live classes' : type === 'storage' ? 'Cloudflare storage features' : 'the platform'}`,
       platformFees: fees,
       subscriptionType: type
     }), {

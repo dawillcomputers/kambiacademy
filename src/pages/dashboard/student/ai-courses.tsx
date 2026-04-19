@@ -16,9 +16,17 @@ interface AICourse {
 
 interface AICoursesProps {
   onRequestPayment?: (course: Course) => void;
+  actionLabel?: string;
+  title?: string;
+  subtitle?: string;
 }
 
-const AICourses: React.FC<AICoursesProps> = ({ onRequestPayment }) => {
+const AICourses: React.FC<AICoursesProps> = ({
+  onRequestPayment,
+  actionLabel = 'Unlock Course',
+  title = 'AI Course Generator',
+  subtitle = 'Create personalized courses tailored to your learning needs',
+}) => {
   const [topic, setTopic] = useState('');
   const [level, setLevel] = useState<'Beginner' | 'Intermediate' | 'Advanced'>('Beginner');
   const [description, setDescription] = useState('');
@@ -99,8 +107,8 @@ const AICourses: React.FC<AICoursesProps> = ({ onRequestPayment }) => {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold mb-2 text-white">🤖 AI Course Generator</h1>
-        <p className="text-white">Create personalized courses tailored to your learning needs</p>
+        <h1 className="text-3xl font-bold mb-2 text-slate-950">{title}</h1>
+        <p className="text-slate-600">{subtitle}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -238,7 +246,7 @@ const AICourses: React.FC<AICoursesProps> = ({ onRequestPayment }) => {
                     onRequestPayment?.(course);
                   }}
                 >
-                  {generatedCourse.isLocked ? 'Unlock Course' : 'Enrolled'}
+                  {generatedCourse.isLocked ? actionLabel : 'Enrolled'}
                 </Button>
               </div>
             </Card>
@@ -307,7 +315,7 @@ const AICourses: React.FC<AICoursesProps> = ({ onRequestPayment }) => {
                   size="small"
                   onClick={() => onRequestPayment?.(createCourseFromPopular(course))}
                 >
-                  View Details
+                  {actionLabel}
                 </Button>
               </div>
             </Card>

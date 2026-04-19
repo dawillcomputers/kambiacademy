@@ -48,13 +48,16 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     }
   };
 
-  const [usersResult, enrollmentsResult, contactsResult, tutorAppsResult, courseLikesResult, courseViewsResult, recentUsersResult, recentEnrollmentsResult, topCoursesResult, topTeachersResult] = await Promise.all([
+  const [usersResult, enrollmentsResult, contactsResult, tutorAppsResult, courseLikesResult, courseViewsResult, pendingPlatformPaymentsResult, pendingStoragePaymentsResult, pendingLiveClassPaymentsResult, recentUsersResult, recentEnrollmentsResult, topCoursesResult, topTeachersResult] = await Promise.all([
     safeQuery('SELECT COUNT(*) as count FROM users'),
     safeQuery('SELECT COUNT(*) as count, COALESCE(SUM(amount_paid), 0) as revenue FROM enrollments'),
     safeQuery('SELECT COUNT(*) as count FROM contact_submissions'),
     safeQuery('SELECT COUNT(*) as count FROM tutor_applications'),
     safeQuery('SELECT COALESCE(SUM(likes), 0) as total FROM course_stats'),
     safeQuery('SELECT COALESCE(SUM(views), 0) as total FROM course_stats'),
+    safeQuery("SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM subscription_payments WHERE status = 'pending'"),
+    safeQuery("SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM live_class_subscription_payments WHERE status = 'pending' AND serviceType = 'storage'"),
+    safeQuery("SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM live_class_subscription_payments WHERE status = 'pending' AND serviceType = 'live_class'"),
     safeAll('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC LIMIT 10'),
     safeAll(`
       SELECT e.course_slug, e.amount_paid, e.created_at, u.name as user_name, u.email as user_email
@@ -87,6 +90,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     totalUsers: usersResult?.count ?? 0,
     totalEnrollments: enrollmentsResult?.count ?? 0,
     totalRevenue: enrollmentsResult?.revenue ?? 0,
+    pendingPaymentsDueCount: Number(pendingPlatformPaymentsResult?.count ?? 0) + Number(pendingStoragePaymentsResult?.count ?? 0) + Number(pendingLiveClassPaymentsResult?.count ?? 0),
+    pendingPaymentsDueAmount: Number(pendingPlatformPaymentsResult?.total ?? 0) + Number(pendingStoragePaymentsResult?.total ?? 0) + Number(pendingLiveClassPaymentsResult?.total ?? 0),
     totalContacts: contactsResult?.count ?? 0,
     totalTutorApps: tutorAppsResult?.count ?? 0,
     totalLikes: courseLikesResult?.total ?? 0,

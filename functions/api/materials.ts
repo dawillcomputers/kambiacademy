@@ -66,6 +66,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return subscriptionError;
   }
 
+  const storageSubscriptionError = await requireSubscription(request, env.DB, 'storage');
+  if (storageSubscriptionError) {
+    return storageSubscriptionError;
+  }
+
   const contentType = request.headers.get('Content-Type') || '';
 
   let courseSlug: string;
@@ -123,9 +128,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   // Verify tutor owns this course
-  const course = await env.DB.prepare('SELECT 1 FROM tutor_courses WHERE tutor_id = ? AND (title = ? OR id IN (SELECT id FROM tutor_courses WHERE tutor_id = ?))')
-    .bind(user.id, courseSlug, user.id).first();
-  // Allow tutor to add materials even if course is just associated by slug
+  const course = await env.DB.prepare('SELECT 1 FROM tutor_courses WHERE tutor_id = ? AND (slug = ? OR title = ?)')
+    .bind(user.id, courseSlug, courseSlug).first();
+  if (!course) {
+    return Response.json({ error: 'Course not found for this teacher.' }, { status: 404 });
+  }
 
   const result = await env.DB.prepare(
     `INSERT INTO course_materials (course_slug, tutor_id, title, description, type, file_name, file_key, file_size, mime_type, youtube_url)
@@ -145,6 +152,11 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env }) => {
   const subscriptionError = await requireSubscription(request, env.DB);
   if (subscriptionError) {
     return subscriptionError;
+  }
+
+  const storageSubscriptionError = await requireSubscription(request, env.DB, 'storage');
+  if (storageSubscriptionError) {
+    return storageSubscriptionError;
   }
 
   const url = new URL(request.url);

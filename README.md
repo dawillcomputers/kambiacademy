@@ -18,7 +18,7 @@ A comprehensive LMS platform featuring live video classes, real-time chat, codin
 - **Live Sessions**: Scheduling interface with calendar integration
 
 ### ✅ Production-Grade Video Conferencing
-- **LiveKit Integration**: Enterprise WebRTC replacement for video calls
+- **Cloudflare Realtime SFU**: Managed browser-to-edge media transport for live classes
 - **Screen Sharing**: High-quality screen sharing capabilities
 - **Recording Support**: Session recording and playback
 - **Breakout Rooms**: Advanced classroom management features
@@ -95,7 +95,7 @@ A comprehensive LMS platform featuring live video classes, real-time chat, codin
 - **Backend**: Serverless Functions + Hono
 - **Database**: Cloudflare D1 (SQLite)
 - **Storage**: Cloudflare R2
-- **Video**: LiveKit (WebRTC)
+- **Video**: Cloudflare Realtime SFU (WebRTC)
 - **Real-time**: WebSockets (Cloudflare Durable Objects)
 - **Code Editor**: Monaco Editor
 - **Styling**: Tailwind CSS + Custom Gradients
@@ -105,8 +105,6 @@ A comprehensive LMS platform featuring live video classes, real-time chat, codin
 
 ```json
 {
-  "@livekit/components-react": "^2.0.0",
-  "livekit-client": "^2.0.0",
   "@monaco-editor/react": "^4.6.0",
   "socket.io-client": "^4.7.0",
   "framer-motion": "^11.0.0",
@@ -129,7 +127,6 @@ A comprehensive LMS platform featuring live video classes, real-time chat, codin
    ```
    Configure your environment variables:
    ```env
-   VITE_LIVEKIT_URL=your-livekit-server-url
    VITE_SOCKET_URL=your-socket-server-url
    ```
 
@@ -139,8 +136,9 @@ A comprehensive LMS platform featuring live video classes, real-time chat, codin
    ```
    Configure your local runtime secrets in `.dev.vars`:
    ```env
-   LIVEKIT_API_KEY=your-livekit-api-key
-   LIVEKIT_API_SECRET=your-livekit-api-secret
+   REALTIME_JOIN_SECRET=your-random-join-secret
+   CLOUDFLARE_REALTIME_APP_ID=your-cloudflare-realtime-app-id
+   CLOUDFLARE_REALTIME_APP_SECRET=your-cloudflare-realtime-app-secret
    FLUTTERWAVE_PUBLIC_KEY=your-flutterwave-public-key
    FLUTTERWAVE_SECRET_KEY=your-flutterwave-secret-key
    FLUTTERWAVE_ENCRYPTION_KEY=your-flutterwave-encryption-key
@@ -208,7 +206,9 @@ The platform includes full PWA support:
 - `API_KEY` — Your Google GenAI API key (if using Google)
 
 ### New Features
-- `VITE_LIVEKIT_URL` — LiveKit WebSocket URL for video conferencing
+- `REALTIME_JOIN_SECRET` — Signs short-lived classroom WebSocket join tokens
+- `CLOUDFLARE_REALTIME_APP_ID` — Cloudflare Realtime SFU application ID
+- `CLOUDFLARE_REALTIME_APP_SECRET` — Cloudflare Realtime SFU application secret
 - `VITE_SOCKET_URL` — Socket.io server URL for real-time chat
 
 ## Teacher Dashboard Routes
@@ -224,7 +224,7 @@ The platform includes full PWA support:
 ## Tech Stack
 
 - **Frontend**: React 19, TypeScript, Vite
-- **Video**: LiveKit (production-grade WebRTC)
+- **Video**: Cloudflare Realtime SFU (production-grade WebRTC)
 - **Chat**: Socket.io (real-time messaging)
 - **Code Editor**: Monaco Editor (VS Code engine)
 - **Backend**: Serverless Functions, Database, Object Storage
@@ -236,8 +236,9 @@ The platform includes full PWA support:
 1. Connect your GitHub repository
 2. Set secrets in Pages settings or with Wrangler:
    ```bash
-   npx wrangler pages secret put LIVEKIT_API_KEY --project-name kambiacademy
-   npx wrangler pages secret put LIVEKIT_API_SECRET --project-name kambiacademy
+   npx wrangler pages secret put REALTIME_JOIN_SECRET --project-name kambiacademy
+   npx wrangler pages secret put CLOUDFLARE_REALTIME_APP_ID --project-name kambiacademy
+   npx wrangler pages secret put CLOUDFLARE_REALTIME_APP_SECRET --project-name kambiacademy
    npx wrangler pages secret put FLUTTERWAVE_PUBLIC_KEY --project-name kambiacademy
    npx wrangler pages secret put FLUTTERWAVE_SECRET_KEY --project-name kambiacademy
    npx wrangler pages secret put FLUTTERWAVE_ENCRYPTION_KEY --project-name kambiacademy
@@ -254,16 +255,18 @@ Set these in your deployment provider:
 AI_PROVIDER=anthropic
 AI_MODEL=claude-sonnet-4.5
 ANTHROPIC_API_KEY=your_key_here
-VITE_LIVEKIT_URL=wss://your-livekit-server.livekit.cloud
+CLOUDFLARE_REALTIME_APP_ID=your-cloudflare-realtime-app-id
+CLOUDFLARE_REALTIME_APP_SECRET=your-cloudflare-realtime-app-secret
+REALTIME_JOIN_SECRET=your-random-join-secret
 VITE_SOCKET_URL=wss://your-socket-server.com
 ```
 
 ## Key Components
 
-### LiveKit Integration
-- Replaces raw WebRTC with production-grade video
-- Supports screen sharing, mute controls, participant management
-- Teacher can mute all students, raise hands, etc.
+### Cloudflare Realtime Integration
+- Uses Cloudflare Realtime SFU sessions and track subscriptions for live classes
+- Durable Objects keep presence, chat, and classroom state synchronized
+- Teacher and student controls update both room state and browser media tracks
 
 ### Real-time Chat System
 - Room-based messaging
@@ -301,7 +304,7 @@ npm run db:seed:local
 
 ```
 React App (Vite)
-├── LiveKit Client → LiveKit Cloud (Video)
+├── Realtime Classroom Shell → Cloudflare Realtime SFU (Video)
 ├── Socket.io Client → Cloudflare Worker (Chat)
 ├── Monaco Editor → Code Sandbox
 └── REST API → Serverless Functions → Database + Storage

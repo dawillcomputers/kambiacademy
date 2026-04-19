@@ -58,6 +58,13 @@ const StudentMaterials: React.FC<StudentMaterialsProps> = ({ user, courses, mate
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {courseMaterials.map(material => {
           const course = courses.find(c => c.id === material.courseId);
+          const actionLabel = material.youtubeUrl
+            ? 'Watch Video'
+            : material.mimeType?.startsWith('video/')
+              ? 'Play Video'
+              : material.url?.startsWith('http')
+                ? 'Open Material'
+                : 'Download Material';
 
           return (
             <Card key={material.id} className="p-6 hover:shadow-lg transition-shadow">
@@ -76,11 +83,11 @@ const StudentMaterials: React.FC<StudentMaterialsProps> = ({ user, courses, mate
                     {course?.title} • {material.type.toUpperCase()}
                   </p>
 
-                  <Button size="small" className="w-full">
-                    {material.type === 'video' ? 'Watch Video' :
-                     material.type === 'pdf' ? 'Download PDF' :
-                     material.type === 'link' ? 'Open Link' : 'View Material'}
-                  </Button>
+                  <a href={material.url} target="_blank" rel="noopener noreferrer">
+                    <Button size="small" className="w-full">
+                      {actionLabel}
+                    </Button>
+                  </a>
                 </div>
               </div>
             </Card>
