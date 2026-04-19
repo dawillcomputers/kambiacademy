@@ -80,7 +80,7 @@ export default function DashboardLayout({ children, user, showMaterials = false 
 
   const menu = isTeacher ? buildTeacherMenu() : buildStudentMenu(showMaterials);
   const profilePath = isTeacher ? '/teacher/profile' : '/student/profile';
-  const avatarSrc = avatarUrl || (effectiveUser as any)?.avatar || 'https://via.placeholder.com/32x32';
+  const avatarSrc = avatarUrl || (effectiveUser as any)?.avatar || 'https://ui-avatars.com/api/?name=User&background=0f172a&color=ffffff';
 
   // Determine active path — exact match for root, startsWith for sub-paths
   const isActive = (path: string) => {

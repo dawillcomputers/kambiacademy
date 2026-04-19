@@ -1,5 +1,5 @@
 /*
-  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; manifest-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.kambiacademy.com https://*.cloudflare.com https://static.cloudflareinsights.com https: wss: stun: turn:; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'self';
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; manifest-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.kambiacademy.com https://*.cloudflare.com https://static.cloudflareinsights.com https: wss: stun: turn:; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'self';
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(self), microphone=(self), geolocation=(), payment=(), usb=()

@@ -1,7 +1,7 @@
 // Service Worker for Offline Mode Support
-const CACHE_NAME = 'kambi-academy-v2';
-const STATIC_CACHE = 'kambi-static-v2';
-const DYNAMIC_CACHE = 'kambi-dynamic-v2';
+const CACHE_NAME = 'kambi-academy-v3';
+const STATIC_CACHE = 'kambi-static-v3';
+const DYNAMIC_CACHE = 'kambi-dynamic-v3';
 
 // Resources to cache immediately (Vite builds hashed assets – only cache shell resources)
 const STATIC_ASSETS = [
@@ -52,6 +52,32 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  const isCacheableAssetResponse = (response, destination) => {
+    if (!response || response.status !== 200) {
+      return false;
+    }
+
+    const contentType = (response.headers.get('Content-Type') || '').toLowerCase();
+
+    if (destination === 'font') {
+      return contentType.includes('font') || contentType.includes('application/octet-stream');
+    }
+
+    if (destination === 'script') {
+      return contentType.includes('javascript') || contentType.includes('ecmascript') || contentType.includes('module');
+    }
+
+    if (destination === 'style') {
+      return contentType.includes('css');
+    }
+
+    if (destination === 'image') {
+      return contentType.startsWith('image/');
+    }
+
+    return true;
+  };
+
   // Handle API requests with network-first strategy
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
@@ -99,18 +125,26 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       caches.match(request)
         .then((cachedResponse) => {
-          if (cachedResponse) {
+          if (cachedResponse && isCacheableAssetResponse(cachedResponse, request.destination)) {
             return cachedResponse;
           }
           return fetch(request)
             .then((response) => {
-              // Cache the new response
-              const responseClone = response.clone();
-              caches.open(STATIC_CACHE)
-                .then((cache) => {
-                  cache.put(request, responseClone);
-                });
+              if (isCacheableAssetResponse(response, request.destination)) {
+                const responseClone = response.clone();
+                caches.open(STATIC_CACHE)
+                  .then((cache) => {
+                    cache.put(request, responseClone);
+                  });
+              }
               return response;
+            })
+            .catch(() => {
+              if (cachedResponse && isCacheableAssetResponse(cachedResponse, request.destination)) {
+                return cachedResponse;
+              }
+
+              return Response.error();
             });
         })
     );

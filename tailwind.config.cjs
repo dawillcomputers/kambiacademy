@@ -6,7 +6,12 @@ module.exports = {
     './lib/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        sans: ['Manrope', 'system-ui', 'sans-serif'],
+        display: ['Space Grotesk', 'Manrope', 'system-ui', 'sans-serif'],
+      },
+    },
   },
   plugins: [],
 };

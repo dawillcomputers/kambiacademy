@@ -237,7 +237,7 @@ export default function TeacherSettings() {
                 <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-5">
                   <div className="flex items-center gap-4">
                     <img
-                      src={form.avatar_url || 'https://via.placeholder.com/80x80?text=T'}
+                      src={form.avatar_url || 'https://ui-avatars.com/api/?name=Teacher&background=0f172a&color=ffffff'}
                       alt="Teacher avatar preview"
                       className="h-20 w-20 rounded-3xl border border-slate-200 object-cover"
                     />

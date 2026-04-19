@@ -57,7 +57,9 @@ export default function TeacherDashboardLayout({ children }: TeacherDashboardLay
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('teacher_sidebar_collapsed') === 'true'; } catch { return false; }
+  });
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>(() => localStorage.getItem('student_profile_avatar') || '');
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -92,7 +94,7 @@ export default function TeacherDashboardLayout({ children }: TeacherDashboardLay
     navigate('/login', { replace: true });
   };
 
-  const avatarSrc = avatarUrl || (user as any)?.avatar || 'https://via.placeholder.com/40x40';
+  const avatarSrc = avatarUrl || (user as any)?.avatar || 'https://ui-avatars.com/api/?name=Teacher&background=0f172a&color=ffffff';
   const pageName = useMemo(() => getPageName(location.pathname), [location.pathname]);
 
   return (
@@ -100,14 +102,14 @@ export default function TeacherDashboardLayout({ children }: TeacherDashboardLay
       {sidebarOpen && (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm md:hidden"
           onClick={() => setSidebarOpen(false)}
           aria-label="Close sidebar"
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white transition-[width,transform] duration-300 ease-in-out ${collapsed ? 'w-20' : 'w-72'} ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} lg:sticky lg:top-0 lg:h-screen`}
+        className={`fixed inset-y-0 left-0 z-50 flex shrink-0 flex-col border-r border-slate-200 bg-white transition-[width,transform] duration-300 ease-in-out ${collapsed ? 'w-20' : 'w-72'} ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} md:sticky md:top-0 md:h-screen`}
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
           <Link to="/teacher" className="flex items-center gap-2 overflow-hidden">
@@ -129,8 +131,12 @@ export default function TeacherDashboardLayout({ children }: TeacherDashboardLay
 
           <button
             type="button"
-            onClick={() => setCollapsed(!collapsed)}
-            className="hidden rounded-lg p-2 hover:bg-slate-100 lg:block"
+            onClick={() => {
+              const next = !collapsed;
+              setCollapsed(next);
+              try { localStorage.setItem('teacher_sidebar_collapsed', String(next)); } catch {}
+            }}
+            className="hidden rounded-lg p-2 hover:bg-slate-100 md:block"
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {collapsed ? '➡️' : '⬅️'}
@@ -138,7 +144,7 @@ export default function TeacherDashboardLayout({ children }: TeacherDashboardLay
           <button
             type="button"
             onClick={() => setSidebarOpen(false)}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 lg:hidden"
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:hidden"
             aria-label="Close sidebar"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
@@ -238,7 +244,7 @@ export default function TeacherDashboardLayout({ children }: TeacherDashboardLay
               <button
                 type="button"
                 onClick={() => setSidebarOpen(true)}
-                className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:bg-slate-50 lg:hidden"
+                className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:bg-slate-50 md:hidden"
                 aria-label="Open sidebar"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
