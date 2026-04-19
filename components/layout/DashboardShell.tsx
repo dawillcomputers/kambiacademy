@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 
@@ -76,10 +76,26 @@ export default function DashboardShell({
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const t = themes[variant];
 
   // Close mobile sidebar on route change
-  useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+  useEffect(() => {
+    setMobileOpen(false);
+    setProfileMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -92,6 +108,12 @@ export default function DashboardShell({
       return location.pathname === path;
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
+
+  const profilePath = variant === 'student'
+    ? '/student/profile'
+    : variant === 'tutor'
+      ? '/teacher/profile'
+      : undefined;
 
   const SidebarContent = () => (
     <>
@@ -148,25 +170,50 @@ export default function DashboardShell({
       </nav>
 
       {/* User at bottom */}
-      <div className={`border-t ${t.sidebarBorder} p-3`}>
-        <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} mb-2`}>
+      <div className={`border-t ${t.sidebarBorder} p-3`} ref={profileMenuRef}>
+        <button
+          type="button"
+          onClick={() => setProfileMenuOpen((open) => !open)}
+          className={`flex w-full items-center rounded-xl px-2 py-2 text-left transition hover:bg-white/10 ${collapsed ? 'justify-center' : 'gap-3'}`}
+        >
           <div className="w-8 h-8 rounded-full bg-[#6366F1]/30 flex items-center justify-center text-sm font-bold text-white shrink-0">
             {user?.name?.charAt(0)?.toUpperCase() || '?'}
           </div>
           {!collapsed && (
-            <div className="min-w-0 flex-1">
-              <p className={`text-sm font-medium truncate ${t.text}`}>{user?.name}</p>
-              <p className={`text-xs truncate ${t.dimmed}`}>{user?.email}</p>
-            </div>
+            <>
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm font-medium truncate ${t.text}`}>{user?.name}</p>
+                <p className={`text-xs truncate ${t.dimmed}`}>{user?.email}</p>
+              </div>
+              <svg className={`h-4 w-4 ${t.dimmed} transition-transform ${profileMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </>
           )}
-        </div>
-        <button
-          onClick={handleLogout}
-          className={`w-full flex items-center ${collapsed ? 'justify-center' : 'gap-2'} px-3 py-2 rounded-lg text-sm ${t.dimmed} hover:bg-red-500/15 hover:text-red-400 transition-colors`}
-        >
-          <span className="text-base">🚪</span>
-          {!collapsed && <span>Logout</span>}
         </button>
+
+        {profileMenuOpen && (
+          <div className={`mt-2 rounded-2xl border ${t.sidebarBorder} bg-black/20 p-2 backdrop-blur-xl`}>
+            {profilePath && (
+              <Link
+                to={profilePath}
+                onClick={() => setProfileMenuOpen(false)}
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm ${t.muted} ${t.hoverBg} hover:text-white`}
+              >
+                <span className="text-base">👤</span>
+                <span>Open profile</span>
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm ${t.muted} hover:bg-red-500/15 hover:text-red-400 transition-colors`}
+            >
+              <span className="text-base">🚪</span>
+              <span>Logout</span>
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
