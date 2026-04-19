@@ -57,6 +57,7 @@ export default function TeacherDashboardLayout({ children }: TeacherDashboardLay
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>(() => localStorage.getItem('student_profile_avatar') || '');
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -94,25 +95,6 @@ export default function TeacherDashboardLayout({ children }: TeacherDashboardLay
   const avatarSrc = avatarUrl || (user as any)?.avatar || 'https://via.placeholder.com/40x40';
   const pageName = useMemo(() => getPageName(location.pathname), [location.pathname]);
 
-  const renderNavSection = (items: NavItem[], title?: string) => (
-    <div className="space-y-1">
-      {title && <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{title}</p>}
-      {items.map((item) => {
-        const active = isActive(location.pathname, item.path);
-        return (
-          <Link
-            key={item.path}
-            to={item.path}
-            className={`flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition ${active ? 'bg-slate-950 text-white shadow-lg shadow-slate-300/40' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'}`}
-          >
-            <span className="text-lg leading-none">{item.icon}</span>
-            <span className="truncate">{item.name}</span>
-          </Link>
-        );
-      })}
-    </div>
-  );
-
   return (
     <div className="flex min-h-screen bg-slate-100">
       {sidebarOpen && (
@@ -125,17 +107,38 @@ export default function TeacherDashboardLayout({ children }: TeacherDashboardLay
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[292px] max-w-[85vw] flex-col border-r border-slate-200 bg-white transition-transform duration-300 lg:sticky lg:top-0 lg:h-screen lg:w-72 lg:max-w-none ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white transition-[width,transform] duration-300 ease-in-out ${collapsed ? 'w-20' : 'w-72'} ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} lg:sticky lg:top-0 lg:h-screen`}
       >
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-5">
-          <Link to="/teacher" className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-400">Teacher Panel</p>
-            <h2 className="mt-1 truncate text-xl font-bold text-slate-950">Kambi Academy</h2>
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
+          <Link to="/teacher" className="flex items-center gap-2 overflow-hidden">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 font-bold text-white">
+              K
+            </div>
+
+            {!collapsed && (
+              <div>
+                <p className="text-xs uppercase tracking-widest text-slate-400">
+                  Teacher Panel
+                </p>
+                <h2 className="text-lg font-bold text-slate-900">
+                  Kambi Academy
+                </h2>
+              </div>
+            )}
           </Link>
+
+          <button
+            type="button"
+            onClick={() => setCollapsed(!collapsed)}
+            className="hidden rounded-lg p-2 hover:bg-slate-100 lg:block"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? '➡️' : '⬅️'}
+          </button>
           <button
             type="button"
             onClick={() => setSidebarOpen(false)}
-            className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 lg:hidden"
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 lg:hidden"
             aria-label="Close sidebar"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
@@ -144,25 +147,86 @@ export default function TeacherDashboardLayout({ children }: TeacherDashboardLay
           </button>
         </div>
 
-        <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5">
-          {renderNavSection(primaryNav)}
-          {renderNavSection(utilityNav, 'Tools')}
+        <div className="flex-1 space-y-6 overflow-y-auto px-3 py-4 [mask-image:linear-gradient(to_bottom,black_90%,transparent)]">
+          <div className="space-y-1">
+            {!collapsed && (
+              <p className="px-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
+                Main
+              </p>
+            )}
+
+            {primaryNav.map((item) => {
+              const active = isActive(location.pathname, item.path);
+
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  title={collapsed ? item.name : ''}
+                  className={`relative flex items-center gap-3 rounded-xl py-3 text-sm font-medium transition hover:scale-[1.02] active:scale-[0.98] ${active ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'} ${collapsed ? 'justify-center px-2' : 'px-3'}`}
+                >
+                  {active && (
+                    <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-white" />
+                  )}
+                  <span className="text-lg">{item.icon}</span>
+                  {!collapsed && <span>{item.name}</span>}
+                  {active && !collapsed && (
+                    <span className="ml-auto h-2 w-2 rounded-full bg-white" />
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="space-y-1">
+            {!collapsed && (
+              <p className="px-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
+                Tools
+              </p>
+            )}
+
+            {utilityNav.map((item) => {
+              const active = isActive(location.pathname, item.path);
+
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  title={collapsed ? item.name : ''}
+                  className={`relative flex items-center gap-3 rounded-xl py-3 text-sm font-medium transition hover:scale-[1.02] active:scale-[0.98] ${active ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'} ${collapsed ? 'justify-center px-2' : 'px-3'}`}
+                >
+                  {active && (
+                    <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-white" />
+                  )}
+                  <span className="text-lg">{item.icon}</span>
+                  {!collapsed && <span>{item.name}</span>}
+                  {item.name === 'AI Studio' && !collapsed && (
+                    <span className="ml-auto rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-600">
+                      NEW
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="border-t border-slate-200 p-4">
+        <div className="border-t border-slate-200 p-3">
           <Link
             to="/teacher/profile"
-            className="flex items-center gap-3 rounded-2xl px-3 py-3 transition hover:bg-slate-100"
+            className={`flex items-center rounded-xl p-2 transition hover:bg-slate-100 ${collapsed ? 'justify-center' : 'gap-3'}`}
           >
             <img
               src={avatarSrc}
               alt="Teacher avatar"
-              className="h-10 w-10 rounded-full border border-slate-200 object-cover"
+              className="h-10 w-10 rounded-full object-cover"
             />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-900">{user?.name || 'Teacher'}</p>
-              <p className="truncate text-xs text-slate-500">{user?.email || 'Teacher account'}</p>
-            </div>
+            {!collapsed && (
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">{user?.name || 'Teacher'}</p>
+                <p className="truncate text-xs text-slate-500">{user?.email || 'Teacher account'}</p>
+              </div>
+            )}
           </Link>
         </div>
       </aside>
