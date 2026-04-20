@@ -4,6 +4,10 @@ interface Env {
   DB: D1Database;
 }
 
+interface TableInfoRow {
+  name: string;
+}
+
 const slugify = (value: string) => {
   const normalized = value
     .toLowerCase()
@@ -31,6 +35,36 @@ async function generateUniqueCourseSlug(db: D1Database, title: string) {
   }
 }
 
+async function getTutorCourseColumns(db: D1Database) {
+  const info = await db.prepare("PRAGMA table_info('tutor_courses')").all<TableInfoRow>();
+  return new Set((info.results || []).map((row) => row.name));
+}
+
+async function ensureTutorCourseSlugSupport(db: D1Database) {
+  const columns = await getTutorCourseColumns(db);
+  if (columns.has('slug')) {
+    return;
+  }
+
+  await db.prepare('ALTER TABLE tutor_courses ADD COLUMN slug TEXT').run();
+  await db.prepare(
+    `UPDATE tutor_courses
+     SET slug = lower(
+       trim(
+         replace(
+           replace(
+             replace(title, ' ', '-'),
+             '/', '-'
+           ),
+           '--', '-'
+         )
+       )
+     ) || '-' || id
+     WHERE slug IS NULL OR trim(slug) = ''`,
+  ).run();
+  await db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_tutor_courses_slug ON tutor_courses(slug)').run();
+}
+
 // GET: tutor's own courses
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
@@ -44,8 +78,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     return subscriptionError;
   }
 
+  await ensureTutorCourseSlugSupport(env.DB);
+
   const q = await env.DB.prepare(
-    'SELECT * FROM tutor_courses WHERE tutor_id = ? ORDER BY created_at DESC',
+    `SELECT tc.*, COUNT(e.id) as enrollment_count
+     FROM tutor_courses tc
+     LEFT JOIN enrollments e ON e.course_slug = tc.slug
+     WHERE tc.tutor_id = ?
+     GROUP BY tc.id
+     ORDER BY tc.created_at DESC`,
   ).bind(user.id).all();
 
   return Response.json({ courses: q.results });
@@ -76,6 +117,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!body.title || !body.description) {
     return Response.json({ error: 'Title and description are required.' }, { status: 400 });
   }
+
+  await ensureTutorCourseSlugSupport(env.DB);
 
   const slug = await generateUniqueCourseSlug(env.DB, body.title);
 
@@ -123,6 +166,8 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
   if (!body.courseId) {
     return Response.json({ error: 'courseId is required.' }, { status: 400 });
   }
+
+  await ensureTutorCourseSlugSupport(env.DB);
 
   const existing = await env.DB.prepare('SELECT id FROM tutor_courses WHERE id = ? AND tutor_id = ?').bind(body.courseId, user.id).first();
   if (!existing) {

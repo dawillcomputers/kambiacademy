@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import {
@@ -23,10 +23,12 @@ interface CourseDetailProps {
 
 const CourseDetail: React.FC<CourseDetailProps> = ({ course, instructor, relatedCourses, sessions }) => {
   const tone = getCourseTone(course.tone);
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, refreshUser } = useAuth();
   const [stats, setStats] = useState({ views: 0, likes: 0, userLiked: false });
   const [enrolled, setEnrolled] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
+  const [enrollError, setEnrollError] = useState('');
 
   useEffect(() => {
     api.recordView(course.slug).catch(() => {});
@@ -50,11 +52,25 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, instructor, related
   };
 
   const handleEnroll = async () => {
+    if (!user) {
+      navigate(`/login?redirect=${encodeURIComponent(`/courses/${course.slug}`)}`);
+      return;
+    }
+
+    if (user.role !== 'student') {
+      setEnrollError('Only student accounts can enroll in courses.');
+      return;
+    }
+
     setEnrolling(true);
+    setEnrollError('');
     try {
-      await api.enroll(course.slug);
+      await api.enroll(course.slug, user.country);
+      await refreshUser();
       setEnrolled(true);
-    } catch {} finally {
+    } catch (error) {
+      setEnrollError(error instanceof Error ? error.message : 'Unable to complete enrollment.');
+    } finally {
       setEnrolling(false);
     }
   };
@@ -111,6 +127,7 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, instructor, related
                   👁 {stats.views} views
                 </span>
               </div>
+              {enrollError ? <p className="mt-4 text-sm text-rose-100">{enrollError}</p> : null}
             </div>
 
             <div className="rounded-[28px] border border-white/15 bg-slate-950/25 p-6 backdrop-blur">

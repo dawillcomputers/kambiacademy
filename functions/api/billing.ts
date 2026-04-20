@@ -383,6 +383,19 @@ async function buildTeacherMetrics(db: D1Database, teacher: { id: number; name: 
     ),
   ]);
 
+  const [earningsSummary, heldSummary] = await Promise.all([
+    safeFirst<{ total_earned: number; total_withdrawn: number; available_balance: number }>(
+      db,
+      'SELECT total_earned, total_withdrawn, available_balance FROM teacher_earnings WHERE teacher_id = ?',
+      [teacher.id],
+    ),
+    safeFirst<{ held_balance: number }>(
+      db,
+      'SELECT COALESCE(SUM(held_balance), 0) as held_balance FROM course_earnings WHERE teacher_id = ?',
+      [teacher.id],
+    ),
+  ]);
+
   const coursesCount = toNumber(courseStats?.count);
   const classesCount = toNumber(classStats?.count);
   const materialsCount = toNumber(materialStats?.materialCount);
@@ -438,6 +451,10 @@ async function buildTeacherMetrics(db: D1Database, teacher: { id: number; name: 
       platformCourseRevenue: roundCurrency(platformCourseRevenue),
       subscriptionRevenue,
       estimatedRevenue,
+      teacherEarned: roundCurrency(toNumber(earningsSummary?.total_earned)),
+      teacherWithdrawn: roundCurrency(toNumber(earningsSummary?.total_withdrawn)),
+      availableBalance: roundCurrency(toNumber(earningsSummary?.available_balance)),
+      heldBalance: roundCurrency(toNumber(heldSummary?.held_balance)),
     },
     costs,
     profitability,

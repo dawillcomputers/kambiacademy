@@ -44,7 +44,7 @@ export default function TeacherOverview() {
     { label: 'Classes', value: classes.length, icon: '🏫', color: 'from-emerald-100 via-teal-50 to-white border-emerald-200 text-emerald-950' },
     { label: 'Assignments', value: assignments.length, icon: '📝', color: 'from-amber-100 via-orange-50 to-white border-amber-200 text-amber-950' },
     { label: 'Quizzes', value: quizzes.length, icon: '❓', color: 'from-violet-100 via-purple-50 to-white border-violet-200 text-violet-950' },
-    { label: 'Earnings', value: `₦${(revenue?.estimatedRevenue || 0).toLocaleString()}`, icon: '💰', color: 'from-green-100 via-emerald-50 to-white border-green-200 text-green-950' },
+    { label: 'Balance', value: `₦${(revenue?.availableBalance || 0).toLocaleString()}`, icon: '💰', color: 'from-green-100 via-emerald-50 to-white border-green-200 text-green-950' },
     { label: 'Live Hours', value: liveHours?.mode === 'limited' ? `${liveHours.remainingHours ?? 0}h` : 'Open', icon: '🎥', color: 'from-rose-100 via-pink-50 to-white border-rose-200 text-rose-950' },
   ], [courses.length, classes.length, assignments.length, quizzes.length, revenue, liveHours]);
 

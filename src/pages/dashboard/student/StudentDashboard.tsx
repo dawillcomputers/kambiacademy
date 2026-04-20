@@ -164,33 +164,8 @@ const StudentDashboard: React.FC = () => {
   };
 
   const handlePaymentSuccess = async (course: Course) => {
-    if (course.price > 0) {
-      try {
-        const euCountries = [
-          'Germany', 'France', 'Italy', 'Spain', 'Netherlands', 'Belgium', 'Austria',
-          'Sweden', 'Denmark', 'Finland', 'Poland', 'Czech Republic', 'Hungary',
-          'Portugal', 'Greece', 'Ireland', 'Slovenia', 'Estonia', 'Latvia', 'Lithuania',
-          'Slovakia', 'Luxembourg', 'Malta', 'Cyprus', 'Croatia', 'Bulgaria', 'Romania',
-        ];
-        const isUSOrEU = user.country === 'United States' || euCountries.includes(user.country || '');
-        const teacherId = Number.parseInt(course.instructorId, 10);
-
-        if (Number.isFinite(teacherId)) {
-          await api.recordRevenue({
-            course_id: course.slug,
-            teacher_id: teacherId,
-            base_amount: course.price,
-            location_markup_percentage: isUSOrEU ? 10 : 0,
-            student_country: user.country,
-          });
-        }
-      } catch (error) {
-        console.error('Failed to record revenue:', error);
-      }
-    }
-
     try {
-      await api.enroll(course.slug);
+      await api.enroll(course.slug, user.country);
       await refreshUser();
       await loadStudentData();
     } catch (error) {

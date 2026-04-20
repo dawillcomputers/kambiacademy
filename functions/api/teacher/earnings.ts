@@ -31,9 +31,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
     // Get recent transactions
     const transactionsResult = await env.DB.prepare(
-      `SELECT rt.created_at, rt.final_amount, rt.teacher_payout, c.title as course_title
+      `SELECT rt.created_at, rt.final_amount, rt.teacher_payout, tc.title as course_title
        FROM revenue_transactions rt
-       JOIN courses c ON rt.course_id = c.id
+       LEFT JOIN tutor_courses tc ON rt.course_id = tc.slug
        WHERE rt.teacher_id = ?
        ORDER BY rt.created_at DESC
        LIMIT 10`

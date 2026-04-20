@@ -49,21 +49,26 @@ export default function TeacherWalletPage() {
         ) : (
           <>
             {/* Earnings Summary */}
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-100 via-blue-50 to-white p-5 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wider text-sky-700/70">Available Balance</p>
+                <p className="mt-3 text-3xl font-bold text-sky-950">{fmt(revenue?.availableBalance || 0)}</p>
+                <p className="mt-2 text-xs text-sky-700/70">Ready for withdrawal</p>
+              </div>
+              <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-100 via-orange-50 to-white p-5 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wider text-amber-700/70">Held Balance</p>
+                <p className="mt-3 text-3xl font-bold text-amber-950">{fmt(revenue?.heldBalance || 0)}</p>
+                <p className="mt-2 text-xs text-amber-700/70">Releases after course completion</p>
+              </div>
               <div className="rounded-2xl border border-green-200 bg-gradient-to-br from-green-100 via-emerald-50 to-white p-5 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wider text-green-700/70">Total Earnings</p>
-                <p className="mt-3 text-3xl font-bold text-green-900">{fmt(revenue?.estimatedRevenue || 0)}</p>
-                <p className="mt-2 text-xs text-green-700/70">Gross revenue from all sources</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-green-700/70">Teacher Earnings</p>
+                <p className="mt-3 text-3xl font-bold text-green-900">{fmt(revenue?.teacherEarned || 0)}</p>
+                <p className="mt-2 text-xs text-green-700/70">Your earned share from enrollments</p>
               </div>
               <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-100 via-sky-50 to-white p-5 shadow-sm">
                 <p className="text-xs font-semibold uppercase tracking-wider text-blue-700/70">Course Revenue</p>
                 <p className="mt-3 text-3xl font-bold text-blue-900">{fmt(revenue?.platformCourseRevenue || 0)}</p>
-                <p className="mt-2 text-xs text-blue-700/70">From student course enrollments</p>
-              </div>
-              <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-100 via-purple-50 to-white p-5 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wider text-violet-700/70">Subscription Revenue</p>
-                <p className="mt-3 text-3xl font-bold text-violet-900">{fmt(revenue?.subscriptionRevenue || 0)}</p>
-                <p className="mt-2 text-xs text-violet-700/70">From paid subscriptions</p>
+                <p className="mt-2 text-xs text-blue-700/70">Gross student payments across your courses</p>
               </div>
             </div>
 

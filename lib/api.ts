@@ -89,10 +89,10 @@ export const api = {
     });
   },
 
-  enroll: (courseSlug: string) =>
+  enroll: (courseSlug: string, student_country?: string) =>
     request<{ message: string }>('/api/enroll', {
       method: 'POST',
-      body: JSON.stringify({ courseSlug }),
+      body: JSON.stringify({ courseSlug, student_country }),
     }),
 
   getEnrollments: () =>

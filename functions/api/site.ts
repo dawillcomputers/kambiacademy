@@ -99,7 +99,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
         description: course.description || '',
         level: course.level || 'Foundation',
         durationLabel: course.duration_label || '8 weeks',
-        priceLabel: Number(course.price || 0) > 0 ? `$${Number(course.price || 0).toFixed(2)}` : 'Free',
+        priceLabel: Number(course.price || 0) > 0 ? `₦${Number(course.price || 0).toLocaleString()}` : 'Free',
         deliveryMode: 'Teacher-led',
         cohortSize: 'Flexible',
         category: course.category || 'General',

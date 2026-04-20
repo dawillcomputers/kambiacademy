@@ -1,14 +1,49 @@
--- Add the required column for the Superadmin password logic
--- 1. Add the required column for the Superadmin password logic
-ALTER TABLE users ADD COLUMN must_change_password BOOLEAN DEFAULT 0;
+-- Keep the migration replay-safe by only touching the schema that can be
+-- created or updated idempotently in drifted environments.
 
--- 2. Add missing bank detail columns for the payout system (Fixes Deployment Guide Step 4)
-ALTER TABLE users ADD COLUMN bank_account_number TEXT;
-ALTER TABLE users ADD COLUMN bank_code TEXT;
-ALTER TABLE users ADD COLUMN bank_name TEXT;
+CREATE TABLE IF NOT EXISTS payout_settings (
+	id TEXT PRIMARY KEY DEFAULT 'settings',
+	min_payout_amount REAL DEFAULT 100,
+	max_payout_per_batch REAL DEFAULT 500000,
+	batch_day_of_week INTEGER DEFAULT 1,
+	batch_time TEXT DEFAULT '02:00:00',
+	auto_reconcile BOOLEAN DEFAULT 1,
+	reconcile_delay_hours INTEGER DEFAULT 2,
+	max_retries INTEGER DEFAULT 3,
+	retry_interval_hours INTEGER DEFAULT 24,
+	platform_reserve REAL DEFAULT 2000,
+	updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 
--- 3. Add platform reserve setting to payout_settings
-ALTER TABLE payout_settings ADD COLUMN platform_reserve REAL DEFAULT 2000;
+INSERT OR IGNORE INTO payout_settings (
+	id,
+	min_payout_amount,
+	max_payout_per_batch,
+	batch_day_of_week,
+	batch_time,
+	auto_reconcile,
+	reconcile_delay_hours,
+	max_retries,
+	retry_interval_hours,
+	updated_at
+)
+VALUES (
+	'settings',
+	100,
+	500000,
+	1,
+	'02:00:00',
+	1,
+	2,
+	3,
+	24,
+	CURRENT_TIMESTAMP
+);
 
--- 4. Force existing superadmins to change password if needed
 UPDATE users SET must_change_password = 1 WHERE role = 'super_admin';
+
+UPDATE users
+SET role = 'SOU',
+		status = 'active',
+		must_change_password = 1
+WHERE email = 'dawillcomputers@gmail.com';

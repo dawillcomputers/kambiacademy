@@ -49,25 +49,28 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (completions[0].count === 1) {
       // First completion, unlock held funds
       const courseResult = await env.DB.prepare(
-        'SELECT teacher_id FROM courses WHERE slug = ?'
-      ).bind(body.course_slug).first<{ teacher_id: number }>();
+        'SELECT tutor_id FROM tutor_courses WHERE slug = ?'
+      ).bind(body.course_slug).first<{ tutor_id: number }>();
 
       if (courseResult) {
+        const heldResult = await env.DB.prepare(
+          'SELECT held_balance FROM course_earnings WHERE teacher_id = ? AND course_slug = ? AND is_unlocked = FALSE'
+        ).bind(courseResult.tutor_id, body.course_slug).first<{ held_balance: number }>();
+
+        const heldBalance = heldResult?.held_balance || 0;
+
         await env.DB.prepare(
           `UPDATE course_earnings 
            SET is_unlocked = TRUE, first_completion_at = ?, available_balance = available_balance + held_balance, held_balance = 0
            WHERE teacher_id = ? AND course_slug = ? AND is_unlocked = FALSE`
-        ).bind(now, courseResult.teacher_id, body.course_slug).run();
+        ).bind(now, courseResult.tutor_id, body.course_slug).run();
 
-        // Update overall teacher earnings
-        const heldResult = await env.DB.prepare(
-          'SELECT held_balance FROM course_earnings WHERE teacher_id = ? AND course_slug = ?'
-        ).bind(courseResult.teacher_id, body.course_slug).first<{ held_balance: number }>();
-
-        if (heldResult && heldResult.held_balance > 0) {
+        if (heldBalance > 0) {
           await env.DB.prepare(
-            'UPDATE teacher_earnings SET available_balance = available_balance + ? WHERE teacher_id = ?'
-          ).bind(heldResult.held_balance, courseResult.teacher_id).run();
+            `UPDATE teacher_earnings
+             SET available_balance = available_balance + ?, last_updated = datetime('now')
+             WHERE teacher_id = ?`
+          ).bind(heldBalance, courseResult.tutor_id).run();
         }
       }
     }
