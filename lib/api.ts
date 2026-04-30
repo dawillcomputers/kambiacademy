@@ -95,6 +95,60 @@ export const api = {
       body: JSON.stringify({ courseSlug, student_country }),
     }),
 
+  initiateStudentCoursePayment: (
+    courseSlug: string,
+    student_country?: string,
+    aiCourse?: {
+      title: string;
+      description?: string;
+      level?: string;
+      duration_label?: string;
+      price?: number;
+    },
+  ) =>
+    request<{
+      message: string;
+      course_slug: string;
+      amount_paid: number;
+      transactionRef: string;
+      payment_url: string;
+      paymentGateway: string;
+      paymentStatus: 'pending';
+    }>('/api/enroll', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'initiate',
+        courseSlug,
+        student_country,
+        ai_generated: Boolean(aiCourse),
+        ai_course: aiCourse,
+      }),
+    }),
+
+  verifyStudentCoursePayment: (data: {
+    courseSlug: string;
+    transactionRef: string;
+    flutterwaveTransactionId?: string;
+    status?: string;
+    student_country?: string;
+  }) =>
+    request<{
+      message: string;
+      course_slug: string;
+      amount_paid: number;
+      paymentGateway?: string;
+    }>('/api/enroll', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'verify',
+        courseSlug: data.courseSlug,
+        transactionRef: data.transactionRef,
+        flutterwaveTransactionId: data.flutterwaveTransactionId,
+        status: data.status,
+        student_country: data.student_country,
+      }),
+    }),
+
   getEnrollments: () =>
     request<{ enrollments: Array<{ course_slug: string; amount_paid: number; created_at: string }> }>('/api/enrollments'),
 

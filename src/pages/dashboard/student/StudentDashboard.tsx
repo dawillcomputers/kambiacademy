@@ -164,7 +164,34 @@ const StudentDashboard: React.FC = () => {
   };
 
   const handlePaymentSuccess = async (course: Course) => {
+    const isPaidCourse = Number(course.price || 0) > 0;
+    const isAIGeneratedCourse = (course.category || '').toLowerCase().includes('ai');
+
     try {
+      if (isPaidCourse) {
+        const checkout = await api.initiateStudentCoursePayment(
+          course.slug,
+          user.country,
+          isAIGeneratedCourse
+            ? {
+                title: course.title,
+                description: course.description || course.summary,
+                level: course.level,
+                duration_label: course.durationLabel,
+                price: Number(course.price || 0),
+              }
+            : undefined,
+        );
+        if (checkout.payment_url) {
+          setShowPaymentModal(false);
+          setSelectedCourse(null);
+          window.location.assign(checkout.payment_url);
+          return;
+        }
+
+        throw new Error('Unable to start Flutterwave checkout.');
+      }
+
       await api.enroll(course.slug, user.country);
       await refreshUser();
       await loadStudentData();
@@ -174,7 +201,10 @@ const StudentDashboard: React.FC = () => {
 
     setShowPaymentModal(false);
     setSelectedCourse(null);
-    navigate(`/student/courses/${course.slug}`);
+
+    if (!isPaidCourse) {
+      navigate(`/student/courses/${course.slug}`);
+    }
   };
 
   return (

@@ -65,6 +65,16 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, instructor, related
     setEnrolling(true);
     setEnrollError('');
     try {
+      if (Number(course.price || 0) > 0) {
+        const checkout = await api.initiateStudentCoursePayment(course.slug, user.country);
+        if (!checkout.payment_url) {
+          throw new Error('Unable to start Flutterwave checkout.');
+        }
+
+        window.location.assign(checkout.payment_url);
+        return;
+      }
+
       await api.enroll(course.slug, user.country);
       await refreshUser();
       setEnrolled(true);

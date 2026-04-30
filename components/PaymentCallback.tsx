@@ -14,6 +14,10 @@ const resolveDashboardPath = (role?: string) => {
     return '/admin';
   }
 
+  if (role === 'student') {
+    return '/student';
+  }
+
   return '/teacher';
 };
 
@@ -30,6 +34,10 @@ const humanizeType = (type: string | null) => {
     return 'Cloudflare Storage';
   }
 
+  if (type === 'student_course') {
+    return 'Course Enrollment';
+  }
+
   return 'Platform Access';
 };
 
@@ -41,6 +49,7 @@ const PaymentCallback: React.FC = () => {
   const [message, setMessage] = useState('Verifying your Flutterwave payment...');
 
   const subscriptionId = searchParams.get('sid') || '';
+  const courseSlug = searchParams.get('course') || '';
   const bundleTypes = searchParams.get('bundle') || '';
   const transactionRef = searchParams.get('tx_ref') || '';
   const flutterwaveTransactionId = searchParams.get('transaction_id') || undefined;
@@ -52,7 +61,7 @@ const PaymentCallback: React.FC = () => {
     let cancelled = false;
 
     const verifyPayment = async () => {
-      if (!subscriptionId || !transactionRef) {
+      if (!transactionRef) {
         if (!cancelled) {
           setState('failed');
           setMessage('Missing payment callback details. Please return to billing and try again.');
@@ -61,6 +70,36 @@ const PaymentCallback: React.FC = () => {
       }
 
       try {
+        if (subscriptionType === 'student_course') {
+          if (!courseSlug) {
+            setState('failed');
+            setMessage('Missing course details in callback.');
+            return;
+          }
+
+          const response = await api.verifyStudentCoursePayment({
+            courseSlug,
+            transactionRef,
+            flutterwaveTransactionId,
+            status,
+            student_country: user?.country,
+          });
+
+          if (cancelled) {
+            return;
+          }
+
+          setState('success');
+          setMessage(response.message || 'Course payment verified successfully.');
+          return;
+        }
+
+        if (!subscriptionId) {
+          setState('failed');
+          setMessage('Missing subscription details in callback.');
+          return;
+        }
+
         const response = subscriptionType === 'bundle'
           ? await api.verifyTeacherSubscriptionBundlePayment({
               items: subscriptionId
@@ -110,7 +149,7 @@ const PaymentCallback: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [bundleTypes, flutterwaveTransactionId, status, subscriptionId, subscriptionType, transactionRef]);
+  }, [bundleTypes, courseSlug, flutterwaveTransactionId, status, subscriptionId, subscriptionType, transactionRef, user?.country]);
 
   useEffect(() => {
     if (state !== 'success') {
@@ -118,13 +157,18 @@ const PaymentCallback: React.FC = () => {
     }
 
     const timeoutId = window.setTimeout(() => {
+      if (subscriptionType === 'student_course' && courseSlug) {
+        navigate(`/student/courses/${courseSlug}`, { replace: true });
+        return;
+      }
+
       navigate(nextPath, { replace: true });
     }, 2500);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [navigate, nextPath, state]);
+  }, [courseSlug, navigate, nextPath, state, subscriptionType]);
 
   return (
     <section className="section-shell surface-ring rounded-[32px] border border-white/60 bg-white/90 px-6 py-16 text-center sm:px-10">

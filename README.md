@@ -142,6 +142,12 @@ A comprehensive LMS platform featuring live video classes, real-time chat, codin
    FLUTTERWAVE_PUBLIC_KEY=your-flutterwave-public-key
    FLUTTERWAVE_SECRET_KEY=your-flutterwave-secret-key
    FLUTTERWAVE_ENCRYPTION_KEY=your-flutterwave-encryption-key
+   FLUTTERWAVE_STUDENT_PUBLIC_KEY=your-student-flutterwave-public-key
+   FLUTTERWAVE_STUDENT_SECRET_KEY=your-student-flutterwave-secret-key
+   FLUTTERWAVE_STUDENT_ENCRYPTION_KEY=your-student-flutterwave-encryption-key
+   FLUTTERWAVE_TEACHER_PUBLIC_KEY=your-teacher-flutterwave-public-key
+   FLUTTERWAVE_TEACHER_SECRET_KEY=your-teacher-flutterwave-secret-key
+   FLUTTERWAVE_TEACHER_ENCRYPTION_KEY=your-teacher-flutterwave-encryption-key
    ```
 
 4. **Database Migration:**
@@ -242,6 +248,12 @@ The platform includes full PWA support:
    npx wrangler pages secret put FLUTTERWAVE_PUBLIC_KEY --project-name kambiacademy
    npx wrangler pages secret put FLUTTERWAVE_SECRET_KEY --project-name kambiacademy
    npx wrangler pages secret put FLUTTERWAVE_ENCRYPTION_KEY --project-name kambiacademy
+   npx wrangler pages secret put FLUTTERWAVE_STUDENT_PUBLIC_KEY --project-name kambiacademy
+   npx wrangler pages secret put FLUTTERWAVE_STUDENT_SECRET_KEY --project-name kambiacademy
+   npx wrangler pages secret put FLUTTERWAVE_STUDENT_ENCRYPTION_KEY --project-name kambiacademy
+   npx wrangler pages secret put FLUTTERWAVE_TEACHER_PUBLIC_KEY --project-name kambiacademy
+   npx wrangler pages secret put FLUTTERWAVE_TEACHER_SECRET_KEY --project-name kambiacademy
+   npx wrangler pages secret put FLUTTERWAVE_TEACHER_ENCRYPTION_KEY --project-name kambiacademy
    ```
 3. Configure D1 database and R2 bucket bindings
 4. In Flutterwave, register `https://kambiacademy.com/payment-callback` as the production redirect/callback URL for checkout flows.

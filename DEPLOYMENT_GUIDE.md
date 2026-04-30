@@ -13,6 +13,9 @@
 # In your project directory
 wrangler pages secret put FLUTTERWAVE_SECRET
 
+# Student checkout key (recommended dedicated key)
+wrangler pages secret put FLUTTERWAVE_STUDENT_SECRET_KEY
+
 # When prompted, paste your Flutterwave secret key
 ```
 

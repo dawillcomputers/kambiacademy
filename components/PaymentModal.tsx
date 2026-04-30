@@ -15,11 +15,6 @@ interface PaymentModalProps {
 }
 
 const PaymentModal: React.FC<PaymentModalProps> = ({ course, user, onClose, onConfirm, moneyBackGuaranteeDays }) => {
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onConfirm();
-  };
-
   const isFreeCourse = course.price === 0;
 
   // Calculate location-based markup (10% for US and EU countries)
@@ -61,30 +56,14 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ course, user, onClose, onCo
           </div>
 
           <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6 rounded-r-lg" role="alert">
-            <p className="font-bold">Demonstration Only</p>
-            <p className="text-sm">This is a simulated payment form. Do not enter real credit card information.</p>
+            <p className="font-bold">Secure Checkout</p>
+            <p className="text-sm">You will be redirected to Flutterwave v3 to complete payment securely.</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="card-number" className="block text-sm font-medium text-gray-700">Card Number</label>
-              <input type="text" id="card-number" placeholder="**** **** **** 1234" required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-black"/>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label htmlFor="expiry" className="block text-sm font-medium text-gray-700">Expiry</label>
-                <input type="text" id="expiry" placeholder="MM / YY" required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-black"/>
-              </div>
-              <div className="col-span-2">
-                <label htmlFor="cvc" className="block text-sm font-medium text-gray-700">CVC</label>
-                <input type="text" id="cvc" placeholder="123" required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-black"/>
-              </div>
-            </div>
-            <ButtonRow alignment="right" className="pt-4">
-              <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-              <Button type="submit">Pay {finalPriceLabel}</Button>
-            </ButtonRow>
-          </form>
+          <ButtonRow alignment="right" className="pt-4">
+            <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button type="button" onClick={onConfirm}>Continue to Flutterwave ({finalPriceLabel})</Button>
+          </ButtonRow>
         </>
       )}
       {isFreeCourse && (

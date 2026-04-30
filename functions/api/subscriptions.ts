@@ -2,6 +2,8 @@ import { getAuthUser, isFullAdmin } from '../_shared/auth';
 
 interface Env {
   DB: D1Database;
+  FLUTTERWAVE_TEACHER_SECRET_KEY?: string;
+  FLUTTERWAVE_STUDENT_SECRET_KEY?: string;
   FLUTTERWAVE_SECRET_KEY?: string;
 }
 
@@ -53,6 +55,10 @@ const LIVE_CLASS_FEES: FeeConfig = {
   effectiveDate: BILLING_START_DATE,
   label: 'Live Class Access',
 };
+
+function getTeacherFlutterwaveSecret(env: Env) {
+  return env.FLUTTERWAVE_TEACHER_SECRET_KEY || env.FLUTTERWAVE_SECRET_KEY;
+}
 
 function normalizeType(t: string | null | undefined): SubscriptionType {
   if (t === 'storage' || t === 'cloudflare_storage') return 'storage';
@@ -374,6 +380,7 @@ async function finalizeSubscriptionPayment(options: {
   flutterwaveTransactionId?: string;
 }) {
   const { env, user, subscriptionId, transactionRef, subscriptionType, requestedStatus, flutterwaveTransactionId } = options;
+  const teacherFlutterwaveSecret = getTeacherFlutterwaveSecret(env);
   const config = tbl(subscriptionType);
   const { sub, pay } = config;
   const subscriptionTypeClause = getServiceTypeClause('s', config);
@@ -415,9 +422,9 @@ async function finalizeSubscriptionPayment(options: {
     ? `${getTypeLabel(subscriptionType)} payment verified successfully.`
     : `${getTypeLabel(subscriptionType)} payment was not completed.`;
 
-  if (requestedStatus === 'success' && flutterwaveTransactionId && env.FLUTTERWAVE_SECRET_KEY) {
+  if (requestedStatus === 'success' && flutterwaveTransactionId && teacherFlutterwaveSecret) {
     try {
-      const verification = await verifyFlutterwavePayment(env.FLUTTERWAVE_SECRET_KEY, flutterwaveTransactionId, transactionRef, payment.amount);
+      const verification = await verifyFlutterwavePayment(teacherFlutterwaveSecret, flutterwaveTransactionId, transactionRef, payment.amount);
       if (!verification.verified) {
         nextStatus = 'failed';
         message = `${getTypeLabel(subscriptionType)} payment verification failed.`;
@@ -468,6 +475,7 @@ async function finalizeBundleSubscriptionPayment(options: {
   flutterwaveTransactionId?: string;
 }) {
   const { env, user, items, transactionRef, requestedStatus, flutterwaveTransactionId } = options;
+  const teacherFlutterwaveSecret = getTeacherFlutterwaveSecret(env);
   if (!items.length) {
     return { response: Response.json({ error: 'No bundle items were provided' }, { status: 400 }) };
   }
@@ -534,9 +542,9 @@ async function finalizeBundleSubscriptionPayment(options: {
     ? 'All due teacher payments were verified successfully.'
     : 'Combined teacher payment was not completed.';
 
-  if (requestedStatus === 'success' && flutterwaveTransactionId && env.FLUTTERWAVE_SECRET_KEY) {
+  if (requestedStatus === 'success' && flutterwaveTransactionId && teacherFlutterwaveSecret) {
     try {
-      const verification = await verifyFlutterwavePayment(env.FLUTTERWAVE_SECRET_KEY, flutterwaveTransactionId, transactionRef, expectedAmount);
+      const verification = await verifyFlutterwavePayment(teacherFlutterwaveSecret, flutterwaveTransactionId, transactionRef, expectedAmount);
       if (!verification.verified) {
         nextStatus = 'failed';
         message = 'Combined teacher payment verification failed.';
@@ -667,6 +675,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
   if (!user) return Response.json({ error: 'Not authenticated' }, { status: 401 });
+  const teacherFlutterwaveSecret = getTeacherFlutterwaveSecret(env);
 
   const body = await request.json<any>().catch(() => null);
   if (!body) {
@@ -737,7 +746,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ error: 'No payable items were provided for the combined checkout' }, { status: 400 });
     }
 
-    if (!env.FLUTTERWAVE_SECRET_KEY) {
+    if (!teacherFlutterwaveSecret) {
       return Response.json({ error: 'Flutterwave live gateway is not configured' }, { status: 503 });
     }
 
@@ -782,7 +791,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     let payment_url: string;
     try {
       const payment = await initializeFlutterwavePayment({
-        secret: env.FLUTTERWAVE_SECRET_KEY,
+        secret: teacherFlutterwaveSecret,
         origin,
         transactionRef,
         amount,
@@ -846,14 +855,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const subscriptionId = crypto.randomUUID();
   const transactionRef = `${type}-${subscriptionId}-${Date.now()}`;
   const origin = resolvePaymentOrigin(request);
-  if (!env.FLUTTERWAVE_SECRET_KEY) {
+  if (!teacherFlutterwaveSecret) {
     return Response.json({ error: 'Flutterwave live gateway is not configured' }, { status: 503 });
   }
 
   let payment_url: string;
   try {
     const payment = await initializeFlutterwavePayment({
-      secret: env.FLUTTERWAVE_SECRET_KEY,
+      secret: teacherFlutterwaveSecret,
       origin,
       transactionRef,
       amount: f[planType as PlanType],
