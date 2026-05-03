@@ -15,7 +15,7 @@ export const onRequest: PagesFunction = async ({ request, next }) => {
     redirectUrl.protocol = 'https:';
     redirectUrl.hostname = 'kambiacademy.com';
     redirectUrl.port = '';
-    return Response.redirect(redirectUrl.toString(), 301);
+    return Response.redirect(redirectUrl.toString(), 308);
   }
 
   return next();

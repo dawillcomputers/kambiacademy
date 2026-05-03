@@ -1,14 +1,27 @@
 // Service Worker for Offline Mode Support
-const CACHE_NAME = 'kambi-academy-v5';
-const STATIC_CACHE = 'kambi-static-v5';
-const DYNAMIC_CACHE = 'kambi-dynamic-v5';
+const CACHE_NAME = 'kambi-academy-v6';
+const STATIC_CACHE = 'kambi-static-v6';
+const DYNAMIC_CACHE = 'kambi-dynamic-v6';
 
 // Resources to cache immediately (Vite builds hashed assets – only cache shell resources)
 const STATIC_ASSETS = [
   '/',
+  '/offline.html',
   '/manifest.json',
   '/icon-192x192.png',
 ];
+
+const getOfflineDocumentResponse = async () => {
+  const offlinePage = await caches.match('/offline.html');
+  if (offlinePage) {
+    return offlinePage;
+  }
+
+  return new Response(
+    '<html><body><h1>You are offline</h1><p>Please check your internet connection.</p></body></html>',
+    { headers: { 'Content-Type': 'text/html' } },
+  );
+};
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
@@ -185,7 +198,8 @@ self.addEventListener('fetch', (event) => {
           }
           // If we get a 404 for an SPA route, serve the cached index instead
           if (response.status === 404) {
-            return caches.match('/') || response;
+            return caches.match('/')
+              .then((cachedRoot) => cachedRoot || response);
           }
           return response;
         })
@@ -199,12 +213,7 @@ self.addEventListener('fetch', (event) => {
               // SPA fallback: serve cached index.html for client-side routes
               return caches.match('/');
             })
-            .then((response) => {
-              return response || new Response(
-                '<html><body><h1>You are offline</h1><p>Please check your internet connection.</p></body></html>',
-                { headers: { 'Content-Type': 'text/html' } }
-              );
-            });
+            .then((response) => response || getOfflineDocumentResponse());
         })
     );
     return;
@@ -229,6 +238,13 @@ self.addEventListener('fetch', (event) => {
                 cache.put(request, responseClone);
               });
             return response;
+          })
+          .catch(() => {
+            if (request.mode === 'navigate' || request.destination === 'document') {
+              return getOfflineDocumentResponse();
+            }
+
+            return new Response(null, { status: 504, statusText: 'Offline' });
           });
       })
   );

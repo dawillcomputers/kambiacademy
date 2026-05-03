@@ -14,15 +14,18 @@ interface ManagedUser {
 const SuperAdminUsers: React.FC = () => {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | 'admin' | 'teacher' | 'student'>('all');
 
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        const response = await api.get('/admin/users');
+        setError('');
+        const response = await api.adminGetUsers();
         setUsers(response.users || []);
       } catch (error) {
         console.error('Failed to load users:', error);
+        setError(error instanceof Error ? error.message : 'Failed to load users.');
       } finally {
         setLoading(false);
       }
@@ -86,6 +89,8 @@ const SuperAdminUsers: React.FC = () => {
           <div className="flex items-center justify-center py-16">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-slate-900" />
           </div>
+        ) : error ? (
+          <div className="px-6 py-12 text-center text-sm text-rose-600">{error}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

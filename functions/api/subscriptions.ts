@@ -51,14 +51,14 @@ const STORAGE_FEES: FeeConfig = {
 };
 
 const LIVE_CLASS_FEES: FeeConfig = {
-  monthly: 2.20,
-  yearly: 26.40,
+  monthly: 2.00,
+  yearly: 24.00,
   effectiveDate: BILLING_START_DATE,
   label: 'Live Class Access',
 };
 
-function getTeacherFlutterwaveSecret(env: Env) {
-  return env.FLUTTERWAVE_TEACHER_SECRET_KEY || env.FLUTTERWAVE_SECRET_KEY;
+function getSubscriptionFlutterwaveSecret(env: Env) {
+  return env.FLUTTERWAVE_STUDENT_SECRET_KEY || env.FLUTTERWAVE_TEACHER_SECRET_KEY || env.FLUTTERWAVE_SECRET_KEY;
 }
 
 function normalizeType(t: string | null | undefined): SubscriptionType {
@@ -385,7 +385,7 @@ async function finalizeSubscriptionPayment(options: {
   flutterwaveTransactionId?: string;
 }) {
   const { env, user, subscriptionId, transactionRef, subscriptionType, requestedStatus, flutterwaveTransactionId } = options;
-  const teacherFlutterwaveSecret = getTeacherFlutterwaveSecret(env);
+  const teacherFlutterwaveSecret = getSubscriptionFlutterwaveSecret(env);
   const config = tbl(subscriptionType);
   const { sub, pay } = config;
   const subscriptionTypeClause = getServiceTypeClause('s', config);
@@ -480,7 +480,7 @@ async function finalizeBundleSubscriptionPayment(options: {
   flutterwaveTransactionId?: string;
 }) {
   const { env, user, items, transactionRef, requestedStatus, flutterwaveTransactionId } = options;
-  const teacherFlutterwaveSecret = getTeacherFlutterwaveSecret(env);
+  const teacherFlutterwaveSecret = getSubscriptionFlutterwaveSecret(env);
   if (!items.length) {
     return { response: Response.json({ error: 'No bundle items were provided' }, { status: 400 }) };
   }
@@ -681,7 +681,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
   if (!user) return Response.json({ error: 'Not authenticated' }, { status: 401 });
-  const teacherFlutterwaveSecret = getTeacherFlutterwaveSecret(env);
+  const teacherFlutterwaveSecret = getSubscriptionFlutterwaveSecret(env);
 
   const body = await request.json<any>().catch(() => null);
   if (!body) {

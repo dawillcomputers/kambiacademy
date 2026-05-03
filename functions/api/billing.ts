@@ -10,6 +10,9 @@ type BillingServiceKey = 'platform' | 'storage' | 'live_class';
 const BILLING_START_DATE = '2026-05-01T00:00:00.000Z';
 const BYTES_PER_GB = 1024 * 1024 * 1024;
 const AVERAGE_VIDEO_GB_PER_LIVE_SESSION = 1.8;
+const SYSTEM_BASE_LIVE_HOURS = 16;
+const SYSTEM_PREPAID_HOURS_KEY = 'system_live_hours_prepaid_balance';
+const SYSTEM_LIVE_HOURS_ALLOCATION_PREFIX = 'system_live_hours_allocation:';
 
 const BILLING_CATALOG = {
   services: [
@@ -34,8 +37,8 @@ const BILLING_CATALOG = {
     {
       key: 'live_class',
       label: 'Live Class Access',
-      monthly: 2.2,
-      yearly: 26.4,
+      monthly: 2,
+      yearly: 24,
       description: 'Covers Cloudflare Realtime live sessions, teacher broadcasts, and recurring session access.',
       unlocks: ['Start live sessions', 'End live sessions', 'Realtime classroom access'],
       enforcedOn: ['Live session start endpoint', 'Live session end endpoint', 'Realtime live-class workflow'],
@@ -72,6 +75,16 @@ const toNumber = (value: unknown) => {
 };
 
 const roundCurrency = (value: number) => Math.round(value * 100) / 100;
+const roundHours = (value: number) => Math.round(value * 10) / 10;
+
+const getPaymentTimestamp = (entry: { createdAt?: string; paymentDate?: string; created_at?: string }) =>
+  new Date(entry.createdAt || entry.paymentDate || entry.created_at || 0).getTime();
+
+const getEffectiveAddonPrice = (key: string, pricingOverrides: Array<{ target?: string; target_id?: string | number; new_price?: number }> = []) => {
+  const basePrice = toNumber(BILLING_CATALOG.addons.find((entry) => entry.key === key)?.price);
+  const override = pricingOverrides.find((entry) => entry.target === 'addon' && String(entry.target_id) === key);
+  return roundCurrency(override ? toNumber(override.new_price) : basePrice);
+};
 
 const safeFirst = async <T>(db: D1Database, query: string, binds: unknown[] = []): Promise<T | null> => {
   try {
@@ -463,6 +476,327 @@ async function buildTeacherMetrics(db: D1Database, teacher: { id: number; name: 
   };
 }
 
+async function buildStudentPaymentsSnapshot(db: D1Database) {
+  const [totals, recent] = await Promise.all([
+    safeFirst<{
+      grossRevenue: number;
+      platformRevenue: number;
+      teacherPayout: number;
+      transactionCount: number;
+      paidStudents: number;
+    }>(
+      db,
+      `SELECT
+         COALESCE(SUM(final_amount), 0) as grossRevenue,
+         COALESCE(SUM(platform_fee), 0) as platformRevenue,
+         COALESCE(SUM(teacher_payout), 0) as teacherPayout,
+         COUNT(*) as transactionCount,
+         COUNT(DISTINCT student_id) as paidStudents
+       FROM revenue_transactions`,
+    ),
+    safeAll<any>(
+      db,
+      `SELECT
+         rt.id,
+         rt.final_amount as amount,
+         rt.platform_fee as platformFee,
+         rt.teacher_payout as teacherPayout,
+         rt.currency,
+         rt.student_country as studentCountry,
+         rt.course_id as courseSlug,
+         COALESCE(tc.title, rt.course_id) as courseTitle,
+         rt.created_at as createdAt,
+         student.name as studentName,
+         student.email as studentEmail,
+         teacher.name as teacherName,
+         teacher.email as teacherEmail
+       FROM revenue_transactions rt
+       LEFT JOIN users student ON student.id = rt.student_id
+       LEFT JOIN users teacher ON teacher.id = rt.teacher_id
+       LEFT JOIN tutor_courses tc ON tc.slug = rt.course_id
+       ORDER BY rt.created_at DESC
+       LIMIT 18`,
+    ),
+  ]);
+
+  return {
+    totals: {
+      grossRevenue: roundCurrency(toNumber(totals?.grossRevenue)),
+      platformRevenue: roundCurrency(toNumber(totals?.platformRevenue)),
+      teacherPayout: roundCurrency(toNumber(totals?.teacherPayout)),
+      transactionCount: toNumber(totals?.transactionCount),
+      paidStudents: toNumber(totals?.paidStudents),
+    },
+    recent,
+  };
+}
+
+function getPaymentQueryConfig(service: BillingServiceKey) {
+  if (service === 'platform') {
+    return {
+      subscriptionTable: 'subscriptions',
+      paymentTable: 'subscription_payments',
+      serviceClause: '',
+      binds: [] as unknown[],
+      subscriptionType: 'platform',
+    };
+  }
+
+  return {
+    subscriptionTable: 'live_class_subscriptions',
+    paymentTable: 'live_class_subscription_payments',
+    serviceClause: ' AND s.serviceType = ? AND p.serviceType = ?',
+    binds: [service, service] as unknown[],
+    subscriptionType: service,
+  };
+}
+
+async function getRolePaymentStats(db: D1Database, role: string, service: BillingServiceKey) {
+  const config = getPaymentQueryConfig(service);
+  const stats = await safeFirst<{
+    successAmount: number;
+    pendingAmount: number;
+    successCount: number;
+    pendingCount: number;
+  }>(
+    db,
+    `SELECT
+       COALESCE(SUM(CASE WHEN p.status = 'success' THEN p.amount ELSE 0 END), 0) as successAmount,
+       COALESCE(SUM(CASE WHEN p.status = 'pending' THEN p.amount ELSE 0 END), 0) as pendingAmount,
+       COALESCE(SUM(CASE WHEN p.status = 'success' THEN 1 ELSE 0 END), 0) as successCount,
+       COALESCE(SUM(CASE WHEN p.status = 'pending' THEN 1 ELSE 0 END), 0) as pendingCount
+     FROM ${config.paymentTable} p
+     JOIN ${config.subscriptionTable} s ON s.id = p.subscriptionId
+     JOIN users u ON u.id = s.userId
+     WHERE u.role = ?${config.serviceClause}`,
+    [role, ...config.binds],
+  );
+
+  return {
+    service,
+    label: getServiceFees(service).label,
+    successAmount: roundCurrency(toNumber(stats?.successAmount)),
+    pendingAmount: roundCurrency(toNumber(stats?.pendingAmount)),
+    successCount: toNumber(stats?.successCount),
+    pendingCount: toNumber(stats?.pendingCount),
+  };
+}
+
+async function getRecentRolePayments(db: D1Database, role: string, service: BillingServiceKey, limit = 12) {
+  const config = getPaymentQueryConfig(service);
+  return safeAll<any>(
+    db,
+    `SELECT
+       p.id,
+       p.amount,
+       p.status,
+       p.transactionRef,
+       p.paymentDate,
+       p.createdAt,
+       s.planType,
+       '${config.subscriptionType}' as subscriptionType,
+       u.id as userId,
+       u.name as userName,
+       u.email as userEmail
+     FROM ${config.paymentTable} p
+     JOIN ${config.subscriptionTable} s ON s.id = p.subscriptionId
+     JOIN users u ON u.id = s.userId
+     WHERE u.role = ?${config.serviceClause}
+     ORDER BY p.createdAt DESC
+     LIMIT ?`,
+    [role, ...config.binds, limit],
+  );
+}
+
+async function buildTeacherPaymentsSnapshot(db: D1Database, teacherMetrics: Array<any>) {
+  const [platformStats, storageStats, liveClassStats, platformRecent, storageRecent, liveClassRecent] = await Promise.all([
+    getRolePaymentStats(db, 'teacher', 'platform'),
+    getRolePaymentStats(db, 'teacher', 'storage'),
+    getRolePaymentStats(db, 'teacher', 'live_class'),
+    getRecentRolePayments(db, 'teacher', 'platform'),
+    getRecentRolePayments(db, 'teacher', 'storage'),
+    getRecentRolePayments(db, 'teacher', 'live_class'),
+  ]);
+
+  const breakdown = [platformStats, storageStats, liveClassStats];
+  const recent = [...platformRecent, ...storageRecent, ...liveClassRecent]
+    .sort((left, right) => getPaymentTimestamp(right) - getPaymentTimestamp(left))
+    .slice(0, 18)
+    .map((payment) => ({
+      ...payment,
+      label: getServiceFees(payment.subscriptionType as BillingServiceKey).label,
+    }));
+
+  return {
+    totals: {
+      collectedAmount: roundCurrency(breakdown.reduce((sum, entry) => sum + entry.successAmount, 0)),
+      pendingAmount: roundCurrency(breakdown.reduce((sum, entry) => sum + entry.pendingAmount, 0)),
+      successCount: breakdown.reduce((sum, entry) => sum + entry.successCount, 0),
+      pendingCount: breakdown.reduce((sum, entry) => sum + entry.pendingCount, 0),
+      dueTeachers: teacherMetrics.filter((entry) => toNumber(entry.dueCount) > 0).length,
+      dueAmount: roundCurrency(teacherMetrics.reduce((sum, entry) => sum + toNumber(entry.dueAmount), 0)),
+    },
+    breakdown,
+    recent,
+  };
+}
+
+async function buildSystemPaymentsSnapshot(options: {
+  db: D1Database;
+  user: { id: number; name: string; email: string; role: string };
+  teacherMetrics: Array<any>;
+  pricingOverrides: Array<any>;
+}) {
+  const { db, user, teacherMetrics, pricingOverrides } = options;
+  const [platformState, storageState, liveClassState, settingsRows] = await Promise.all([
+    getPlatformSubscriptionState(db, user.id),
+    getScopedServiceState(db, user.id, 'storage'),
+    getScopedServiceState(db, user.id, 'live_class'),
+    safeAll<{ key: string; value: string }>(
+      db,
+      `SELECT key, value
+       FROM platform_settings
+       WHERE key = ?
+          OR key LIKE ?
+       ORDER BY key`,
+      [SYSTEM_PREPAID_HOURS_KEY, `${SYSTEM_LIVE_HOURS_ALLOCATION_PREFIX}%`],
+    ),
+  ]);
+
+  const prepaidBalance = roundHours(
+    toNumber(settingsRows.find((row) => row.key === SYSTEM_PREPAID_HOURS_KEY)?.value),
+  );
+  const allocationMap = new Map<number, number>();
+  for (const row of settingsRows) {
+    if (!row.key.startsWith(SYSTEM_LIVE_HOURS_ALLOCATION_PREFIX)) {
+      continue;
+    }
+
+    const teacherId = Number(row.key.slice(SYSTEM_LIVE_HOURS_ALLOCATION_PREFIX.length));
+    if (!Number.isFinite(teacherId)) {
+      continue;
+    }
+
+    allocationMap.set(teacherId, roundHours(toNumber(row.value)));
+  }
+
+  const totalLiveHoursUsed = roundHours(
+    teacherMetrics.reduce((sum, entry) => sum + toNumber(entry.liveHours?.hoursUsedThisMonth), 0),
+  );
+  const totalStorageGB = roundCurrency(
+    teacherMetrics.reduce((sum, entry) => sum + toNumber(entry.usage?.storageGB), 0),
+  );
+  const overflowHours = roundHours(Math.max(0, totalLiveHoursUsed - SYSTEM_BASE_LIVE_HOURS));
+  const billableOverflowHours = roundHours(Math.max(0, overflowHours - prepaidBalance));
+  const extraHoursUnitPrice = getEffectiveAddonPrice('extra_hours', pricingOverrides);
+  const overflowUnits = billableOverflowHours > 0 ? Math.ceil(billableOverflowHours / 10) : 0;
+  const overflowCharge = roundCurrency(overflowUnits * extraHoursUnitPrice);
+  const serviceStates = [platformState, storageState, liveClassState];
+  const baseDueItems = serviceStates
+    .filter((entry) => entry.requiresSubscription && !entry.hasActiveSubscription)
+    .map((entry) => ({
+      key: entry.service,
+      label: entry.label,
+      monthly: roundCurrency(toNumber(entry.fees?.monthly)),
+      yearly: roundCurrency(toNumber(entry.fees?.yearly)),
+      status: 'due',
+    }));
+  const baseDueAmount = roundCurrency(baseDueItems.reduce((sum, entry) => sum + entry.monthly, 0));
+  const paymentHistory = [...platformState.paymentHistory, ...storageState.paymentHistory, ...liveClassState.paymentHistory]
+    .sort((left, right) => getPaymentTimestamp(right) - getPaymentTimestamp(left))
+    .slice(0, 14);
+  const allocations = teacherMetrics
+    .map((entry) => {
+      const allocatedHours = roundHours(allocationMap.get(entry.teacher.id) ?? 0);
+      const usedHours = roundHours(toNumber(entry.liveHours?.hoursUsedThisMonth));
+      const baseHours = roundHours(toNumber(entry.liveHours?.baseMonthlyLimitHours));
+      const totalHours = roundHours(toNumber(entry.liveHours?.monthlyLimitHours));
+      return {
+        teacherId: entry.teacher.id,
+        teacherName: entry.teacher.name,
+        teacherEmail: entry.teacher.email,
+        baseHours,
+        allocatedHours,
+        totalHours,
+        usedHours,
+        remainingHours: roundHours(toNumber(entry.liveHours?.remainingHours)),
+        dueCount: toNumber(entry.dueCount),
+        hasLiveClassAccess: Boolean(entry.subscriptions?.liveClass?.hasActiveSubscription),
+      };
+    })
+    .sort((left, right) => {
+      if (right.allocatedHours !== left.allocatedHours) {
+        return right.allocatedHours - left.allocatedHours;
+      }
+
+      return left.teacherName.localeCompare(right.teacherName);
+    });
+  const allocatedHours = roundHours(allocations.reduce((sum, entry) => sum + entry.allocatedHours, 0));
+  const availableToAllocate = roundHours(Math.max(0, prepaidBalance - allocatedHours));
+  const overAllocatedHours = roundHours(Math.max(0, allocatedHours - prepaidBalance));
+  const monthlyBaseStack = roundCurrency(BILLING_CATALOG.services.reduce((sum, entry) => sum + toNumber(entry.monthly), 0));
+  const yearlyBaseStack = roundCurrency(BILLING_CATALOG.services.reduce((sum, entry) => sum + toNumber(entry.yearly), 0));
+  const addonCatalog = BILLING_CATALOG.addons.map((addon) => ({
+    ...addon,
+    basePrice: roundCurrency(toNumber(addon.price)),
+    effectivePrice: getEffectiveAddonPrice(addon.key, pricingOverrides),
+  }));
+
+  return {
+    serviceStates,
+    paymentHistory,
+    baseDueItems,
+    monthlyBaseStack,
+    yearlyBaseStack,
+    baseDueAmount,
+    variableDueAmount: overflowCharge,
+    totalDueAmount: roundCurrency(baseDueAmount + overflowCharge),
+    baseLiveHoursCovered: SYSTEM_BASE_LIVE_HOURS,
+    totalLiveHoursUsed,
+    overflowHours,
+    billableOverflowHours,
+    totalStorageGB,
+    prepaidBalance,
+    allocatedHours,
+    availableToAllocate,
+    overAllocatedHours,
+    dueLines: [
+      {
+        key: 'platform',
+        label: 'System Maintenance',
+        amount: 4,
+        status: platformState.hasActiveSubscription ? 'covered' : 'due',
+        description: 'Required base system charge for the superadmin control plane.',
+      },
+      {
+        key: 'live_class',
+        label: 'Live Class',
+        amount: 2,
+        status: liveClassState.hasActiveSubscription ? 'covered' : 'due',
+        description: `Base live-class charge covering the first ${SYSTEM_BASE_LIVE_HOURS} hours this month.`,
+      },
+      {
+        key: 'storage',
+        label: 'Storage',
+        amount: 2,
+        status: storageState.hasActiveSubscription ? 'covered' : 'due',
+        description: 'Base storage charge for materials and classroom assets.',
+      },
+      ...(overflowCharge > 0
+        ? [{
+            key: 'extra_hours',
+            label: 'Extra Hours',
+            amount: overflowCharge,
+            status: 'due',
+            description: `${billableOverflowHours} billable live hours over the ${SYSTEM_BASE_LIVE_HOURS}-hour base allocation.`,
+          }]
+        : []),
+    ],
+    allocations,
+    addonCatalog,
+  };
+}
+
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
   if (!user) {
@@ -519,6 +853,16 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
      LIMIT 20`,
   );
   const pricingOverrides = await safeAll<any>(env.DB, 'SELECT * FROM pricing_overrides WHERE active = 1 ORDER BY updated_at DESC LIMIT 20');
+  const [studentPayments, teacherPayments, systemPayments] = await Promise.all([
+    buildStudentPaymentsSnapshot(env.DB),
+    buildTeacherPaymentsSnapshot(env.DB, teacherMetrics),
+    buildSystemPaymentsSnapshot({
+      db: env.DB,
+      user,
+      teacherMetrics,
+      pricingOverrides,
+    }),
+  ]);
 
   const totalEstimatedRevenue = roundCurrency(teacherMetrics.reduce((sum, item) => sum + toNumber(item.revenue.estimatedRevenue), 0));
   const totalEstimatedCost = roundCurrency(teacherMetrics.reduce((sum, item) => sum + toNumber(item.costs.totalCost), 0));
@@ -545,6 +889,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     teachers: teacherMetrics,
     pricingOverrides,
     systemEvents,
+    studentPayments,
+    teacherPayments,
+    systemPayments,
   };
 
   return Response.json(response);
