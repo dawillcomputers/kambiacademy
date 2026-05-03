@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { User, Course, Material } from '../../../../types';
+import { Course, Material } from '../../../../types';
+import { AuthUser } from '../../../../lib/auth';
 import Card from '../../../../components/Card';
 import Button from '../../../../components/Button';
 
 interface StudentMaterialsProps {
-  user: User;
+  user: AuthUser;
   courses: Course[];
   materials: Material[];
 }

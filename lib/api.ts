@@ -110,6 +110,9 @@ export const api = {
       message: string;
       course_slug: string;
       amount_paid: number;
+      course_amount?: number;
+      processing_fee?: number;
+      processing_fee_source?: string;
       transactionRef: string;
       payment_url: string;
       paymentGateway: string;
@@ -118,6 +121,35 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({
         action: 'initiate',
+        courseSlug,
+        student_country,
+        ai_generated: Boolean(aiCourse),
+        ai_course: aiCourse,
+      }),
+    }),
+
+  quoteStudentCoursePayment: (
+    courseSlug: string,
+    student_country?: string,
+    aiCourse?: {
+      title: string;
+      description?: string;
+      level?: string;
+      duration_label?: string;
+      price?: number;
+    },
+  ) =>
+    request<{
+      course_slug: string;
+      amount_paid: number;
+      course_amount: number;
+      processing_fee: number;
+      processing_fee_source: string;
+      location_markup_percentage: number;
+    }>('/api/enroll', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'quote',
         courseSlug,
         student_country,
         ai_generated: Boolean(aiCourse),
@@ -136,6 +168,9 @@ export const api = {
       message: string;
       course_slug: string;
       amount_paid: number;
+      course_amount?: number;
+      processing_fee?: number;
+      processing_fee_source?: string;
       paymentGateway?: string;
     }>('/api/enroll', {
       method: 'POST',

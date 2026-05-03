@@ -1,7 +1,8 @@
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Course } from '../types';
 import { AuthUser } from '../lib/auth';
+import { api } from '../lib/api';
 import Button from './Button';
 import ButtonRow from './ButtonRow';
 import Modal from './Modal';
@@ -14,8 +15,16 @@ interface PaymentModalProps {
   moneyBackGuaranteeDays: number;
 }
 
+const FLUTTERWAVE_PROCESSING_FEE_RATE = 0.02;
+
 const PaymentModal: React.FC<PaymentModalProps> = ({ course, user, onClose, onConfirm, moneyBackGuaranteeDays }) => {
   const isFreeCourse = course.price === 0;
+  const [pricingQuote, setPricingQuote] = useState<{
+    amount_paid: number;
+    course_amount: number;
+    processing_fee: number;
+    processing_fee_source: string;
+  } | null>(null);
 
   // Calculate location-based markup (10% for US and EU countries)
   const euCountries = [
@@ -26,8 +35,53 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ course, user, onClose, onCo
   ];
   const isUSOrEU = user.country === 'United States' || euCountries.includes(user.country || '');
   const locationMarkup = isUSOrEU ? 0.10 : 0; // 10% markup
-  const finalPrice = course.price * (1 + locationMarkup);
+  const fallbackCourseAmount = course.price * (1 + locationMarkup);
+  const fallbackProcessingFee = fallbackCourseAmount > 0 ? fallbackCourseAmount * FLUTTERWAVE_PROCESSING_FEE_RATE : 0;
+  const fallbackFinalPrice = fallbackCourseAmount + fallbackProcessingFee;
+  const isAIGeneratedCourse = useMemo(() => (course.category || '').toLowerCase().includes('ai'), [course.category]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (isFreeCourse) {
+      setPricingQuote(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const aiCourse = isAIGeneratedCourse
+      ? {
+          title: course.title,
+          description: course.description || course.summary,
+          level: course.level,
+          duration_label: course.durationLabel,
+          price: Number(course.price || 0),
+        }
+      : undefined;
+
+    void api.quoteStudentCoursePayment(course.slug, user.country, aiCourse)
+      .then((quote) => {
+        if (!cancelled) {
+          setPricingQuote(quote);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPricingQuote(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [course.description, course.durationLabel, course.level, course.price, course.slug, course.summary, course.title, isAIGeneratedCourse, isFreeCourse, user.country]);
+
+  const courseAmount = pricingQuote?.course_amount ?? fallbackCourseAmount;
+  const processingFee = pricingQuote?.processing_fee ?? fallbackProcessingFee;
+  const finalPrice = pricingQuote?.amount_paid ?? fallbackFinalPrice;
   const finalPriceLabel = `₦${finalPrice.toLocaleString()}`;
+  const processingFeeLabel = `₦${processingFee.toLocaleString()}`;
 
   return (
     <Modal onClose={onClose}>
@@ -47,6 +101,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ course, user, onClose, onCo
           <div className="bg-indigo-50 p-4 rounded-lg mb-6 text-center">
             <p className="text-sm text-indigo-800">Total Amount</p>
             <p className="text-4xl font-extrabold text-indigo-600">{finalPriceLabel}</p>
+            <div className="mt-3 space-y-1 text-xs text-slate-600">
+              <p>Course subtotal: ₦{courseAmount.toLocaleString()}</p>
+              <p>
+                Flutterwave processing fee{pricingQuote?.processing_fee_source === 'flutterwave' ? ' (live quote)' : ' (estimated)'}: {processingFeeLabel}
+              </p>
+            </div>
             {locationMarkup > 0 && (
               <p className="text-xs text-slate-500 mt-1">
                 Includes 10% location markup for {user.country}

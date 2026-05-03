@@ -1,7 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../../../lib/api';
 
+type PlanType = 'monthly' | 'yearly';
+
 const formatMoney = (value: number) => `$${value.toFixed(2)}`;
+
+const formatScheduleDate = (value?: string | null) => {
+  if (!value) {
+    return 'Not scheduled';
+  }
+
+  return new Date(value).toLocaleDateString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
 
 const statusStyles: Record<string, string> = {
   healthy: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/20',
@@ -9,10 +23,35 @@ const statusStyles: Record<string, string> = {
   danger: 'bg-rose-500/15 text-rose-300 border border-rose-500/20',
 };
 
+const scheduleToneMap: Record<string, { panel: string; badge: string }> = {
+  upcoming: {
+    panel: 'border-indigo-400/20 bg-indigo-500/10',
+    badge: 'border-indigo-400/30 bg-indigo-500/15 text-indigo-100',
+  },
+  current: {
+    panel: 'border-emerald-400/20 bg-emerald-500/10',
+    badge: 'border-emerald-400/30 bg-emerald-500/15 text-emerald-100',
+  },
+  warning: {
+    panel: 'border-amber-400/20 bg-amber-500/10',
+    badge: 'border-amber-400/30 bg-amber-500/15 text-amber-100',
+  },
+  due: {
+    panel: 'border-orange-400/20 bg-orange-500/10',
+    badge: 'border-orange-400/30 bg-orange-500/15 text-orange-100',
+  },
+  locked: {
+    panel: 'border-rose-400/20 bg-rose-500/10',
+    badge: 'border-rose-400/30 bg-rose-500/15 text-rose-100',
+  },
+};
+
 export default function SuperAdminBillingPage() {
   const [overview, setOverview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [checkoutLoading, setCheckoutLoading] = useState<PlanType | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,6 +85,29 @@ export default function SuperAdminBillingPage() {
   const summary = overview?.system?.totals;
   const catalog = overview?.catalog;
   const viewer = overview?.viewer;
+  const superAdminBilling = overview?.superAdminBilling;
+  const platformService = catalog?.services?.find((service: any) => service.key === 'platform');
+  const currentSubscription = superAdminBilling?.currentSubscription;
+  const scheduleTone = scheduleToneMap[superAdminBilling?.status || 'upcoming'] || scheduleToneMap.upcoming;
+
+  const handlePlatformCheckout = async (planType: PlanType) => {
+    setMessage('');
+    setError('');
+    setCheckoutLoading(planType);
+    try {
+      const response = await api.createTeacherSubscription(planType, 'platform');
+      if (response.payment_url) {
+        window.location.href = response.payment_url;
+        return;
+      }
+
+      setMessage(response.message || 'Checkout created.');
+    } catch (checkoutError) {
+      setError(checkoutError instanceof Error ? checkoutError.message : 'Failed to start superadmin checkout.');
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
 
   return (
     <div className="space-y-8 p-6 lg:p-8">
@@ -72,12 +134,104 @@ export default function SuperAdminBillingPage() {
         </div>
       </section>
 
+      {message && <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-100">{message}</div>}
       {error && <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-medium text-rose-200">{error}</div>}
 
       {loading ? (
         <div className="rounded-[28px] border border-white/10 bg-[#111B2E] px-6 py-10 text-sm text-[#A9B4CC] shadow-lg">Loading billing intelligence…</div>
       ) : (
         <>
+          {viewer?.role === 'super_admin' && superAdminBilling?.applies && (
+            <section className="rounded-[28px] border border-white/10 bg-[#111B2E] px-6 py-6 shadow-xl shadow-black/20">
+              <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6B7A99]">Superadmin platform access</p>
+                  <h2 className="mt-2 text-2xl font-bold text-[#EAF0FF]">Monthly due date is the 18th, warning starts on the 6th, and the dashboard locks on the 20th</h2>
+                  <div className={`mt-5 rounded-3xl border px-5 py-5 ${scheduleTone.panel}`}>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${scheduleTone.badge}`}>
+                        {superAdminBilling?.label || 'Billing schedule active'}
+                      </span>
+                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-[#EAF0FF]">
+                        Cycle: {superAdminBilling?.currentCycleLabel || 'May 2026'}
+                      </span>
+                    </div>
+                    <p className="mt-4 text-sm leading-7 text-[#EAF0FF]">{superAdminBilling?.message}</p>
+                    <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#A9B4CC]">Warning starts</p>
+                        <p className="mt-2 text-lg font-bold text-[#EAF0FF]">{formatScheduleDate(superAdminBilling?.warningStartDate)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#A9B4CC]">Due date</p>
+                        <p className="mt-2 text-lg font-bold text-[#EAF0FF]">{formatScheduleDate(superAdminBilling?.dueDate)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#A9B4CC]">Dashboard lock</p>
+                        <p className="mt-2 text-lg font-bold text-[#EAF0FF]">{formatScheduleDate(superAdminBilling?.lockDate)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#A9B4CC]">Coverage through</p>
+                        <p className="mt-2 text-lg font-bold text-[#EAF0FF]">
+                          {currentSubscription?.endDate ? formatScheduleDate(currentSubscription.endDate) : 'No paid cycle'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-[#16233A] px-5 py-5">
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#6B7A99]">Renew platform access</p>
+                  <h3 className="mt-3 text-xl font-bold text-[#EAF0FF]">Keep the superadmin console unlocked</h3>
+                  <p className="mt-3 text-sm leading-7 text-[#A9B4CC]">
+                    Use the platform access checkout to clear the current cycle. A successful payment keeps the console open through the next monthly lock checkpoint.
+                  </p>
+
+                  <div className="mt-5 rounded-2xl border border-white/10 bg-[#111B2E] px-4 py-4 text-sm text-[#EAF0FF]">
+                    <p className="font-semibold">Current plan</p>
+                    <p className="mt-2 text-[#A9B4CC]">
+                      {currentSubscription?.planType ? `${currentSubscription.planType} plan active until ${formatScheduleDate(currentSubscription.endDate)}` : 'No current paid platform cycle recorded.'}
+                    </p>
+                  </div>
+
+                  {superAdminBilling?.requiresRenewal ? (
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => handlePlatformCheckout('monthly')}
+                        disabled={Boolean(checkoutLoading)}
+                        className="rounded-2xl border border-indigo-400/30 bg-indigo-500/15 px-4 py-4 text-left text-[#EAF0FF] transition hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-100">Monthly</p>
+                        <p className="mt-2 text-2xl font-bold">{formatMoney(Number(platformService?.monthly || 4))}</p>
+                        <p className="mt-2 text-sm text-[#A9B4CC]">
+                          {checkoutLoading === 'monthly' ? 'Opening checkout...' : 'Clear the current month and keep billing aligned to the 18th.'}
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handlePlatformCheckout('yearly')}
+                        disabled={Boolean(checkoutLoading)}
+                        className="rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-4 text-left text-[#EAF0FF] transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">Yearly</p>
+                        <p className="mt-2 text-2xl font-bold">{formatMoney(Number(platformService?.yearly || 44))}</p>
+                        <p className="mt-2 text-sm text-[#A9B4CC]">
+                          {checkoutLoading === 'yearly' ? 'Opening checkout...' : 'Settle the platform subscription for a full year.'}
+                        </p>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-100">
+                      This cycle is already covered. The next checkpoint is {formatScheduleDate(superAdminBilling?.nextCycleLockDate)}.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-[24px] border border-white/10 bg-[#111B2E] px-5 py-5 shadow-lg shadow-black/20">
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6B7A99]">Estimated Revenue</p>

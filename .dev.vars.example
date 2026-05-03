@@ -11,3 +11,6 @@ FLUTTERWAVE_STUDENT_ENCRYPTION_KEY=your-student-flutterwave-encryption-key
 FLUTTERWAVE_TEACHER_PUBLIC_KEY=your-teacher-flutterwave-public-key
 FLUTTERWAVE_TEACHER_SECRET_KEY=your-teacher-flutterwave-secret-key
 FLUTTERWAVE_TEACHER_ENCRYPTION_KEY=your-teacher-flutterwave-encryption-key
+AI_PROVIDER=openai
+AI_MODEL=gpt-4o-mini
+OPENAI_API_KEY=your-openai-api-key

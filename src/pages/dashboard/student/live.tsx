@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { User } from '../../../../types';
+import { AuthUser } from '../../../../lib/auth';
 import Button from '../../../../components/Button';
 import Card from '../../../../components/Card';
 import LiveClassroom from '../../../../components/LiveClassroom';
 
 interface StudentLiveProps {
-  user: User;
+  user: AuthUser;
   liveSessions: any[];
   onSessionClosed: () => Promise<void>;
 }

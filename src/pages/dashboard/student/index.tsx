@@ -57,11 +57,17 @@ const StudentDashboardHome: React.FC<StudentDashboardHomeProps> = ({ user, cours
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {continueLearning.map(course => (
             <Card key={course.id} className="p-6">
-              <img
-                src={course.imageUrl || 'https://via.placeholder.com/300x200'}
-                alt={course.title}
-                className="w-full h-32 object-cover rounded-lg mb-4"
-              />
+              {course.imageUrl ? (
+                <img
+                  src={course.imageUrl}
+                  alt={course.title}
+                  className="w-full h-32 object-cover rounded-lg mb-4"
+                />
+              ) : (
+                <div className="mb-4 flex h-32 w-full items-center justify-center rounded-lg bg-slate-100 text-sm font-semibold text-slate-500">
+                  Course image unavailable
+                </div>
+              )}
               <h3 className="font-bold text-lg mb-2 text-slate-900">{course.title}</h3>
               <p className="text-slate-900 text-sm mb-4">{course.summary}</p>
 
@@ -92,11 +98,17 @@ const StudentDashboardHome: React.FC<StudentDashboardHomeProps> = ({ user, cours
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {courses.slice(0, 3).map(course => (
             <Card key={course.id} className="p-6">
-              <img
-                src={course.imageUrl || 'https://via.placeholder.com/300x200'}
-                alt={course.title}
-                className="w-full h-32 object-cover rounded-lg mb-4"
-              />
+              {course.imageUrl ? (
+                <img
+                  src={course.imageUrl}
+                  alt={course.title}
+                  className="w-full h-32 object-cover rounded-lg mb-4"
+                />
+              ) : (
+                <div className="mb-4 flex h-32 w-full items-center justify-center rounded-lg bg-slate-100 text-sm font-semibold text-slate-500">
+                  Course image unavailable
+                </div>
+              )}
               <h3 className="font-bold text-lg mb-2 text-slate-900">{course.title}</h3>
               <p className="text-slate-900 text-sm mb-4">{course.summary}</p>
               <div className="flex justify-between items-center">

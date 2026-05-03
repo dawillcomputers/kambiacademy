@@ -62,8 +62,221 @@ const BILLING_START_DATE = '2026-05-01T00:00:00.000Z';
 const PLATFORM_FEES = { monthly: 4.0, yearly: 44.0 };
 const STORAGE_FEES = { monthly: 2.0, yearly: 24.0 };
 const LIVE_CLASS_FEES = { monthly: 2.2, yearly: 26.4 };
+const SUPERADMIN_WARNING_DAY = 6;
+const SUPERADMIN_DUE_DAY = 18;
+const SUPERADMIN_LOCK_DAY = 20;
 
 const getBillingRequirementTimestamp = (_type: SubscriptionGateType) => new Date(BILLING_START_DATE).getTime();
+
+type PlatformSubscriptionRow = {
+  id: string;
+  planType: 'monthly' | 'yearly';
+  status: string;
+  startDate: string;
+  endDate: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export interface SuperAdminBillingStatus {
+  applies: boolean;
+  exempt: boolean;
+  status: 'upcoming' | 'current' | 'warning' | 'due' | 'locked';
+  label: string;
+  message: string;
+  billingStartDate: string;
+  currentCycleLabel: string | null;
+  warningStartDate: string | null;
+  dueDate: string | null;
+  lockDate: string | null;
+  nextCycleLockDate: string | null;
+  requiresRenewal: boolean;
+  coversCurrentCycle: boolean;
+  isWarning: boolean;
+  isDue: boolean;
+  isLocked: boolean;
+  currentSubscription: PlatformSubscriptionRow | null;
+}
+
+const utcDayStart = (year: number, month: number, day: number) => new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+
+const formatUtcDate = (date: Date) => date.toLocaleDateString('en-US', {
+  month: 'long',
+  day: 'numeric',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+const formatUtcMonth = (date: Date) => date.toLocaleDateString('en-US', {
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+function getSuperAdminCycleDates(referenceDate = new Date()) {
+  const year = referenceDate.getUTCFullYear();
+  const month = referenceDate.getUTCMonth();
+
+  return {
+    warningStart: utcDayStart(year, month, SUPERADMIN_WARNING_DAY),
+    dueDate: utcDayStart(year, month, SUPERADMIN_DUE_DAY),
+    lockDate: utcDayStart(year, month, SUPERADMIN_LOCK_DAY),
+    nextCycleLockDate: utcDayStart(year, month + 1, SUPERADMIN_LOCK_DAY),
+    currentCycleLabel: formatUtcMonth(referenceDate),
+  };
+}
+
+export function getSuperAdminNextMonthlyCoverageEndDate(referenceDate = new Date()) {
+  return getSuperAdminCycleDates(referenceDate).nextCycleLockDate.toISOString();
+}
+
+async function getActivePlatformSubscription(db: D1Database, userId: number | string) {
+  return db
+    .prepare(
+      `SELECT s.id, s.planType, s.status, s.startDate, s.endDate, s.createdAt, s.updatedAt
+       FROM subscriptions s
+       WHERE s.userId = ?
+         AND s.status = 'active'
+         AND s.endDate > datetime('now')
+         AND EXISTS (
+           SELECT 1
+           FROM subscription_payments p
+           WHERE p.subscriptionId = s.id
+             AND p.status = 'success'
+         )
+       ORDER BY s.createdAt DESC
+       LIMIT 1`,
+    )
+    .bind(userId)
+    .first<PlatformSubscriptionRow>();
+}
+
+export async function getSuperAdminBillingStatus(user: any, db: D1Database): Promise<SuperAdminBillingStatus> {
+  if (user?.role === 'SOU') {
+    return {
+      applies: false,
+      exempt: true,
+      status: 'current',
+      label: 'System Override',
+      message: 'System Override access bypasses superadmin billing enforcement.',
+      billingStartDate: BILLING_START_DATE,
+      currentCycleLabel: null,
+      warningStartDate: null,
+      dueDate: null,
+      lockDate: null,
+      nextCycleLockDate: null,
+      requiresRenewal: false,
+      coversCurrentCycle: true,
+      isWarning: false,
+      isDue: false,
+      isLocked: false,
+      currentSubscription: null,
+    };
+  }
+
+  if (user?.role !== 'super_admin') {
+    return {
+      applies: false,
+      exempt: false,
+      status: 'current',
+      label: 'Not applicable',
+      message: 'Superadmin billing enforcement does not apply to this role.',
+      billingStartDate: BILLING_START_DATE,
+      currentCycleLabel: null,
+      warningStartDate: null,
+      dueDate: null,
+      lockDate: null,
+      nextCycleLockDate: null,
+      requiresRenewal: false,
+      coversCurrentCycle: true,
+      isWarning: false,
+      isDue: false,
+      isLocked: false,
+      currentSubscription: null,
+    };
+  }
+
+  const now = new Date();
+  const billingStartsAt = new Date(BILLING_START_DATE);
+
+  if (now.getTime() < billingStartsAt.getTime()) {
+    return {
+      applies: true,
+      exempt: false,
+      status: 'upcoming',
+      label: 'Billing opens soon',
+      message: `Superadmin billing starts on ${formatUtcDate(billingStartsAt)}.`,
+      billingStartDate: BILLING_START_DATE,
+      currentCycleLabel: formatUtcMonth(billingStartsAt),
+      warningStartDate: null,
+      dueDate: null,
+      lockDate: null,
+      nextCycleLockDate: null,
+      requiresRenewal: false,
+      coversCurrentCycle: true,
+      isWarning: false,
+      isDue: false,
+      isLocked: false,
+      currentSubscription: null,
+    };
+  }
+
+  const cycle = getSuperAdminCycleDates(now);
+  const currentSubscription = await getActivePlatformSubscription(db, user.id);
+  const coversCurrentCycle = Boolean(
+    currentSubscription && new Date(currentSubscription.endDate).getTime() > cycle.lockDate.getTime(),
+  );
+  const requiresRenewal = !coversCurrentCycle;
+  const nowTime = now.getTime();
+  const warningStartTime = cycle.warningStart.getTime();
+  const dueTime = cycle.dueDate.getTime();
+  const lockTime = cycle.lockDate.getTime();
+  const isLocked = requiresRenewal && nowTime >= lockTime;
+  const isDue = requiresRenewal && nowTime >= dueTime && nowTime < lockTime;
+  const isWarning = requiresRenewal && nowTime >= warningStartTime && nowTime < dueTime;
+
+  let status: SuperAdminBillingStatus['status'] = 'current';
+  let label = 'Current cycle cleared';
+  let message = `Superadmin platform access for ${cycle.currentCycleLabel} is settled.`;
+
+  if (isLocked) {
+    status = 'locked';
+    label = 'Dashboard locked';
+    message = `Superadmin platform payment for ${cycle.currentCycleLabel} was not settled by ${formatUtcDate(cycle.lockDate)}. Billing page access remains open so you can renew.`;
+  } else if (isDue) {
+    status = 'due';
+    label = 'Payment due';
+    message = `Superadmin platform payment for ${cycle.currentCycleLabel} is due by ${formatUtcDate(cycle.dueDate)}. Dashboard access locks on ${formatUtcDate(cycle.lockDate)} if unpaid.`;
+  } else if (isWarning) {
+    status = 'warning';
+    label = 'Renew before due date';
+    message = `Superadmin platform payment for ${cycle.currentCycleLabel} is approaching. Warning starts on the 6th, payment is due by ${formatUtcDate(cycle.dueDate)}, and dashboard access locks on ${formatUtcDate(cycle.lockDate)} if unpaid.`;
+  } else if (requiresRenewal) {
+    status = 'upcoming';
+    label = 'Upcoming due date';
+    message = `Superadmin platform payment for ${cycle.currentCycleLabel} is due on ${formatUtcDate(cycle.dueDate)}. Warning starts on ${formatUtcDate(cycle.warningStart)} and dashboard access locks on ${formatUtcDate(cycle.lockDate)} if unpaid.`;
+  }
+
+  return {
+    applies: true,
+    exempt: false,
+    status,
+    label,
+    message,
+    billingStartDate: BILLING_START_DATE,
+    currentCycleLabel: cycle.currentCycleLabel,
+    warningStartDate: cycle.warningStart.toISOString(),
+    dueDate: cycle.dueDate.toISOString(),
+    lockDate: cycle.lockDate.toISOString(),
+    nextCycleLockDate: cycle.nextCycleLockDate.toISOString(),
+    requiresRenewal,
+    coversCurrentCycle,
+    isWarning,
+    isDue,
+    isLocked,
+    currentSubscription: currentSubscription ?? null,
+  };
+}
 
 export async function getAuthUser(request: Request, db: D1Database) {
   try {
@@ -149,8 +362,17 @@ export async function checkSubscription(user: any, db: D1Database, type: Subscri
     return true;
   }
 
+  if (type === 'platform' && user.role === 'SOU') {
+    return true;
+  }
+
+  if (type === 'platform' && user.role === 'super_admin') {
+    const billingStatus = await getSuperAdminBillingStatus(user, db);
+    return !billingStatus.isLocked;
+  }
+
   // Only teachers and admins need platform subscriptions
-  if (type === 'platform' && user.role !== 'teacher' && user.role !== 'admin') {
+  if (type === 'platform' && user.role !== 'teacher' && user.role !== 'admin' && user.role !== 'super_admin') {
     return true;
   }
 
@@ -221,6 +443,24 @@ export async function requireSubscription(request: Request, db: D1Database, type
   // If before effective date, no subscription required
   if (now < effectiveDate) {
     return null;
+  }
+
+  if (type === 'platform' && user.role === 'super_admin') {
+    const billingStatus = await getSuperAdminBillingStatus(user, db);
+    if (!billingStatus.isLocked) {
+      return null;
+    }
+
+    return new Response(JSON.stringify({
+      error: 'Active platform subscription required',
+      message: billingStatus.message,
+      platformFees: PLATFORM_FEES,
+      subscriptionType: type,
+      superAdminBilling: billingStatus,
+    }), {
+      status: 402,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   const hasSubscription = await checkSubscription(user, db, type);

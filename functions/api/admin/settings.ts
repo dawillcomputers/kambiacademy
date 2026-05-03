@@ -11,13 +11,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  if (admin.role !== 'super_admin' && admin.role !== 'SOU') {
-    const hasSubscription = await checkSubscription(admin, env.DB);
-    if (!hasSubscription) {
-      const subscriptionError = await requireSubscription(request, env.DB);
-      if (subscriptionError) {
-        return subscriptionError;
-      }
+  const hasSubscription = await checkSubscription(admin, env.DB);
+  if (!hasSubscription) {
+    const subscriptionError = await requireSubscription(request, env.DB);
+    if (subscriptionError) {
+      return subscriptionError;
     }
   }
 
@@ -37,13 +35,11 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  if (admin.role !== 'super_admin' && admin.role !== 'SOU') {
-    const hasSubscription = await checkSubscription(admin, env.DB);
-    if (!hasSubscription) {
-      const subscriptionError = await requireSubscription(request, env.DB);
-      if (subscriptionError) {
-        return subscriptionError;
-      }
+  const hasSubscription = await checkSubscription(admin, env.DB);
+  if (!hasSubscription) {
+    const subscriptionError = await requireSubscription(request, env.DB);
+    if (subscriptionError) {
+      return subscriptionError;
     }
   }
 

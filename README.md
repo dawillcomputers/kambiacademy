@@ -206,9 +206,10 @@ The platform includes full PWA support:
 **Status**: ✅ **COMPLETE** - All features from kambi.md guide successfully implemented and tested.
 
 ### Required
-- `AI_PROVIDER` — `anthropic` or `google`
+- `AI_PROVIDER` — `anthropic`, `google`, or `openai`
 - `AI_MODEL` — `claude-sonnet-4.5` (or your preferred model)
 - `ANTHROPIC_API_KEY` — Your Anthropic API key (if using Claude)
+- `OPENAI_API_KEY` — Your OpenAI API key (if using OpenAI)
 - `API_KEY` — Your Google GenAI API key (if using Google)
 
 ### New Features
@@ -254,6 +255,7 @@ The platform includes full PWA support:
    npx wrangler pages secret put FLUTTERWAVE_TEACHER_PUBLIC_KEY --project-name kambiacademy
    npx wrangler pages secret put FLUTTERWAVE_TEACHER_SECRET_KEY --project-name kambiacademy
    npx wrangler pages secret put FLUTTERWAVE_TEACHER_ENCRYPTION_KEY --project-name kambiacademy
+   npx wrangler pages secret put OPENAI_API_KEY --project-name kambiacademy
    ```
 3. Configure D1 database and R2 bucket bindings
 4. In Flutterwave, register `https://kambiacademy.com/payment-callback` as the production redirect/callback URL for checkout flows.
@@ -266,9 +268,9 @@ Do not store service credentials in `wrangler.jsonc`. Keep local values in `.dev
 Set these in your deployment provider:
 
 ```bash
-AI_PROVIDER=anthropic
-AI_MODEL=claude-sonnet-4.5
-ANTHROPIC_API_KEY=your_key_here
+AI_PROVIDER=openai
+AI_MODEL=gpt-4o-mini
+OPENAI_API_KEY=your_key_here
 CLOUDFLARE_REALTIME_APP_ID=your-cloudflare-realtime-app-id
 CLOUDFLARE_REALTIME_APP_SECRET=your-cloudflare-realtime-app-secret
 REALTIME_JOIN_SECRET=your-random-join-secret

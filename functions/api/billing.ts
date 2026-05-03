@@ -1,4 +1,4 @@
-import { getAuthUser, isFullAdmin, isSystemOverride } from '../_shared/auth';
+import { getAuthUser, getSuperAdminBillingStatus, isFullAdmin, isSystemOverride } from '../_shared/auth';
 import { getDefaultLiveHoursPolicy, getTeacherLiveHoursUsage } from '../_shared/liveUsage';
 
 interface Env {
@@ -492,6 +492,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     catalog: BILLING_CATALOG,
     billingStartDate: BILLING_START_DATE,
     tracking: trackingSummary,
+    superAdminBilling: await getSuperAdminBillingStatus(user, env.DB),
   };
 
   if (user.role === 'teacher') {

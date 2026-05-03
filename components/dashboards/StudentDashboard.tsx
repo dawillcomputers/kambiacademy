@@ -287,7 +287,13 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, courses, subm
                 {enrolledCourses.length > 0 ? (
                   enrolledCourses.map(course => (
                     <Card key={course.id} >
-                      <img src={course.imageUrl || 'https://via.placeholder.com/400x200'} alt={course.title} className="w-full h-40 object-cover cursor-pointer" onClick={() => onSelectCourse(course)}/>
+                      {course.imageUrl ? (
+                        <img src={course.imageUrl} alt={course.title} className="w-full h-40 object-cover cursor-pointer" onClick={() => onSelectCourse(course)}/>
+                      ) : (
+                        <button type="button" className="flex h-40 w-full items-center justify-center bg-slate-100 text-sm font-semibold text-slate-500" onClick={() => onSelectCourse(course)}>
+                          Course image unavailable
+                        </button>
+                      )}
                       <div className="p-4">
                         <h4 className="font-bold text-lg">{course.title}</h4>
                         <p className="text-sm text-slate-500">{course.instructor || 'Instructor TBA'}</p>

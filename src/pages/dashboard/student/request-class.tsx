@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { User, Course } from '../../../../types';
+import { Course } from '../../../../types';
+import { AuthUser } from '../../../../lib/auth';
 import { api } from '../../../../lib/api';
 import Button from '../../../../components/Button';
 import Card from '../../../../components/Card';
 
 interface StudentRequestClassProps {
-  user: User;
+  user: AuthUser;
   courses: Course[];
 }
 

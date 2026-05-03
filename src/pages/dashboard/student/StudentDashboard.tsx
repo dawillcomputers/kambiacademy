@@ -306,7 +306,7 @@ const StudentDashboard: React.FC = () => {
           onConfirm={() => {
             void handlePaymentSuccess(selectedCourse);
           }}
-          moneyBackGuaranteeDays={30}
+          moneyBackGuaranteeDays={7}
         />
       )}
     </DashboardLayout>

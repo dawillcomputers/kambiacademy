@@ -84,11 +84,17 @@ const StudentProfile: React.FC<StudentProfileProps> = ({ user }) => {
         <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
           <Card className="p-6">
             <div className="flex flex-col items-center gap-4 text-center">
-              <img
-                src={avatarPreview || 'https://via.placeholder.com/160?text=Avatar'}
-                alt="Profile preview"
-                className="h-40 w-40 rounded-full object-cover"
-              />
+              {avatarPreview ? (
+                <img
+                  src={avatarPreview}
+                  alt="Profile preview"
+                  className="h-40 w-40 rounded-full object-cover"
+                />
+              ) : (
+                <div className="flex h-40 w-40 items-center justify-center rounded-full bg-slate-100 text-4xl font-semibold text-slate-500">
+                  {name?.trim().charAt(0).toUpperCase() || 'U'}
+                </div>
+              )}
               <label className="block text-sm font-medium text-gray-700 w-full text-left">
                 Upload profile photo
                 <input

@@ -11,23 +11,18 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  // Super admin and SOU bypass subscription check
-  if (admin.role !== 'super_admin' && admin.role !== 'SOU') {
-    // Check subscription for admin
-    const hasSubscription = await checkSubscription(admin, env.DB);
-    if (!hasSubscription) {
-      const accountAge = Date.now() - new Date(admin.created_at).getTime();
-      const sevenDays = 7 * 24 * 60 * 60 * 1000;
-      if (accountAge > sevenDays) {
-        return Response.json({ error: 'Subscription required. Please pay to continue accessing admin console.', requiresPayment: true }, { status: 402 });
-      }
+  const hasSubscription = await checkSubscription(admin, env.DB);
+  if (!hasSubscription) {
+    const accountAge = Date.now() - new Date(admin.created_at).getTime();
+    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+    if (accountAge > sevenDays) {
+      return Response.json({ error: 'Subscription required. Please pay to continue accessing admin console.', requiresPayment: true }, { status: 402 });
     }
+  }
 
-    // Check subscription for admin access (enforce after one week of non-payment)
-    const subscriptionError = await requireSubscription(request, env.DB);
-    if (subscriptionError) {
-      return subscriptionError;
-    }
+  const subscriptionError = await requireSubscription(request, env.DB);
+  if (subscriptionError) {
+    return subscriptionError;
   }
 
   // Get all users except hidden ones (is_hidden column may not exist)
@@ -54,23 +49,18 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  // Super admin and SOU bypass subscription check
-  if (admin.role !== 'super_admin' && admin.role !== 'SOU') {
-    // Check subscription for admin
-    const hasSubscription = await checkSubscription(admin, env.DB);
-    if (!hasSubscription) {
-      const accountAge = Date.now() - new Date(admin.created_at).getTime();
-      const sevenDays = 7 * 24 * 60 * 60 * 1000;
-      if (accountAge > sevenDays) {
-        return Response.json({ error: 'Subscription required. Please pay to continue accessing admin console.', requiresPayment: true }, { status: 402 });
-      }
+  const hasSubscription = await checkSubscription(admin, env.DB);
+  if (!hasSubscription) {
+    const accountAge = Date.now() - new Date(admin.created_at).getTime();
+    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+    if (accountAge > sevenDays) {
+      return Response.json({ error: 'Subscription required. Please pay to continue accessing admin console.', requiresPayment: true }, { status: 402 });
     }
+  }
 
-    // Check subscription for admin access (enforce after one week of non-payment)
-    const subscriptionError = await requireSubscription(request, env.DB);
-    if (subscriptionError) {
-      return subscriptionError;
-    }
+  const subscriptionError = await requireSubscription(request, env.DB);
+  if (subscriptionError) {
+    return subscriptionError;
   }
 
   const body = await request.json<{

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { User } from '../../types';
+import { AuthUser } from '../../lib/auth';
 import MobileBottomNav, { BottomNavItem } from './MobileBottomNav';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  user?: User;
+  user?: AuthUser;
   showMaterials?: boolean;
 }
 
@@ -121,11 +121,17 @@ export default function DashboardLayout({ children, user, showMaterials = false 
             onClick={() => navigate('/student/profile')}
             className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors"
           >
-            <img
-              src={avatarUrl || 'https://via.placeholder.com/32?text=👤'}
-              alt="Profile"
-              className="w-8 h-8 rounded-full object-cover"
-            />
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="Profile"
+                className="w-8 h-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-sm font-semibold text-white">
+                {user?.name?.trim().charAt(0).toUpperCase() || 'U'}
+              </div>
+            )}
             <span className="text-sm font-medium hidden sm:inline">Edit Profile</span>
           </button>
         </header>

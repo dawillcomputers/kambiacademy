@@ -9,8 +9,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-  if (user.role === 'admin') {
-    // Check subscription for admin access (enforce after one week of non-payment)
+  if (isFullAdmin(user)) {
     const subscriptionError = await requireSubscription(request, env.DB);
     if (subscriptionError) {
       return subscriptionError;
@@ -80,6 +79,11 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env }) => {
   const admin = await getAuthUser(request, env.DB);
   if (!admin || !isFullAdmin(admin)) {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  const subscriptionError = await requireSubscription(request, env.DB);
+  if (subscriptionError) {
+    return subscriptionError;
   }
 
   const body = await request.json<{ courseId: number }>();

@@ -1,4 +1,4 @@
-import { getAuthUser, isFullAdmin } from '../_shared/auth';
+import { getAuthUser, getSuperAdminBillingStatus, getSuperAdminNextMonthlyCoverageEndDate, isFullAdmin } from '../_shared/auth';
 
 interface Env {
   DB: D1Database;
@@ -34,6 +34,7 @@ const SYSTEM_MONITOR_USER_ID = 0;
 const FLUTTERWAVE_PAYMENT_GATEWAY = 'flutterwave_live';
 const BILLING_START_DATE = '2026-05-01T00:00:00.000Z';
 const PRODUCTION_SITE_ORIGIN = 'https://kambiacademy.com';
+const FLUTTERWAVE_PREFERRED_PAYMENT_OPTIONS = 'banktransfer,card,ussd';
 
 const PLATFORM_FEES: FeeConfig = {
   monthly: 4.00,
@@ -266,6 +267,7 @@ async function initializeFlutterwavePayment(options: {
       tx_ref: transactionRef,
       amount,
       currency: 'USD',
+      payment_options: FLUTTERWAVE_PREFERRED_PAYMENT_OPTIONS,
       redirect_url: `${origin.replace(/\/$/, '')}/payment-callback?${redirectQuery}`,
       customer: { email: user.email, name: user.name },
       customizations: {
@@ -298,13 +300,16 @@ async function createPendingSubscriptionCheckout(options: {
   planType: PlanType;
   transactionRef: string;
   paymentGateway: string;
+  endDateOverride?: string;
 }) {
-  const { db, userId, type, planType, transactionRef, paymentGateway } = options;
+  const { db, userId, type, planType, transactionRef, paymentGateway, endDateOverride } = options;
   const config = tbl(type);
   const fees = getFees(type);
   const startDate = new Date();
   const endDate = new Date(startDate);
-  if (planType === 'monthly') {
+  if (endDateOverride) {
+    endDate.setTime(new Date(endDateOverride).getTime());
+  } else if (planType === 'monthly') {
     endDate.setMonth(endDate.getMonth() + 1);
   } else {
     endDate.setFullYear(endDate.getFullYear() + 1);
@@ -629,6 +634,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       platform: { hasActiveSubscription: Boolean(platformSub), requiresSubscription: reqPlatform, subscription: platformSub, fees: PLATFORM_FEES },
       storage: storagePayload,
       liveClass: liveClassPayload,
+      superAdminBilling: await getSuperAdminBillingStatus(user, db),
     });
   }
 
@@ -769,6 +775,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }>;
 
     for (const item of normalizedItems) {
+      const superAdminBilling = user.role === 'super_admin' && item.subscriptionType === 'platform'
+        ? await getSuperAdminBillingStatus(user, env.DB)
+        : null;
       pendingItems.push(await createPendingSubscriptionCheckout({
         db: env.DB,
         userId: user.id,
@@ -776,6 +785,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         planType: item.planType,
         transactionRef,
         paymentGateway: FLUTTERWAVE_PAYMENT_GATEWAY,
+        endDateOverride: superAdminBilling?.requiresRenewal && item.planType === 'monthly'
+          ? getSuperAdminNextMonthlyCoverageEndDate()
+          : undefined,
       }));
     }
 
@@ -840,16 +852,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const config = tbl(type);
   const f = getFees(type);
+  const superAdminBilling = user.role === 'super_admin' && type === 'platform'
+    ? await getSuperAdminBillingStatus(user, env.DB)
+    : null;
 
   await cleanupUnpaidActiveSubscriptions(env.DB, user.id, type);
 
   const existing = await getCurrentActiveSubscription(env.DB, user.id, type);
-  if (existing) return Response.json({ error: `Already has an active ${getTypeLabel(type).toLowerCase()} subscription` }, { status: 400 });
+  if (existing && !(superAdminBilling?.requiresRenewal && type === 'platform')) {
+    return Response.json({ error: `Already has an active ${getTypeLabel(type).toLowerCase()} subscription` }, { status: 400 });
+  }
 
   const now = new Date();
   const startDate = now.toISOString();
   const endDate = new Date(now);
-  if (planType === 'monthly') endDate.setMonth(endDate.getMonth() + 1);
+  if (user.role === 'super_admin' && type === 'platform' && planType === 'monthly') {
+    endDate.setTime(new Date(getSuperAdminNextMonthlyCoverageEndDate(now)).getTime());
+  } else if (planType === 'monthly') endDate.setMonth(endDate.getMonth() + 1);
   else endDate.setFullYear(endDate.getFullYear() + 1);
 
   const subscriptionId = crypto.randomUUID();

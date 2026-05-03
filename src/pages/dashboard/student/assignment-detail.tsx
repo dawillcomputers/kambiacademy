@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Assignment, Course, Submission, User } from '../../../../types';
+import { Assignment, Course, Submission } from '../../../../types';
+import { AuthUser } from '../../../../lib/auth';
 import { api } from '../../../../lib/api';
 import Card from '../../../../components/Card';
 import Button from '../../../../components/Button';
 
 interface StudentAssignmentDetailProps {
-  user: User;
+  user: AuthUser;
   courses: Course[];
   assignments: Assignment[];
   submissions: Submission[];

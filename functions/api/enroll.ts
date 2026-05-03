@@ -27,10 +27,12 @@ interface AIGeneratedCoursePayload {
   price?: number;
 }
 
-type EnrollmentAction = 'initiate' | 'verify' | 'direct';
+type EnrollmentAction = 'quote' | 'initiate' | 'verify' | 'direct';
 
 const FLUTTERWAVE_PAYMENT_GATEWAY = 'flutterwave_live';
 const PRODUCTION_SITE_ORIGIN = 'https://kambiacademy.com';
+const FLUTTERWAVE_PREFERRED_PAYMENT_OPTIONS = 'banktransfer,card,ussd';
+const FLUTTERWAVE_FEE_FALLBACK_RATE = 0.02;
 
 const HIGH_COST_REGIONS = new Set([
   'USA',
@@ -193,6 +195,7 @@ async function initializeFlutterwavePayment(options: {
       tx_ref: transactionRef,
       amount,
       currency: 'NGN',
+      payment_options: FLUTTERWAVE_PREFERRED_PAYMENT_OPTIONS,
       redirect_url: `${origin.replace(/\/$/, '')}/payment-callback?${redirectQuery}`,
       customer: { email: user.email, name: user.name },
       customizations: {
@@ -278,6 +281,56 @@ async function getRevenueSplit(db: D1Database) {
   };
 }
 
+async function resolveFlutterwaveProcessingFee(secret: string | undefined, amount: number, currency: string) {
+  if (!secret || amount <= 0) {
+    return {
+      processingFee: roundCurrency(amount * FLUTTERWAVE_FEE_FALLBACK_RATE),
+      feeSource: 'fallback',
+    };
+  }
+
+  const feeUrl = new URL('https://api.flutterwave.com/v3/transactions/fee');
+  feeUrl.searchParams.set('amount', String(amount));
+  feeUrl.searchParams.set('currency', currency);
+
+  try {
+    const response = await fetch(feeUrl.toString(), {
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const payload = await response.json().catch(() => null) as any;
+    if (!response.ok) {
+      throw new Error(payload?.message || 'Unable to retrieve Flutterwave fee');
+    }
+
+    return {
+      processingFee: roundCurrency(Number(payload?.data?.fee ?? 0)),
+      feeSource: 'flutterwave',
+    };
+  } catch {
+    return {
+      processingFee: roundCurrency(amount * FLUTTERWAVE_FEE_FALLBACK_RATE),
+      feeSource: 'fallback',
+    };
+  }
+}
+
+async function calculateStudentCheckoutAmounts(baseAmount: number, locationMarkupPercentage: number, secret?: string) {
+  const courseAmount = roundCurrency(baseAmount * (1 + (locationMarkupPercentage / 100)));
+  const { processingFee, feeSource } = await resolveFlutterwaveProcessingFee(secret, courseAmount, 'NGN');
+  const checkoutAmount = roundCurrency(courseAmount + processingFee);
+
+  return {
+    courseAmount,
+    processingFee,
+    checkoutAmount,
+    feeSource,
+  };
+}
+
 async function finalizeEnrollment(options: {
   db: D1Database;
   userId: number;
@@ -286,7 +339,10 @@ async function finalizeEnrollment(options: {
   studentCountry: string;
   baseAmount: number;
   locationMarkupPercentage: number;
-  finalAmount: number;
+  courseAmount: number;
+  processingFee: number;
+  checkoutAmount: number;
+  feeSource: string;
 }) {
   const {
     db,
@@ -296,7 +352,10 @@ async function finalizeEnrollment(options: {
     studentCountry,
     baseAmount,
     locationMarkupPercentage,
-    finalAmount,
+    courseAmount,
+    processingFee,
+    checkoutAmount,
+    feeSource,
   } = options;
 
   const existing = await db.prepare(
@@ -312,16 +371,16 @@ async function finalizeEnrollment(options: {
   await db.prepare(
     'INSERT INTO enrollments (user_id, course_slug, amount_paid) VALUES (?, ?, ?)',
   )
-    .bind(userId, courseSlug, finalAmount)
+    .bind(userId, courseSlug, checkoutAmount)
     .run();
 
-  if (finalAmount <= 0) {
+  if (checkoutAmount <= 0) {
     return Response.json({ message: 'Enrolled successfully.', course_slug: courseSlug, amount_paid: 0 }, { status: 201 });
   }
 
   const { teacherShare, academyShare } = await getRevenueSplit(db);
-  const teacherPayout = roundCurrency(finalAmount * teacherShare);
-  const platformFee = roundCurrency(finalAmount * academyShare);
+  const teacherPayout = roundCurrency(courseAmount * teacherShare);
+  const platformFee = roundCurrency(courseAmount * academyShare);
   const availablePayout = roundCurrency(teacherPayout * 0.7);
   const heldPayout = roundCurrency(teacherPayout - availablePayout);
 
@@ -336,11 +395,11 @@ async function finalizeEnrollment(options: {
       course.tutor_id,
       baseAmount,
       locationMarkupPercentage,
-      finalAmount,
+      courseAmount,
       platformFee,
       teacherPayout,
       studentCountry,
-      `gateway:${FLUTTERWAVE_PAYMENT_GATEWAY}`,
+      `gateway:${FLUTTERWAVE_PAYMENT_GATEWAY};processing_fee:${processingFee.toFixed(2)};checkout_total:${checkoutAmount.toFixed(2)}`,
     ),
     db.prepare(
       `INSERT INTO course_earnings (teacher_id, course_slug, total_earned, available_balance, held_balance)
@@ -364,7 +423,10 @@ async function finalizeEnrollment(options: {
     {
       message: 'Enrollment completed successfully.',
       course_slug: courseSlug,
-      amount_paid: finalAmount,
+      amount_paid: checkoutAmount,
+      course_amount: courseAmount,
+      processing_fee: processingFee,
+      processing_fee_source: feeSource,
       teacher_payout: teacherPayout,
       platform_fee: platformFee,
       paymentGateway: FLUTTERWAVE_PAYMENT_GATEWAY,
@@ -428,10 +490,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const baseAmount = roundCurrency(Number(course.price || 0));
   const studentCountry = await getStudentCountry(env.DB, user.id, body.student_country);
   const locationMarkupPercentage = HIGH_COST_REGIONS.has(studentCountry) ? 10 : 0;
-  const finalAmount = roundCurrency(baseAmount * (1 + (locationMarkupPercentage / 100)));
   const studentFlutterwaveSecret = resolveStudentFlutterwaveSecret(env);
+  const { courseAmount, processingFee, checkoutAmount, feeSource } = await calculateStudentCheckoutAmounts(
+    baseAmount,
+    locationMarkupPercentage,
+    studentFlutterwaveSecret,
+  );
 
-  if (finalAmount <= 0) {
+  if (action === 'quote') {
+    return Response.json({
+      course_slug: courseSlug,
+      course_amount: courseAmount,
+      processing_fee: processingFee,
+      processing_fee_source: feeSource,
+      amount_paid: checkoutAmount,
+      location_markup_percentage: locationMarkupPercentage,
+    });
+  }
+
+  if (checkoutAmount <= 0) {
     return finalizeEnrollment({
       db: env.DB,
       userId: user.id,
@@ -440,7 +517,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       studentCountry,
       baseAmount,
       locationMarkupPercentage,
-      finalAmount,
+      courseAmount,
+      processingFee,
+      checkoutAmount,
+      feeSource,
     });
   }
 
@@ -457,7 +537,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         secret: studentFlutterwaveSecret,
         origin,
         transactionRef,
-        amount: finalAmount,
+        amount: checkoutAmount,
         courseSlug,
         user,
       });
@@ -465,7 +545,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({
         message: 'Student checkout created. Redirecting to Flutterwave Live...',
         course_slug: courseSlug,
-        amount_paid: finalAmount,
+        amount_paid: checkoutAmount,
+        course_amount: courseAmount,
+        processing_fee: processingFee,
+        processing_fee_source: feeSource,
         transactionRef,
         payment_url: payment.paymentUrl,
         paymentGateway: payment.paymentGateway,
@@ -498,7 +581,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     try {
-      const verification = await verifyFlutterwavePayment(studentFlutterwaveSecret, flutterwaveTransactionId, transactionRef, finalAmount);
+      const verification = await verifyFlutterwavePayment(studentFlutterwaveSecret, flutterwaveTransactionId, transactionRef, checkoutAmount);
       if (!verification.verified) {
         return Response.json({ error: 'Student payment verification failed.' }, { status: 400 });
       }
@@ -514,7 +597,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       studentCountry,
       baseAmount,
       locationMarkupPercentage,
-      finalAmount,
+      courseAmount,
+      processingFee,
+      checkoutAmount,
+      feeSource,
     });
   }
 
