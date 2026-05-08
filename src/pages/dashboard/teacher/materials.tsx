@@ -39,6 +39,8 @@ const defaultFormState: MaterialFormState = {
   youtube_url: '',
 };
 
+const MAX_MATERIAL_FILE_SIZE = 2 * 1024 * 1024 * 1024;
+
 const normalizeCourse = (course: any): TeacherCourseRecord => ({
   id: Number(course.id ?? 0),
   title: course.title || 'Untitled course',
@@ -77,7 +79,10 @@ const formatFileSize = (bytes?: number | null) => {
   if (bytes < 1024 * 1024) {
     return `${(bytes / 1024).toFixed(1)} KB`;
   }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 };
 
 const getMaterialLabel = (material: TeacherMaterialRecord) => {
@@ -205,6 +210,11 @@ export default function TeacherMaterials() {
 
     if (form.type === 'file' && !selectedFile) {
       setError('Choose a file to upload.');
+      return;
+    }
+
+    if (form.type === 'file' && selectedFile && selectedFile.size > MAX_MATERIAL_FILE_SIZE) {
+      setError('Choose a file that is 2GB or smaller.');
       return;
     }
 
@@ -445,7 +455,7 @@ export default function TeacherMaterials() {
                           className="mt-2 block w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
                         />
                         <p className="mt-2 text-xs text-slate-500">
-                          {selectedFile ? `Selected: ${selectedFile.name}` : 'PDF, Office files, images, and video uploads are supported.'}
+                          {selectedFile ? `Selected: ${selectedFile.name} (${formatFileSize(selectedFile.size)})` : 'PDF, Office files, images, and video uploads up to 2GB are supported.'}
                         </p>
                       </div>
                     )}
@@ -463,7 +473,7 @@ export default function TeacherMaterials() {
                 <div className="rounded-[28px] border border-slate-200 bg-white px-6 py-6 shadow-lg shadow-slate-200/60">
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Publishing Notes</p>
                   <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-                    <p>File materials rely on your active platform and storage subscriptions before learners can access them.</p>
+                    <p>File materials include 2GB of R2 storage before extra cloud storage is required.</p>
                     <p>Use YouTube links for faster publishing when you do not need managed file storage.</p>
                     <p>Keep titles specific so students can find the right handout, recording, or worksheet quickly inside the student dashboard.</p>
                   </div>

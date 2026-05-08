@@ -29,6 +29,54 @@ interface CourseForm {
 
 const defaultForm: CourseForm = { title: '', description: '', level: 'Foundation', price: '', duration_label: '8 weeks', category: 'General' };
 
+interface CourseFormFieldsProps {
+  f: CourseForm;
+  onChange: (field: keyof CourseForm, value: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  btnLabel: string;
+  saving: boolean;
+  onCancel?: () => void;
+}
+
+const CourseFormFields: React.FC<CourseFormFieldsProps> = ({ f, onChange, onSubmit, btnLabel, saving, onCancel }) => (
+  <form className="space-y-4" onSubmit={onSubmit}>
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label className="block text-sm font-medium text-slate-700">Title</label>
+        <input type="text" value={f.title} onChange={e => onChange('title', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Course title" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-700">Category</label>
+        <input type="text" value={f.category} onChange={e => onChange('category', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+      </div>
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-slate-700">Description</label>
+      <textarea value={f.description} onChange={e => onChange('description', e.target.value)} rows={3} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+    </div>
+    <div className="grid gap-4 sm:grid-cols-3">
+      <div>
+        <label className="block text-sm font-medium text-slate-700">Level</label>
+        <input type="text" value={f.level} onChange={e => onChange('level', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-700">Price (NGN)</label>
+        <input type="number" min="0" value={f.price} onChange={e => onChange('price', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="0" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-700">Duration</label>
+        <input type="text" value={f.duration_label} onChange={e => onChange('duration_label', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+      </div>
+    </div>
+    <div className="flex gap-3">
+      <button type="submit" disabled={saving} className="rounded-lg bg-slate-900 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
+        {saving ? 'Saving...' : btnLabel}
+      </button>
+      {onCancel && <button type="button" onClick={onCancel} className="rounded-lg border border-slate-300 px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>}
+    </div>
+  </form>
+);
+
 const fmt = (v?: number | null) => {
   const n = Number(v || 0);
   return n > 0 ? `₦${n.toLocaleString()}` : 'Free';
@@ -151,51 +199,6 @@ export default function TeacherCoursesPage() {
   const updateField = (setter: React.Dispatch<React.SetStateAction<CourseForm>>) =>
     (field: keyof CourseForm, value: string) => setter(prev => ({ ...prev, [field]: value }));
 
-  const CourseFormFields = ({ f, onChange, onSubmit, btnLabel, onCancel }: {
-    f: CourseForm;
-    onChange: (field: keyof CourseForm, value: string) => void;
-    onSubmit: (e: React.FormEvent) => void;
-    btnLabel: string;
-    onCancel?: () => void;
-  }) => (
-    <form className="space-y-4" onSubmit={onSubmit}>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-slate-700">Title</label>
-          <input type="text" value={f.title} onChange={e => onChange('title', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Course title" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700">Category</label>
-          <input type="text" value={f.category} onChange={e => onChange('category', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-        </div>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-slate-700">Description</label>
-        <textarea value={f.description} onChange={e => onChange('description', e.target.value)} rows={3} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div>
-          <label className="block text-sm font-medium text-slate-700">Level</label>
-          <input type="text" value={f.level} onChange={e => onChange('level', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700">Price (NGN)</label>
-          <input type="number" min="0" value={f.price} onChange={e => onChange('price', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="0" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700">Duration</label>
-          <input type="text" value={f.duration_label} onChange={e => onChange('duration_label', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-        </div>
-      </div>
-      <div className="flex gap-3">
-        <button type="submit" disabled={saving} className="rounded-lg bg-slate-900 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
-          {saving ? 'Saving...' : btnLabel}
-        </button>
-        {onCancel && <button type="button" onClick={onCancel} className="rounded-lg border border-slate-300 px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>}
-      </div>
-    </form>
-  );
-
   return (
     <TeacherDashboardLayout>
       <div className="space-y-6">
@@ -215,7 +218,7 @@ export default function TeacherCoursesPage() {
         {showCreate && (
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-bold text-slate-900">Create New Course</h2>
-            <CourseFormFields f={form} onChange={updateField(setForm)} onSubmit={handleCreate} btnLabel="Submit for Review" onCancel={() => setShowCreate(false)} />
+            <CourseFormFields f={form} onChange={updateField(setForm)} onSubmit={handleCreate} btnLabel="Submit for Review" saving={saving} onCancel={() => setShowCreate(false)} />
           </div>
         )}
 
@@ -266,7 +269,7 @@ export default function TeacherCoursesPage() {
 
                 {editId === c.id && (
                   <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <CourseFormFields f={editForm} onChange={updateField(setEditForm)} onSubmit={handleUpdate} btnLabel="Save Changes" onCancel={() => setEditId(null)} />
+                    <CourseFormFields f={editForm} onChange={updateField(setEditForm)} onSubmit={handleUpdate} btnLabel="Save Changes" saving={saving} onCancel={() => setEditId(null)} />
                   </div>
                 )}
               </div>

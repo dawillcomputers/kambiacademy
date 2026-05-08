@@ -1,4 +1,4 @@
-import { getAuthUser, requireSubscription } from '../_shared/auth';
+import { checkSubscription, getAuthUser, requireSubscription } from '../_shared/auth';
 
 interface Env {
   DB: D1Database;
@@ -15,7 +15,43 @@ const ALLOWED_MIME = new Set([
   'video/mp4', 'video/webm', 'video/quicktime',
 ]);
 
-const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
+const BYTES_PER_GB = 1024 * 1024 * 1024;
+const INCLUDED_STORAGE_BYTES = 2 * BYTES_PER_GB;
+const MAX_FILE_SIZE = INCLUDED_STORAGE_BYTES; // 2 GB
+
+const formatStorage = (bytes: number) => `${(bytes / BYTES_PER_GB).toFixed(2)}GB`;
+
+async function getTeacherStorageBytes(db: D1Database, tutorId: number | string) {
+  const row = await db.prepare(
+    'SELECT COALESCE(SUM(file_size), 0) as storageBytes FROM course_materials WHERE tutor_id = ?',
+  ).bind(tutorId).first<{ storageBytes: number | string | null }>();
+
+  return Number(row?.storageBytes || 0);
+}
+
+async function requireStorageAllowance(db: D1Database, user: any, incomingBytes: number) {
+  const currentBytes = await getTeacherStorageBytes(db, user.id);
+  const projectedBytes = currentBytes + incomingBytes;
+
+  if (projectedBytes <= INCLUDED_STORAGE_BYTES) {
+    return null;
+  }
+
+  const hasStorageSubscription = await checkSubscription(user, db, 'storage');
+  if (hasStorageSubscription) {
+    return null;
+  }
+
+  return Response.json({
+    error: 'Extra cloud storage subscription required',
+    message: `Your free R2 storage includes ${formatStorage(INCLUDED_STORAGE_BYTES)}. This upload would raise your usage from ${formatStorage(currentBytes)} to ${formatStorage(projectedBytes)}. Please buy extra space to continue uploading.`,
+    includedStorageBytes: INCLUDED_STORAGE_BYTES,
+    currentStorageBytes: currentBytes,
+    requestedStorageBytes: incomingBytes,
+    projectedStorageBytes: projectedBytes,
+    subscriptionType: 'storage',
+  }, { status: 402 });
+}
 
 // GET: list materials (tutor sees own, student sees for enrolled courses)
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
@@ -66,11 +102,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return subscriptionError;
   }
 
-  const storageSubscriptionError = await requireSubscription(request, env.DB, 'storage');
-  if (storageSubscriptionError) {
-    return storageSubscriptionError;
-  }
-
   const contentType = request.headers.get('Content-Type') || '';
 
   let courseSlug: string;
@@ -95,10 +126,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (type === 'file' && file && file.size > 0) {
       if (file.size > MAX_FILE_SIZE) {
-        return Response.json({ error: 'File must be under 100MB.' }, { status: 400 });
+        return Response.json({ error: 'File must be 2GB or smaller.' }, { status: 400 });
       }
       if (!ALLOWED_MIME.has(file.type)) {
         return Response.json({ error: `File type "${file.type}" is not allowed.` }, { status: 400 });
+      }
+      const storageAllowanceError = await requireStorageAllowance(env.DB, user, file.size);
+      if (storageAllowanceError) {
+        return storageAllowanceError;
       }
       fileKey = `materials/${user.id}/${courseSlug}/${Date.now()}_${file.name}`;
       await env.BUCKET.put(fileKey, file.stream(), {
@@ -152,11 +187,6 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env }) => {
   const subscriptionError = await requireSubscription(request, env.DB);
   if (subscriptionError) {
     return subscriptionError;
-  }
-
-  const storageSubscriptionError = await requireSubscription(request, env.DB, 'storage');
-  if (storageSubscriptionError) {
-    return storageSubscriptionError;
   }
 
   const url = new URL(request.url);

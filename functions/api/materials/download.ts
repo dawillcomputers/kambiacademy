@@ -5,6 +5,16 @@ interface Env {
   BUCKET: R2Bucket;
 }
 
+const INCLUDED_STORAGE_BYTES = 2 * 1024 * 1024 * 1024;
+
+async function getTeacherStorageBytes(db: D1Database, tutorId: number | string) {
+  const row = await db.prepare(
+    'SELECT COALESCE(SUM(file_size), 0) as storageBytes FROM course_materials WHERE tutor_id = ?',
+  ).bind(tutorId).first<{ storageBytes: number | string | null }>();
+
+  return Number(row?.storageBytes || 0);
+}
+
 async function getUser(request: Request, db: D1Database) {
   // Try normal auth header first
   const user = await getAuthUser(request, db);
@@ -45,7 +55,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ error: 'Access denied.' }, { status: 403 });
     }
 
-    const hasStorageAccess = await checkSubscription(user, env.DB, 'storage');
+    const storageBytes = await getTeacherStorageBytes(env.DB, user.id);
+    const hasStorageAccess = storageBytes <= INCLUDED_STORAGE_BYTES || await checkSubscription(user, env.DB, 'storage');
     if (!hasStorageAccess) {
       return Response.json({ error: 'Active cloud storage subscription required.' }, { status: 402 });
     }

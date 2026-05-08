@@ -1075,7 +1075,7 @@ const TutorPanel: React.FC = () => {
 
             {matType === 'file' && (
               <div>
-                <label className="block text-sm text-slate-600 mb-1">File (PDF, DOC, images, videos — max 100MB)</label>
+                <label className="block text-sm text-slate-600 mb-1">File (PDF, DOC, images, videos - max 2GB)</label>
                 <input type="file" onChange={(e) => setMatFile(e.target.files?.[0] || null)} required
                   accept=".pdf,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.webp,.mp4,.webm,.mov"
                   className="w-full text-sm text-slate-600 file:mr-4 file:rounded-full file:border-0 file:bg-amber-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-amber-700 hover:file:bg-amber-100" />
