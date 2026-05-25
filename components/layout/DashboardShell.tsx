@@ -219,14 +219,6 @@ export default function DashboardShell({
               <span className="text-base">🔄</span>
               <span>Switch account</span>
             </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm ${t.muted} hover:bg-red-500/15 hover:text-red-400 transition-colors`}
-            >
-              <span className="text-base">🚪</span>
-              <span>Logout</span>
-            </button>
           </div>
         )}
 

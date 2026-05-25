@@ -18,30 +18,33 @@ const BILLING_CATALOG = {
   services: [
     {
       key: 'platform',
-      label: 'Platform Access',
-      monthly: 4,
-      yearly: 44,
-      description: 'Required for teacher dashboard access, publishing, classes, assignments, quizzes, and core teaching tools.',
-      unlocks: ['Teacher dashboard access', 'Course publishing tools', 'Assignment and quiz management'],
-      enforcedOn: ['Teacher course routes', 'Class management endpoints', 'Assignment and quiz endpoints'],
+      label: 'Main Subscription',
+      monthly: 9,
+      yearly: 100,
+      description: 'Single subscription that keeps the admin billing cycle active.',
+      unlocks: ['Admin and superadmin billing coverage'],
+      enforcedOn: ['Admin and superadmin platform access'],
+      requiredForSystemBase: true,
     },
     {
       key: 'storage',
-      label: 'Cloudflare Storage',
+      label: 'Storage Add-on',
       monthly: 2,
       yearly: 24,
-      description: 'Covers R2-backed file uploads, material hosting, and storage-heavy classroom assets.',
-      unlocks: ['Material uploads', 'Material deletion and storage management', 'Cloudflare-backed asset hosting'],
-      enforcedOn: ['Material upload endpoint', 'Material deletion endpoint', 'Storage-backed classroom assets'],
+      description: 'Optional storage add-on for teachers who need hosted files and larger assets.',
+      unlocks: ['Material uploads', 'Hosted files'],
+      enforcedOn: ['Teacher storage add-on checkout'],
+      requiredForSystemBase: false,
     },
     {
       key: 'live_class',
-      label: 'Live Class Access',
+      label: 'Live Classes Add-on',
       monthly: 2,
       yearly: 24,
-      description: 'Covers Cloudflare Realtime live sessions, teacher broadcasts, and recurring session access.',
-      unlocks: ['Start live sessions', 'End live sessions', 'Realtime classroom access'],
-      enforcedOn: ['Live session start endpoint', 'Live session end endpoint', 'Realtime live-class workflow'],
+      description: 'Optional live-class add-on for teachers who need realtime teaching tools.',
+      unlocks: ['Start live sessions', 'Run live classes'],
+      enforcedOn: ['Teacher live-class add-on checkout'],
+      requiredForSystemBase: false,
     },
   ],
   addons: [
@@ -62,10 +65,9 @@ const BILLING_CATALOG = {
     dangerMargin: 0.4,
   },
   enforcementPipeline: [
-    'User -> Worker -> Subscription Engine -> Enforcement Engine -> Cloudflare Services',
-    'Platform Access gates teaching tools and dashboard workflows.',
-    'Cloudflare Storage gates upload and storage mutation flows.',
-    'Live Class Access gates realtime class creation and live controls.',
+    'Admin and superadmin access follows one main subscription.',
+    'Teacher storage and live classes are optional add-ons.',
+    'Live-hour overflow is billed separately from the main subscription.',
   ],
 };
 
@@ -207,7 +209,7 @@ async function getPlatformSubscriptionState(db: D1Database, userId: number) {
 
   return {
     service: 'platform',
-    label: 'Platform Access',
+    label: getServiceFees('platform').label,
     fees: getServiceFees('platform'),
     requiresSubscription: billingRequiredNow(),
     hasActiveSubscription: Boolean(activeSubscription),
@@ -426,30 +428,36 @@ async function buildTeacherMetrics(db: D1Database, teacher: { id: number; name: 
   const estimatedRevenue = roundCurrency(platformCourseRevenue + subscriptionRevenue);
   const profitability = calculateProfitSummary(estimatedRevenue, costs.totalCost);
 
-  const dueItems = [platformState, storageState, liveClassState]
-    .filter((entry) => entry.requiresSubscription && !entry.hasActiveSubscription)
-    .map((entry) => ({
-      key: entry.service,
-      label: entry.label,
-      monthly: entry.fees.monthly,
-      yearly: entry.fees.yearly,
-      pendingPayments: entry.pendingPayments.length,
-    }));
+  const teacherSubscriptions = {
+    platform: {
+      ...platformState,
+      label: 'Core Access',
+      requiresSubscription: false,
+    },
+    storage: {
+      ...storageState,
+      label: 'Storage Add-on',
+      requiresSubscription: false,
+    },
+    liveClass: {
+      ...liveClassState,
+      label: 'Live Classes Add-on',
+      requiresSubscription: false,
+    },
+  };
 
-  const paymentHistory = [...platformState.paymentHistory, ...storageState.paymentHistory, ...liveClassState.paymentHistory]
+  const dueItems: Array<{ key: string; label: string; monthly: number; yearly: number; pendingPayments: number }> = [];
+
+  const paymentHistory = [...storageState.paymentHistory, ...liveClassState.paymentHistory]
     .sort((left, right) => new Date(right.createdAt || right.paymentDate || 0).getTime() - new Date(left.createdAt || left.paymentDate || 0).getTime())
     .slice(0, 12);
 
   return {
     teacher,
-    subscriptions: {
-      platform: platformState,
-      storage: storageState,
-      liveClass: liveClassState,
-    },
+    subscriptions: teacherSubscriptions,
     dueItems,
-    dueCount: dueItems.length,
-    dueAmount: roundCurrency(dueItems.reduce((sum, item) => sum + item.monthly, 0)),
+    dueCount: 0,
+    dueAmount: 0,
     usage: {
       coursesCount,
       classesCount,
@@ -692,7 +700,8 @@ async function buildSystemPaymentsSnapshot(options: {
   const overflowUnits = billableOverflowHours > 0 ? Math.ceil(billableOverflowHours / 10) : 0;
   const overflowCharge = roundCurrency(overflowUnits * extraHoursUnitPrice);
   const serviceStates = [platformState, storageState, liveClassState];
-  const baseDueItems = serviceStates
+  const baseServiceStates = [platformState];
+  const baseDueItems = baseServiceStates
     .filter((entry) => entry.requiresSubscription && !entry.hasActiveSubscription)
     .map((entry) => ({
       key: entry.service,
@@ -734,8 +743,16 @@ async function buildSystemPaymentsSnapshot(options: {
   const allocatedHours = roundHours(allocations.reduce((sum, entry) => sum + entry.allocatedHours, 0));
   const availableToAllocate = roundHours(Math.max(0, prepaidBalance - allocatedHours));
   const overAllocatedHours = roundHours(Math.max(0, allocatedHours - prepaidBalance));
-  const monthlyBaseStack = roundCurrency(BILLING_CATALOG.services.reduce((sum, entry) => sum + toNumber(entry.monthly), 0));
-  const yearlyBaseStack = roundCurrency(BILLING_CATALOG.services.reduce((sum, entry) => sum + toNumber(entry.yearly), 0));
+  const monthlyBaseStack = roundCurrency(
+    BILLING_CATALOG.services
+      .filter((entry) => entry.requiredForSystemBase)
+      .reduce((sum, entry) => sum + toNumber(entry.monthly), 0),
+  );
+  const yearlyBaseStack = roundCurrency(
+    BILLING_CATALOG.services
+      .filter((entry) => entry.requiredForSystemBase)
+      .reduce((sum, entry) => sum + toNumber(entry.yearly), 0),
+  );
   const addonCatalog = BILLING_CATALOG.addons.map((addon) => ({
     ...addon,
     basePrice: roundCurrency(toNumber(addon.price)),
@@ -763,24 +780,10 @@ async function buildSystemPaymentsSnapshot(options: {
     dueLines: [
       {
         key: 'platform',
-        label: 'System Maintenance',
-        amount: 4,
+        label: 'Main Subscription',
+        amount: 9,
         status: platformState.hasActiveSubscription ? 'covered' : 'due',
-        description: 'Required base system charge for the superadmin control plane.',
-      },
-      {
-        key: 'live_class',
-        label: 'Live Class',
-        amount: 2,
-        status: liveClassState.hasActiveSubscription ? 'covered' : 'due',
-        description: `Base live-class charge covering the first ${SYSTEM_BASE_LIVE_HOURS} hours this month.`,
-      },
-      {
-        key: 'storage',
-        label: 'Storage',
-        amount: 2,
-        status: storageState.hasActiveSubscription ? 'covered' : 'due',
-        description: 'Base storage charge for materials and classroom assets.',
+        description: 'Single monthly base subscription for the admin billing cycle.',
       },
       ...(overflowCharge > 0
         ? [{

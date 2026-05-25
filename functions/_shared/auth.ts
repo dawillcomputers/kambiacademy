@@ -59,7 +59,7 @@ export function generateToken(): string {
 type SubscriptionGateType = 'platform' | 'storage' | 'live_class';
 
 const BILLING_START_DATE = '2026-05-01T00:00:00.000Z';
-const PLATFORM_FEES = { monthly: 4.0, yearly: 44.0 };
+const PLATFORM_FEES = { monthly: 9.0, yearly: 100.0 };
 const STORAGE_FEES = { monthly: 2.0, yearly: 24.0 };
 const LIVE_CLASS_FEES = { monthly: 2.0, yearly: 24.0 };
 const SUPERADMIN_WARNING_DAY = 6;
@@ -89,6 +89,7 @@ export interface SuperAdminBillingStatus {
   warningStartDate: string | null;
   dueDate: string | null;
   lockDate: string | null;
+  nextCycleDueDate: string | null;
   nextCycleLockDate: string | null;
   requiresRenewal: boolean;
   coversCurrentCycle: boolean;
@@ -121,13 +122,14 @@ function getSuperAdminCycleDates(referenceDate = new Date()) {
     warningStart: utcDayStart(year, month, SUPERADMIN_WARNING_DAY),
     dueDate: utcDayStart(year, month, SUPERADMIN_DUE_DAY),
     lockDate: utcDayStart(year, month, SUPERADMIN_LOCK_DAY),
+    nextCycleDueDate: utcDayStart(year, month + 1, SUPERADMIN_DUE_DAY),
     nextCycleLockDate: utcDayStart(year, month + 1, SUPERADMIN_LOCK_DAY),
     currentCycleLabel: formatUtcMonth(referenceDate),
   };
 }
 
 export function getSuperAdminNextMonthlyCoverageEndDate(referenceDate = new Date()) {
-  return getSuperAdminCycleDates(referenceDate).nextCycleLockDate.toISOString();
+  return getSuperAdminCycleDates(referenceDate).nextCycleDueDate.toISOString();
 }
 
 async function getActivePlatformSubscription(db: D1Database, userId: number | string) {
@@ -164,6 +166,7 @@ export async function getSuperAdminBillingStatus(user: any, db: D1Database): Pro
       warningStartDate: null,
       dueDate: null,
       lockDate: null,
+      nextCycleDueDate: null,
       nextCycleLockDate: null,
       requiresRenewal: false,
       coversCurrentCycle: true,
@@ -186,6 +189,7 @@ export async function getSuperAdminBillingStatus(user: any, db: D1Database): Pro
       warningStartDate: null,
       dueDate: null,
       lockDate: null,
+      nextCycleDueDate: null,
       nextCycleLockDate: null,
       requiresRenewal: false,
       coversCurrentCycle: true,
@@ -211,6 +215,7 @@ export async function getSuperAdminBillingStatus(user: any, db: D1Database): Pro
       warningStartDate: null,
       dueDate: null,
       lockDate: null,
+      nextCycleDueDate: null,
       nextCycleLockDate: null,
       requiresRenewal: false,
       coversCurrentCycle: true,
@@ -237,24 +242,24 @@ export async function getSuperAdminBillingStatus(user: any, db: D1Database): Pro
 
   let status: SuperAdminBillingStatus['status'] = 'current';
   let label = 'Current cycle cleared';
-  let message = `Superadmin platform access for ${cycle.currentCycleLabel} is settled.`;
+  let message = `The main subscription for ${cycle.currentCycleLabel} is settled.`;
 
   if (isLocked) {
     status = 'locked';
     label = 'Dashboard locked';
-    message = `Superadmin platform payment for ${cycle.currentCycleLabel} was not settled by ${formatUtcDate(cycle.lockDate)}. Billing page access remains open so you can renew.`;
+    message = `The main subscription for ${cycle.currentCycleLabel} was not settled by ${formatUtcDate(cycle.lockDate)}. Billing page access remains open so you can renew.`;
   } else if (isDue) {
     status = 'due';
     label = 'Payment due';
-    message = `Superadmin platform payment for ${cycle.currentCycleLabel} is due by ${formatUtcDate(cycle.dueDate)}. Dashboard access locks on ${formatUtcDate(cycle.lockDate)} if unpaid.`;
+    message = `The main subscription for ${cycle.currentCycleLabel} is due by ${formatUtcDate(cycle.dueDate)}. Dashboard access locks on ${formatUtcDate(cycle.lockDate)} if unpaid.`;
   } else if (isWarning) {
     status = 'warning';
     label = 'Renew before due date';
-    message = `Superadmin platform payment for ${cycle.currentCycleLabel} is approaching. Warning starts on the 6th, payment is due by ${formatUtcDate(cycle.dueDate)}, and dashboard access locks on ${formatUtcDate(cycle.lockDate)} if unpaid.`;
+    message = `The main subscription for ${cycle.currentCycleLabel} is approaching. Warning starts on the 6th, payment is due by ${formatUtcDate(cycle.dueDate)}, and dashboard access locks on ${formatUtcDate(cycle.lockDate)} if unpaid.`;
   } else if (requiresRenewal) {
     status = 'upcoming';
     label = 'Upcoming due date';
-    message = `Superadmin platform payment for ${cycle.currentCycleLabel} is due on ${formatUtcDate(cycle.dueDate)}. Warning starts on ${formatUtcDate(cycle.warningStart)} and dashboard access locks on ${formatUtcDate(cycle.lockDate)} if unpaid.`;
+    message = `The main subscription for ${cycle.currentCycleLabel} is due on ${formatUtcDate(cycle.dueDate)}. Warning starts on ${formatUtcDate(cycle.warningStart)} and dashboard access locks on ${formatUtcDate(cycle.lockDate)} if unpaid.`;
   }
 
   return {
@@ -268,6 +273,7 @@ export async function getSuperAdminBillingStatus(user: any, db: D1Database): Pro
     warningStartDate: cycle.warningStart.toISOString(),
     dueDate: cycle.dueDate.toISOString(),
     lockDate: cycle.lockDate.toISOString(),
+    nextCycleDueDate: cycle.nextCycleDueDate.toISOString(),
     nextCycleLockDate: cycle.nextCycleLockDate.toISOString(),
     requiresRenewal,
     coversCurrentCycle,
@@ -371,8 +377,12 @@ export async function checkSubscription(user: any, db: D1Database, type: Subscri
     return !billingStatus.isLocked;
   }
 
-  // Only teachers and admins need platform subscriptions
-  if (type === 'platform' && user.role !== 'teacher' && user.role !== 'admin' && user.role !== 'super_admin') {
+  // Teachers no longer need a base platform subscription. Admins still do.
+  if (type === 'platform' && user.role === 'teacher') {
+    return true;
+  }
+
+  if (type === 'platform' && user.role !== 'admin' && user.role !== 'super_admin') {
     return true;
   }
 

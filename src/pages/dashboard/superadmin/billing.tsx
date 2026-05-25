@@ -169,6 +169,7 @@ export default function SuperAdminBillingPage() {
   const platformService = catalog?.services?.find((service: any) => service.key === 'platform');
   const currentSubscription = superAdminBilling?.currentSubscription;
   const scheduleTone = scheduleToneMap[superAdminBilling?.status || 'upcoming'] || scheduleToneMap.upcoming;
+  const nextDueDate = currentSubscription?.endDate || superAdminBilling?.nextCycleDueDate || superAdminBilling?.dueDate;
 
   const handlePlatformCheckout = async (planType: PlanType) => {
     setMessage('');
@@ -296,9 +297,9 @@ export default function SuperAdminBillingPage() {
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#A9B4CC]">Billing Intelligence</p>
-            <h1 className="mt-3 text-4xl font-bold text-[#EAF0FF]">Superadmin subscription and enforcement console</h1>
+            <h1 className="mt-3 text-4xl font-bold text-[#EAF0FF]">Main subscription, teacher add-ons, and live-hours control</h1>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-[#A9B4CC]">
-              This page translates the billing blueprint in billing.md into an operational control room: pricing surfaces, enforcement paths, estimated Cloudflare cost, teacher profitability, and System Override visibility in one place.
+              Manage the $9 monthly or $100 yearly main subscription, track optional teacher add-ons, and control live-hours capacity from one place.
             </p>
           </div>
 
@@ -326,8 +327,8 @@ export default function SuperAdminBillingPage() {
             <section className="rounded-[28px] border border-white/10 bg-[#111B2E] px-6 py-6 shadow-xl shadow-black/20">
               <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6B7A99]">Superadmin platform access</p>
-                  <h2 className="mt-2 text-2xl font-bold text-[#EAF0FF]">Monthly due date is the 18th, warning starts on the 6th, and the dashboard locks on the 20th</h2>
+                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6B7A99]">Main subscription schedule</p>
+                  <h2 className="mt-2 text-2xl font-bold text-[#EAF0FF]">Due on the 18th, warning from the 6th, lock on the 20th</h2>
                   <div className={`mt-5 rounded-3xl border px-5 py-5 ${scheduleTone.panel}`}>
                     <div className="flex flex-wrap items-center gap-3">
                       <span className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${scheduleTone.badge}`}>
@@ -362,16 +363,16 @@ export default function SuperAdminBillingPage() {
                 </div>
 
                 <div className="rounded-3xl border border-white/10 bg-[#16233A] px-5 py-5">
-                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#6B7A99]">Renew platform access</p>
-                  <h3 className="mt-3 text-xl font-bold text-[#EAF0FF]">Keep the superadmin console unlocked</h3>
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#6B7A99]">Renew main subscription</p>
+                  <h3 className="mt-3 text-xl font-bold text-[#EAF0FF]">Keep the admin console covered</h3>
                   <p className="mt-3 text-sm leading-7 text-[#A9B4CC]">
-                    Use the platform access checkout to clear the current cycle. A successful payment keeps the console open through the next monthly lock checkpoint.
+                    A successful monthly payment moves the next due date to the next 18th. The yearly plan covers the full year in one payment.
                   </p>
 
                   <div className="mt-5 rounded-2xl border border-white/10 bg-[#111B2E] px-4 py-4 text-sm text-[#EAF0FF]">
                     <p className="font-semibold">Current plan</p>
                     <p className="mt-2 text-[#A9B4CC]">
-                      {currentSubscription?.planType ? `${currentSubscription.planType} plan active until ${formatScheduleDate(currentSubscription.endDate)}` : 'No current paid platform cycle recorded.'}
+                      {currentSubscription?.planType ? `${currentSubscription.planType} plan active until ${formatScheduleDate(currentSubscription.endDate)}` : 'No current paid cycle recorded.'}
                     </p>
                   </div>
 
@@ -384,7 +385,7 @@ export default function SuperAdminBillingPage() {
                         className="rounded-2xl border border-indigo-400/30 bg-indigo-500/15 px-4 py-4 text-left text-[#EAF0FF] transition hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-100">Monthly</p>
-                        <p className="mt-2 text-2xl font-bold">{formatMoney(Number(platformService?.monthly || 4))}</p>
+                        <p className="mt-2 text-2xl font-bold">{formatMoney(Number(platformService?.monthly || 9))}</p>
                         <p className="mt-2 text-sm text-[#A9B4CC]">
                           {checkoutLoading === 'platform-monthly' ? 'Opening checkout...' : 'Clear the current month and keep billing aligned to the 18th.'}
                         </p>
@@ -397,15 +398,15 @@ export default function SuperAdminBillingPage() {
                         className="rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-4 text-left text-[#EAF0FF] transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">Yearly</p>
-                        <p className="mt-2 text-2xl font-bold">{formatMoney(Number(platformService?.yearly || 44))}</p>
+                        <p className="mt-2 text-2xl font-bold">{formatMoney(Number(platformService?.yearly || 100))}</p>
                         <p className="mt-2 text-sm text-[#A9B4CC]">
-                          {checkoutLoading === 'platform-yearly' ? 'Opening checkout...' : 'Settle the platform subscription for a full year.'}
+                          {checkoutLoading === 'platform-yearly' ? 'Opening checkout...' : 'Cover the full year in one payment.'}
                         </p>
                       </button>
                     </div>
                   ) : (
                     <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-100">
-                      This cycle is already covered. The next checkpoint is {formatScheduleDate(superAdminBilling?.nextCycleLockDate)}.
+                      This cycle is already covered. The next due date is {formatScheduleDate(nextDueDate)}.
                     </div>
                   )}
                 </div>
@@ -432,7 +433,7 @@ export default function SuperAdminBillingPage() {
             <div className="rounded-[24px] border border-white/10 bg-[#111B2E] px-5 py-5 shadow-lg shadow-black/20">
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6B7A99]">Payments Due</p>
               <p className="mt-4 text-3xl font-bold text-[#EAF0FF]">{formatMoney(Number(summary?.dueAmount || 0))}</p>
-              <p className="mt-4 text-sm text-[#A9B4CC]">{summary?.dueCount || 0} billable teacher service{summary?.dueCount === 1 ? '' : 's'} are currently due.</p>
+              <p className="mt-4 text-sm text-[#A9B4CC]">Teacher add-ons are optional, so automatic teacher dues should stay at zero.</p>
             </div>
           </div>
 
@@ -541,17 +542,17 @@ export default function SuperAdminBillingPage() {
                 <div className="rounded-[24px] border border-white/10 bg-[#111B2E] px-5 py-5 shadow-lg shadow-black/20">
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6B7A99]">Collected</p>
                   <p className="mt-4 text-3xl font-bold text-[#EAF0FF]">{formatMoney(Number(teacherPayments?.totals?.collectedAmount || 0))}</p>
-                  <p className="mt-4 text-sm text-[#A9B4CC]">Successful teacher subscription payments across platform, storage, and live class.</p>
+                  <p className="mt-4 text-sm text-[#A9B4CC]">Successful teacher add-on payments plus any legacy subscription rows.</p>
                 </div>
                 <div className="rounded-[24px] border border-white/10 bg-[#111B2E] px-5 py-5 shadow-lg shadow-black/20">
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6B7A99]">Pending</p>
                   <p className="mt-4 text-3xl font-bold text-[#EAF0FF]">{formatMoney(Number(teacherPayments?.totals?.pendingAmount || 0))}</p>
-                  <p className="mt-4 text-sm text-[#A9B4CC]">Pending teacher renewals waiting for a successful gateway confirmation.</p>
+                  <p className="mt-4 text-sm text-[#A9B4CC]">Pending add-on checkouts waiting for gateway confirmation.</p>
                 </div>
                 <div className="rounded-[24px] border border-white/10 bg-[#111B2E] px-5 py-5 shadow-lg shadow-black/20">
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6B7A99]">Due Now</p>
                   <p className="mt-4 text-3xl font-bold text-[#EAF0FF]">{formatMoney(Number(teacherPayments?.totals?.dueAmount || 0))}</p>
-                  <p className="mt-4 text-sm text-[#A9B4CC]">{teacherPayments?.totals?.dueTeachers || 0} teacher account{teacherPayments?.totals?.dueTeachers === 1 ? '' : 's'} still need at least one paid service.</p>
+                  <p className="mt-4 text-sm text-[#A9B4CC]">Teacher add-ons are optional, so no automatic teacher dues are created.</p>
                 </div>
                 <div className="rounded-[24px] border border-white/10 bg-[#111B2E] px-5 py-5 shadow-lg shadow-black/20">
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6B7A99]">Payment Rows</p>
@@ -666,7 +667,7 @@ export default function SuperAdminBillingPage() {
                                 ))}
                               </div>
                             ) : (
-                              <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300">All active</span>
+                              <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300">No required dues</span>
                             )}
                           </td>
                           <td className="px-3 py-4 text-[#EAF0FF]">{formatMoney(Number(row.revenue.estimatedRevenue || 0))}</td>
@@ -693,7 +694,7 @@ export default function SuperAdminBillingPage() {
                 <div className="rounded-[24px] border border-white/10 bg-[#111B2E] px-5 py-5 shadow-lg shadow-black/20">
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6B7A99]">Monthly Base Stack</p>
                   <p className="mt-4 text-3xl font-bold text-[#EAF0FF]">{formatMoney(Number(systemPayments?.monthlyBaseStack || 0))}</p>
-                  <p className="mt-4 text-sm text-[#A9B4CC]">System maintenance $4, live class $2, storage $2.</p>
+                  <p className="mt-4 text-sm text-[#A9B4CC]">One main subscription at $9 monthly or $100 yearly.</p>
                 </div>
                 <div className="rounded-[24px] border border-white/10 bg-[#111B2E] px-5 py-5 shadow-lg shadow-black/20">
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6B7A99]">Due Right Now</p>
@@ -763,10 +764,10 @@ export default function SuperAdminBillingPage() {
                       disabled={Boolean(checkoutLoading) || !(systemPayments?.baseDueItems?.length)}
                       className="rounded-2xl border border-indigo-400/30 bg-indigo-500/15 px-4 py-4 text-left text-[#EAF0FF] transition hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-100">Pay Due Monthly Items</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-100">Pay Monthly Subscription</p>
                       <p className="mt-2 text-2xl font-bold">{formatMoney(Number(systemPayments?.baseDueAmount || 0))}</p>
                       <p className="mt-2 text-sm text-[#A9B4CC]">
-                        {checkoutLoading === 'system-monthly' ? 'Opening checkout...' : 'Checkout only the base system services that are currently uncovered.'}
+                        {checkoutLoading === 'system-monthly' ? 'Opening checkout...' : 'Settle the current monthly main subscription.'}
                       </p>
                     </button>
                     <button
@@ -775,10 +776,10 @@ export default function SuperAdminBillingPage() {
                       disabled={Boolean(checkoutLoading) || !(systemPayments?.baseDueItems?.length)}
                       className="rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-4 text-left text-[#EAF0FF] transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">Pay Due Yearly Items</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">Pay Yearly Subscription</p>
                       <p className="mt-2 text-2xl font-bold">{formatMoney(systemYearlyDueAmount)}</p>
                       <p className="mt-2 text-sm text-[#A9B4CC]">
-                        {checkoutLoading === 'system-yearly' ? 'Opening checkout...' : 'Use the yearly stack when you want to settle the base services ahead of time.'}
+                        {checkoutLoading === 'system-yearly' ? 'Opening checkout...' : 'Cover the yearly main subscription in one payment.'}
                       </p>
                     </button>
                   </div>
@@ -988,7 +989,7 @@ export default function SuperAdminBillingPage() {
                       <div key={`${payment.subscriptionType}-${payment.transactionRef || payment.createdAt}`} className="rounded-2xl border border-white/10 bg-[#16233A] px-4 py-4">
                         <div className="flex items-center justify-between gap-4">
                           <div>
-                            <p className="font-semibold text-[#EAF0FF]">{payment.subscriptionType === 'platform' ? 'System Maintenance' : payment.subscriptionType === 'live_class' ? 'Live Class' : 'Storage'}</p>
+                            <p className="font-semibold text-[#EAF0FF]">{payment.subscriptionType === 'platform' ? 'Main Subscription' : payment.subscriptionType === 'live_class' ? 'Live Classes Add-on' : 'Storage Add-on'}</p>
                             <p className="mt-1 text-sm text-[#A9B4CC]">{payment.planType} plan • {payment.status}</p>
                           </div>
                           <div className="text-right">

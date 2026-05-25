@@ -23,22 +23,22 @@ const resolveDashboardPath = (role?: string) => {
 
 const humanizeType = (type: string | null) => {
   if (type === 'bundle') {
-    return 'Teacher Bundle';
+    return 'Teacher Add-ons';
   }
 
   if (type === 'live_class' || type === 'liveClass') {
-    return 'Live Class Access';
+    return 'Live Classes Add-on';
   }
 
   if (type === 'storage') {
-    return 'Cloudflare Storage';
+    return 'Storage Add-on';
   }
 
   if (type === 'student_course') {
     return 'Course Enrollment';
   }
 
-  return 'Platform Access';
+  return 'Main Subscription';
 };
 
 const PaymentCallback: React.FC = () => {

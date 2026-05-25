@@ -38,24 +38,24 @@ const FLUTTERWAVE_PREFERRED_PAYMENT_OPTIONS = 'banktransfer,card,ussd';
 const isSuccessfulFlutterwaveStatus = (status?: string | null) => ['success', 'successful', 'completed'].includes(String(status || '').toLowerCase());
 
 const PLATFORM_FEES: FeeConfig = {
-  monthly: 4.00,
-  yearly: 44.00,
+  monthly: 9.00,
+  yearly: 100.00,
   effectiveDate: BILLING_START_DATE,
-  label: 'Platform Access',
+  label: 'Main Subscription',
 };
 
 const STORAGE_FEES: FeeConfig = {
   monthly: 2.00,
   yearly: 24.00,
   effectiveDate: BILLING_START_DATE,
-  label: 'Cloudflare Storage',
+  label: 'Storage Add-on',
 };
 
 const LIVE_CLASS_FEES: FeeConfig = {
   monthly: 2.00,
   yearly: 24.00,
   effectiveDate: BILLING_START_DATE,
-  label: 'Live Class Access',
+  label: 'Live Classes Add-on',
 };
 
 function getSubscriptionFlutterwaveSecret(env: Env) {
@@ -102,6 +102,14 @@ function getFees(type: SubscriptionType) {
 
 function getTypeLabel(type: SubscriptionType) {
   return getFees(type).label;
+}
+
+function canPurchaseSubscription(role: string, type: SubscriptionType) {
+  if (type === 'platform') {
+    return role === 'admin' || role === 'super_admin';
+  }
+
+  return role === 'teacher';
 }
 
 function getRequirementTimestamp(type: SubscriptionType) {
@@ -618,9 +626,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const storageSub = await getCurrentActiveSubscription(db, user.id, 'storage');
     const liveClassSub = await getCurrentActiveSubscription(db, user.id, 'live_class');
 
-    const reqPlatform = Date.now() >= getRequirementTimestamp('platform');
-    const reqStorage = Date.now() >= getRequirementTimestamp('storage');
-    const reqLiveClass = Date.now() >= getRequirementTimestamp('live_class');
+    const reqPlatform = (user.role === 'admin' || user.role === 'super_admin') && Date.now() >= getRequirementTimestamp('platform');
+    const reqStorage = false;
+    const reqLiveClass = false;
 
     const storagePayload = {
       hasActiveSubscription: Boolean(storageSub),
@@ -758,6 +766,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ error: 'No payable items were provided for the combined checkout' }, { status: 400 });
     }
 
+    if (normalizedItems.some((item) => !canPurchaseSubscription(user.role, item.subscriptionType))) {
+      return Response.json({ error: 'One or more selected subscriptions are not available for this account.' }, { status: 403 });
+    }
+
     if (!teacherFlutterwaveSecret) {
       return Response.json({ error: 'Flutterwave live gateway is not configured' }, { status: 503 });
     }
@@ -855,6 +867,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const { planType, subscriptionType = 'platform', paymentGateway = 'flutterwave' } = body;
   const type = normalizeType(subscriptionType);
   if (!planType || !['monthly', 'yearly'].includes(planType)) return Response.json({ error: 'Invalid plan type.' }, { status: 400 });
+  if (!canPurchaseSubscription(user.role, type)) {
+    return Response.json({ error: `${getTypeLabel(type)} is not available for this account.` }, { status: 403 });
+  }
 
   const config = tbl(type);
   const f = getFees(type);

@@ -47,9 +47,9 @@ interface AdminDueItem {
 }
 
 const subscriptionPresentation: Record<AdminSubscriptionType, { label: string; icon: string; monthly: number; yearly: number }> = {
-  platform: { label: 'Platform Access', icon: '🧭', monthly: 4, yearly: 44 },
-  storage: { label: 'Cloudflare Storage', icon: '☁️', monthly: 2, yearly: 24 },
-  liveClass: { label: 'Live Class Access', icon: '🎥', monthly: 2.2, yearly: 26.4 },
+  platform: { label: 'Main Subscription', icon: '🧭', monthly: 9, yearly: 100 },
+  storage: { label: 'Storage Add-on', icon: '☁️', monthly: 2, yearly: 24 },
+  liveClass: { label: 'Live Classes Add-on', icon: '🎥', monthly: 2, yearly: 24 },
 };
 
 const statToneStyles: Record<string, string> = {
@@ -164,7 +164,7 @@ const AdminPanel: React.FC = () => {
     }
 
     const items: AdminDueItem[] = [];
-    (['platform', 'storage', 'liveClass'] as AdminSubscriptionType[]).forEach((type) => {
+    (['platform'] as AdminSubscriptionType[]).forEach((type) => {
       const state = resolveSubscriptionState(type);
       if (!state?.requiresSubscription || state?.hasActiveSubscription) {
         return;
@@ -776,7 +776,7 @@ const AdminPanel: React.FC = () => {
       {tab === 'subscription' && (
         <section className="rounded-[32px] border border-white/70 bg-white px-6 py-8 shadow-lg">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Subscription Management</p>
-          <h2 className="mt-2 font-display text-2xl font-bold text-slate-950">Admin Subscription Status</h2>
+          <h2 className="mt-2 font-display text-2xl font-bold text-slate-950">Admin Main Subscription</h2>
 
           {subscriptionLoading ? (
             <div className="mt-6 flex items-center justify-center py-8">
@@ -789,25 +789,16 @@ const AdminPanel: React.FC = () => {
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h3 className="font-semibold text-slate-900">Payments Due</h3>
-                      <p className="mt-1 text-sm text-slate-500">Choose 1, 2, or all 3 active dues and clear them in a single Flutterwave Live checkout.</p>
+                      <p className="mt-1 text-sm text-slate-500">The admin dashboard is covered by one main subscription.</p>
                     </div>
                     <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
-                      Selected total: ${selectedDueAmount.toFixed(2)}
+                      Amount due: ${selectedDueAmount.toFixed(2)}
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-4 xl:grid-cols-3">
+                  <div className="mt-5 grid gap-4 xl:grid-cols-1">
                     {dueSubscriptionItems.map((item) => (
                       <div key={item.key} className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
-                        <label className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700">
-                          <input
-                            type="checkbox"
-                            checked={selectedBundleItems[item.key] ?? true}
-                            onChange={(event) => setSelectedBundleItems((current) => ({ ...current, [item.key]: event.target.checked }))}
-                            className="h-4 w-4 rounded border-slate-300 text-indigo-600"
-                          />
-                          Include
-                        </label>
                         <div className="mt-4 flex items-start justify-between gap-3">
                           <div>
                             <p className="text-2xl">{item.icon}</p>
@@ -833,33 +824,17 @@ const AdminPanel: React.FC = () => {
                           }}
                           className="mt-4 w-full rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
                         >
-                          Pay this one
+                          Pay main subscription
                         </button>
                       </div>
                     ))}
-                  </div>
-
-                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                    <button
-                      onClick={() => setSelectedBundleItems({ platform: true, storage: true, liveClass: true })}
-                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-                    >
-                      Select all due items
-                    </button>
-                    <button
-                      onClick={() => { void handleBundleSubscribe(); }}
-                      disabled={!selectedDueItems.length}
-                      className="rounded-full bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Pay selected items together
-                    </button>
                   </div>
                 </div>
               )}
 
               {/* Subscription Type Selector */}
               <div className="rounded-2xl border border-white/70 bg-white/85 px-6 py-5 shadow-sm">
-                <h3 className="font-semibold text-slate-900 mb-4">Subscription Type</h3>
+                <h3 className="font-semibold text-slate-900 mb-4">Subscription</h3>
                 <div className="flex flex-wrap gap-4">
                   <button
                     onClick={() => setSelectedSubscriptionType('platform')}
@@ -869,27 +844,7 @@ const AdminPanel: React.FC = () => {
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     }`}
                   >
-                    Platform Access ($4/month)
-                  </button>
-                  <button
-                    onClick={() => setSelectedSubscriptionType('storage')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                      selectedSubscriptionType === 'storage'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                    }`}
-                  >
-                    Cloudflare Storage ($2/month)
-                  </button>
-                  <button
-                    onClick={() => setSelectedSubscriptionType('liveClass')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                      selectedSubscriptionType === 'liveClass'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                    }`}
-                  >
-                    Live Class Access ($2.20/month)
+                    Main Subscription ($9/month)
                   </button>
                 </div>
               </div>
