@@ -33,6 +33,7 @@ const FLUTTERWAVE_PAYMENT_GATEWAY = 'flutterwave_live';
 const PRODUCTION_SITE_ORIGIN = 'https://kambiacademy.com';
 const FLUTTERWAVE_PREFERRED_PAYMENT_OPTIONS = 'banktransfer,card,ussd';
 const FLUTTERWAVE_FEE_FALLBACK_RATE = 0.02;
+const isSuccessfulIntent = (status?: string | null) => ['success', 'successful', 'completed'].includes(String(status || '').toLowerCase());
 
 const HIGH_COST_REGIONS = new Set([
   'USA',
@@ -224,8 +225,12 @@ async function initializeFlutterwavePayment(options: {
   };
 }
 
-async function verifyFlutterwavePayment(secret: string, transactionId: string, transactionRef: string, expectedAmount: number) {
-  const response = await fetch(`https://api.flutterwave.com/v3/transactions/${transactionId}/verify`, {
+async function verifyFlutterwavePayment(secret: string, transactionId: string | undefined, transactionRef: string, expectedAmount: number) {
+  const verifyUrl = transactionId
+    ? `https://api.flutterwave.com/v3/transactions/${transactionId}/verify`
+    : `https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(transactionRef)}`;
+
+  const response = await fetch(verifyUrl, {
     headers: {
       Authorization: `Bearer ${secret}`,
       'Content-Type': 'application/json',
@@ -237,11 +242,12 @@ async function verifyFlutterwavePayment(secret: string, transactionId: string, t
     throw new Error(payload?.message || 'Flutterwave verification failed');
   }
 
-  const verifiedAmount = Number(payload?.data?.amount ?? 0);
+  const transaction = Array.isArray(payload?.data) ? payload.data[0] : payload?.data;
+  const verifiedAmount = Number(transaction?.amount ?? 0);
   const amountMatches = Math.abs(verifiedAmount - expectedAmount) < 0.01;
   const verified = payload?.status === 'success'
-    && payload?.data?.status === 'successful'
-    && payload?.data?.tx_ref === transactionRef
+    && isSuccessfulIntent(transaction?.status)
+    && transaction?.tx_ref === transactionRef
     && amountMatches;
 
   return {
@@ -562,7 +568,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (action === 'verify') {
     const transactionRef = body.transactionRef || body.tx_ref;
     const flutterwaveTransactionId = body.flutterwaveTransactionId || body.transaction_id;
-    const requestedStatus = body.status === 'successful' || body.status === 'success' ? 'success' : 'failed';
+    const requestedStatus = isSuccessfulIntent(body.status) ? 'success' : 'failed';
 
     if (!transactionRef) {
       return Response.json({ error: 'transactionRef is required for verification' }, { status: 400 });
@@ -574,10 +580,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (!studentFlutterwaveSecret) {
       return Response.json({ error: 'Flutterwave student gateway is not configured' }, { status: 503 });
-    }
-
-    if (!flutterwaveTransactionId) {
-      return Response.json({ error: 'transaction_id is required for verification' }, { status: 400 });
     }
 
     try {

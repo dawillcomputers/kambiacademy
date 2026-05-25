@@ -1,3 +1,5 @@
+import { getPayoutFlutterwaveSecret, getTeacherPayoutEligibility, initiateFlutterwaveTransfer } from '../../_shared/payouts';
+
 /**
  * Weekly Payout Scheduler
  * Cloudflare Worker that runs on a scheduled interval (weekly)
@@ -6,7 +8,9 @@
 
 interface Env {
   DB: D1Database;
-  FLUTTERWAVE_SECRET: string;
+  FLUTTERWAVE_TEACHER_SECRET_KEY?: string;
+  FLUTTERWAVE_SECRET_KEY?: string;
+  FLUTTERWAVE_SECRET?: string;
 }
 
 // Scheduled handler - runs weekly via Cloudflare Cron
@@ -14,6 +18,12 @@ export async function scheduled(event: ScheduledEvent, env: Env) {
   console.log('Weekly payout batch started');
 
   try {
+    const secret = getPayoutFlutterwaveSecret(env);
+    if (!secret) {
+      console.log('Flutterwave payout gateway not configured');
+      return;
+    }
+
     // Get settings
     const settings = await env.DB.prepare(`
       SELECT * FROM payout_settings LIMIT 1
@@ -27,13 +37,10 @@ export async function scheduled(event: ScheduledEvent, env: Env) {
     // Get tutors with balance > minimum
     const tutors = await env.DB.prepare(`
       SELECT u.id, u.name, u.email,
-        COALESCE(SUM(CASE WHEN wt.type='credit' THEN wt.amount 
-                      WHEN wt.type='payout' THEN -wt.amount 
-                      ELSE 0 END), 0) as balance
+        COALESCE(te.available_balance, 0) as balance
       FROM users u
-      LEFT JOIN wallet_transactions wt ON wt.user_id = u.id
-      WHERE u.role = 'teacher'
-      GROUP BY u.id
+      JOIN teacher_earnings te ON te.teacher_id = u.id
+      WHERE u.role IN ('teacher', 'tutor')
       HAVING balance > ?
     `).bind(settings.min_payout_amount).all<any>();
 
@@ -55,7 +62,13 @@ export async function scheduled(event: ScheduledEvent, env: Env) {
       }
 
       try {
-        await createPayout(env, tutor.id, tutor.balance, batchId);
+        const eligibility = await getTeacherPayoutEligibility(env.DB, tutor.id);
+        if (!eligibility.eligible) {
+          console.log(`Skipping payout for tutor ${tutor.id}: ${eligibility.blockingReasons.join('; ')}`);
+          continue;
+        }
+
+        await createPayout(env, tutor.id, tutor.balance, batchId, secret);
         payoutCount++;
         totalAmount += tutor.balance;
       } catch (error) {
@@ -242,7 +255,8 @@ async function createPayout(
   env: Env,
   tutorId: number,
   amount: number,
-  batchId: string
+  batchId: string,
+  secret: string,
 ) {
   const payoutId = `${batchId}-T${tutorId}`;
 
@@ -252,7 +266,7 @@ async function createPayout(
   `).bind(payoutId, tutorId, amount).run();
 
   // Initiate Flutterwave transfer
-  const flwRef = await initiateFlutterwavePayout(env, tutorId, amount, payoutId);
+  const flwRef = await initiateFlutterwavePayout(env, tutorId, amount, payoutId, secret);
 
   await env.DB.prepare(`
     UPDATE payouts SET status = 'processing', flutterwave_reference = ?
@@ -260,6 +274,14 @@ async function createPayout(
   `).bind(flwRef, payoutId).run();
 
   // Debit tutor wallet
+  await env.DB.prepare(`
+    UPDATE teacher_earnings
+    SET available_balance = available_balance - ?,
+        total_withdrawn = COALESCE(total_withdrawn, 0) + ?,
+        last_updated = datetime('now')
+    WHERE teacher_id = ?
+  `).bind(amount, amount, tutorId).run();
+
   await env.DB.prepare(`
     INSERT INTO wallet_transactions (user_id, type, amount, reference, status, created_at)
     VALUES (?, 'payout', ?, ?, 'completed', datetime('now'))
@@ -272,41 +294,47 @@ async function initiateFlutterwavePayout(
   env: Env,
   tutorId: number,
   amount: number,
-  payoutId: string
+  payoutId: string,
+  secret: string,
 ): Promise<string> {
   // Get tutor info
   const tutor = await env.DB.prepare(`
-    SELECT name, email FROM users WHERE id = ?
+    SELECT u.id, u.name, u.email, ps.account_name, ps.bank_code, ps.account_number, ps.payout_currency
+    FROM users u
+    JOIN teacher_payout_settings ps ON ps.teacher_id = u.id
+    WHERE u.id = ?
   `).bind(tutorId).first<any>();
 
-  // In production, fetch tutor's bank details from profile
-  // For now, using placeholder
-  const response = await fetch('https://api.flutterwave.com/v3/transfers', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${env.FLUTTERWAVE_SECRET}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      account_bank: '044',
-      account_number: '1234567890',
-      amount: amount,
-      narration: 'KambiAcademy Teaching Earnings',
-      currency: 'NGN',
-      reference: payoutId,
-      meta: {
-        tutor_id: tutorId,
-        tutor_name: tutor?.name,
-        platform: 'kambiacademy'
-      }
-    })
-  });
-
-  const data: any = await response.json();
-
-  if (data.status !== 'success') {
-    throw new Error(`Flutterwave error: ${data.message}`);
+  if (!tutor) {
+    throw new Error('Tutor payout profile not found');
   }
 
-  return data.data?.id || payoutId;
+  const transfer = await initiateFlutterwaveTransfer({
+    secret,
+    payoutId,
+    amount,
+    destination: {
+      teacher_id: tutorId,
+      account_name: tutor.account_name,
+      bank_name: null,
+      bank_code: tutor.bank_code,
+      account_number: tutor.account_number,
+      payout_currency: tutor.payout_currency,
+      verification_status: 'approved',
+      manual_review_required: 0,
+      transfer_enabled: 1,
+      review_notes: null,
+      reviewed_by: null,
+      reviewed_at: null,
+      created_at: null,
+      updated_at: null,
+    },
+    teacher: {
+      id: tutor.id,
+      name: tutor.name,
+      email: tutor.email,
+    },
+  });
+
+  return String(transfer?.reference || transfer?.id || payoutId);
 }

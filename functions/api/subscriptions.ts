@@ -35,6 +35,7 @@ const FLUTTERWAVE_PAYMENT_GATEWAY = 'flutterwave_live';
 const BILLING_START_DATE = '2026-05-01T00:00:00.000Z';
 const PRODUCTION_SITE_ORIGIN = 'https://kambiacademy.com';
 const FLUTTERWAVE_PREFERRED_PAYMENT_OPTIONS = 'banktransfer,card,ussd';
+const isSuccessfulFlutterwaveStatus = (status?: string | null) => ['success', 'successful', 'completed'].includes(String(status || '').toLowerCase());
 
 const PLATFORM_FEES: FeeConfig = {
   monthly: 4.00,
@@ -349,8 +350,12 @@ async function createPendingSubscriptionCheckout(options: {
   };
 }
 
-async function verifyFlutterwavePayment(secret: string, transactionId: string, transactionRef: string, expectedAmount: number) {
-  const response = await fetch(`https://api.flutterwave.com/v3/transactions/${transactionId}/verify`, {
+async function verifyFlutterwavePayment(secret: string, transactionRef: string, expectedAmount: number, transactionId?: string) {
+  const verifyUrl = transactionId
+    ? `https://api.flutterwave.com/v3/transactions/${transactionId}/verify`
+    : `https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(transactionRef)}`;
+
+  const response = await fetch(verifyUrl, {
     headers: {
       Authorization: `Bearer ${secret}`,
       'Content-Type': 'application/json',
@@ -362,16 +367,17 @@ async function verifyFlutterwavePayment(secret: string, transactionId: string, t
     throw new Error(payload?.message || 'Flutterwave verification failed');
   }
 
-  const verifiedAmount = Number(payload?.data?.amount ?? 0);
+  const transaction = Array.isArray(payload?.data) ? payload.data[0] : payload?.data;
+  const verifiedAmount = Number(transaction?.amount ?? 0);
   const amountMatches = Math.abs(verifiedAmount - expectedAmount) < 0.01;
   const verified = payload?.status === 'success'
-    && payload?.data?.status === 'successful'
-    && payload?.data?.tx_ref === transactionRef
+    && isSuccessfulFlutterwaveStatus(transaction?.status)
+    && transaction?.tx_ref === transactionRef
     && amountMatches;
 
   return {
     verified,
-    gatewayStatus: payload?.data?.status || 'unknown',
+    gatewayStatus: transaction?.status || 'unknown',
   };
 }
 
@@ -427,9 +433,9 @@ async function finalizeSubscriptionPayment(options: {
     ? `${getTypeLabel(subscriptionType)} payment verified successfully.`
     : `${getTypeLabel(subscriptionType)} payment was not completed.`;
 
-  if (requestedStatus === 'success' && flutterwaveTransactionId && teacherFlutterwaveSecret) {
+  if (requestedStatus === 'success' && teacherFlutterwaveSecret) {
     try {
-      const verification = await verifyFlutterwavePayment(teacherFlutterwaveSecret, flutterwaveTransactionId, transactionRef, payment.amount);
+      const verification = await verifyFlutterwavePayment(teacherFlutterwaveSecret, transactionRef, payment.amount, flutterwaveTransactionId);
       if (!verification.verified) {
         nextStatus = 'failed';
         message = `${getTypeLabel(subscriptionType)} payment verification failed.`;
@@ -547,9 +553,9 @@ async function finalizeBundleSubscriptionPayment(options: {
     ? 'All due teacher payments were verified successfully.'
     : 'Combined teacher payment was not completed.';
 
-  if (requestedStatus === 'success' && flutterwaveTransactionId && teacherFlutterwaveSecret) {
+  if (requestedStatus === 'success' && teacherFlutterwaveSecret) {
     try {
-      const verification = await verifyFlutterwavePayment(teacherFlutterwaveSecret, flutterwaveTransactionId, transactionRef, expectedAmount);
+      const verification = await verifyFlutterwavePayment(teacherFlutterwaveSecret, transactionRef, expectedAmount, flutterwaveTransactionId);
       if (!verification.verified) {
         nextStatus = 'failed';
         message = 'Combined teacher payment verification failed.';
@@ -694,7 +700,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ error: 'subscriptionId and transactionRef are required for verification' }, { status: 400 });
     }
 
-    const requestedStatus = callbackStatus === 'successful' || callbackStatus === 'success' ? 'success' : 'failed';
+    const requestedStatus = isSuccessfulFlutterwaveStatus(callbackStatus) ? 'success' : 'failed';
     const result = await finalizeSubscriptionPayment({
       env,
       user,
@@ -726,7 +732,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ error: 'Bundle verification requires items and transactionRef' }, { status: 400 });
     }
 
-    const requestedStatus = callbackStatus === 'successful' || callbackStatus === 'success' ? 'success' : 'failed';
+    const requestedStatus = isSuccessfulFlutterwaveStatus(callbackStatus) ? 'success' : 'failed';
     const result = await finalizeBundleSubscriptionPayment({
       env,
       user,
@@ -834,7 +840,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   if (body.subscriptionId && body.transactionRef) {
     const { subscriptionId, transactionRef, status: payStatus = 'failed', subscriptionType = 'platform' } = body;
-    const requestedStatus = payStatus === 'successful' || payStatus === 'success' ? 'success' : 'failed';
+    const requestedStatus = isSuccessfulFlutterwaveStatus(payStatus) ? 'success' : 'failed';
     const result = await finalizeSubscriptionPayment({
       env,
       user,

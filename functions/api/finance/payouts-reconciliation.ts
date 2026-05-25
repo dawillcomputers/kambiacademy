@@ -1,8 +1,11 @@
-import { getAuthUser } from '../../_shared/auth';
+import { getAuthUser, isSystemOverride } from '../../_shared/auth';
+import { getPayoutFlutterwaveSecret, initiateFlutterwaveTransfer } from '../../_shared/payouts';
 
 interface Env {
   DB: D1Database;
-  FLUTTERWAVE_SECRET: string;
+  FLUTTERWAVE_TEACHER_SECRET_KEY?: string;
+  FLUTTERWAVE_SECRET_KEY?: string;
+  FLUTTERWAVE_SECRET?: string;
 }
 
 interface FlutterwaveResponse {
@@ -24,7 +27,7 @@ interface FlutterwaveResponse {
 // Get payout reconciliation status and analytics
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
-  if (!user || user.role !== 'super_admin') {
+  if (!user || (user.role !== 'super_admin' && !isSystemOverride(user))) {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
@@ -88,7 +91,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
-  if (!user || user.role !== 'super_admin') {
+  if (!user || (user.role !== 'super_admin' && !isSystemOverride(user))) {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
@@ -251,50 +254,60 @@ async function reconcileBatch(env: Env, batchId: string) {
 }
 
 async function initiateFlutterwavePayout(env: Env, payout: any): Promise<any> {
+  const secret = getPayoutFlutterwaveSecret(env);
+  if (!secret) {
+    throw new Error('Flutterwave payout gateway is not configured.');
+  }
+
   // Get tutor bank info
   const tutor = await env.DB.prepare(`
-    SELECT name, email FROM users WHERE id = ?
+    SELECT u.id, u.name, u.email, ps.account_name, ps.bank_code, ps.account_number, ps.payout_currency
+    FROM users u
+    JOIN teacher_payout_settings ps ON ps.teacher_id = u.id
+    WHERE u.id = ?
   `).bind(payout.tutor_id).first<any>();
 
   if (!tutor) throw new Error('Tutor not found');
 
-  // Call Flutterwave API
-  const flwResponse = await fetch('https://api.flutterwave.com/v3/transfers', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${env.FLUTTERWAVE_SECRET}`,
-      'Content-Type': 'application/json'
+  return initiateFlutterwaveTransfer({
+    secret,
+    payoutId: payout.id,
+    amount: payout.amount,
+    destination: {
+      teacher_id: payout.tutor_id,
+      account_name: tutor.account_name,
+      bank_name: null,
+      bank_code: tutor.bank_code,
+      account_number: tutor.account_number,
+      payout_currency: tutor.payout_currency,
+      verification_status: 'approved',
+      manual_review_required: 0,
+      transfer_enabled: 1,
+      review_notes: null,
+      reviewed_by: null,
+      reviewed_at: null,
+      created_at: null,
+      updated_at: null,
     },
-    body: JSON.stringify({
-      account_bank: '044', // Example: Access Bank
-      account_number: '1234567890', // Would come from tutor profile
-      amount: payout.amount,
-      narration: `KambiAcademy Teaching Earnings`,
-      currency: 'NGN',
-      reference: payout.id,
-      meta: {
-        tutor_id: payout.tutor_id,
-        tutor_name: tutor.name,
-        platform: 'kambiacademy'
-      }
-    })
+    teacher: {
+      id: tutor.id,
+      name: tutor.name,
+      email: tutor.email,
+    },
   });
-
-  const data: FlutterwaveResponse = await flwResponse.json();
-
-  if (data.status !== 'success') {
-    throw new Error(`Flutterwave error: ${data.message}`);
-  }
-
-  return data.data || {};
 }
 
 async function verifyFlutterwaveTransfer(env: Env, transferId: string): Promise<FlutterwaveResponse> {
+  const secret = getPayoutFlutterwaveSecret(env);
+  if (!secret) {
+    throw new Error('Flutterwave payout gateway is not configured.');
+  }
+
   const response = await fetch(
     `https://api.flutterwave.com/v3/transfers/${transferId}`,
     {
       headers: {
-        'Authorization': `Bearer ${env.FLUTTERWAVE_SECRET}`
+        'Authorization': `Bearer ${secret}`
       }
     }
   );

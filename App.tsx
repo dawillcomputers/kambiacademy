@@ -15,6 +15,7 @@ import PaymentCallback from './components/PaymentCallback';
 import SignUp from './components/SignUp';
 import ChangePassword from './components/ChangePassword';
 import JoinClass from './components/JoinClass';
+import KambiAIAssistant from './components/KambiAIAssistant';
 // Lazy-loaded dashboard chunks
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const SuperAdminRoutes = lazy(() => import('./src/pages/dashboard/superadmin'));
@@ -294,6 +295,7 @@ const AppShell: React.FC = () => {
           </Routes>
           </Suspense>
         )}
+        <KambiAIAssistant />
       </div>
     );
   }
@@ -347,10 +349,10 @@ const AppShell: React.FC = () => {
               <Route path="/teacher/live" element={<RequireTutor><Navigate to="/teacher/classes" replace /></RequireTutor>} />
               <Route path="/" element={<Home siteData={resolvedSiteData} />} />
               <Route path="/about" element={<About about={resolvedSiteData.about} instructors={resolvedSiteData.instructors} stats={resolvedSiteData.stats} />} />
-              <Route path="/contact" element={<Contact contact={resolvedSiteData.contact} />} />
+              <Route path="/contact" element={<Contact />} />
               <Route path="/courses" element={<CourseList courses={resolvedSiteData.courses} instructors={resolvedSiteData.instructors} />} />
               <Route path="/courses/:slug" element={<RequireAuth><CourseDetailRoute siteData={resolvedSiteData} /></RequireAuth>} />
-              <Route path="/faq" element={<Faq faqs={resolvedSiteData.faqs} />} />
+              <Route path="/faq" element={<Faq />} />
               <Route path="/teach" element={<BecomeTutor />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
@@ -359,6 +361,7 @@ const AppShell: React.FC = () => {
         </div>
       </main>
       <Footer branding={branding} contact={resolvedSiteData.contact} />
+      <KambiAIAssistant />
     </div>
   );
 };

@@ -90,8 +90,15 @@ export default function TeacherDashboardLayout({ children }: TeacherDashboardLay
   }, []);
 
   const handleLogout = async () => {
+    setProfileMenuOpen(false);
     await logout();
     navigate('/login', { replace: true });
+  };
+
+  const handleSwitchAccount = async () => {
+    setProfileMenuOpen(false);
+    await logout();
+    navigate('/login?switch=1', { replace: true });
   };
 
   const avatarSrc = avatarUrl || (user as any)?.avatar || 'https://ui-avatars.com/api/?name=Teacher&background=0f172a&color=ffffff';
@@ -303,6 +310,14 @@ export default function TeacherDashboardLayout({ children }: TeacherDashboardLay
                       <span className="text-base">👤</span>
                       <span>Open profile</span>
                     </Link>
+                    <button
+                      type="button"
+                      onClick={handleSwitchAccount}
+                      className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    >
+                      <span className="text-base">🔄</span>
+                      <span>Switch account</span>
+                    </button>
                     <button
                       type="button"
                       onClick={handleLogout}

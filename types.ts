@@ -221,7 +221,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'student' | 'teacher' | 'admin' | 'super_admin' | 'SOU';
+  role: 'student' | 'teacher' | 'tutor' | 'admin' | 'super_admin' | 'SOU';
   status: 'active' | 'pending' | 'suspended';
   kycStatus?: 'verified' | 'pending' | 'rejected' | 'unverified';
   enrolledCourses?: string[];

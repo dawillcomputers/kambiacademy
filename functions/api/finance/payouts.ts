@@ -1,8 +1,11 @@
-import { getAuthUser } from '../../_shared/auth';
+import { getAuthUser, isSystemOverride } from '../../_shared/auth';
+import { getPayoutFlutterwaveSecret, getTeacherPayoutEligibility, initiateFlutterwaveTransfer, maskAccountNumber } from '../../_shared/payouts';
 
 interface Env {
   DB: D1Database;
-  FLUTTERWAVE_SECRET: string;
+  FLUTTERWAVE_TEACHER_SECRET_KEY?: string;
+  FLUTTERWAVE_SECRET_KEY?: string;
+  FLUTTERWAVE_SECRET?: string;
 }
 
 interface TutorWalletRow {
@@ -10,6 +13,11 @@ interface TutorWalletRow {
   name: string;
   email: string;
   balance: number;
+  verification_status?: string;
+  transfer_enabled?: number;
+  bank_name?: string | null;
+  bank_code?: string | null;
+  account_number?: string | null;
 }
 
 interface PayoutRow {
@@ -34,7 +42,7 @@ interface PayoutResult {
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
-  if (!user || user.role !== 'super_admin') {
+  if (!user || (user.role !== 'super_admin' && !isSystemOverride(user))) {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
@@ -51,18 +59,33 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const tutorWallets = await env.DB.prepare(`
     SELECT 
       u.id, u.name, u.email,
-      COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE -amount END), 0) as balance
+      COALESCE(te.available_balance, 0) as balance,
+      ps.verification_status,
+      ps.transfer_enabled,
+      ps.bank_name,
+      ps.bank_code,
+      ps.account_number
     FROM users u
-    LEFT JOIN wallet_transactions wt ON wt.user_id = u.id
-    WHERE u.role = 'teacher'
-    GROUP BY u.id
+    LEFT JOIN teacher_earnings te ON te.teacher_id = u.id
+    LEFT JOIN teacher_payout_settings ps ON ps.teacher_id = u.id
+    WHERE u.role IN ('teacher', 'tutor')
     HAVING balance > 10
     ORDER BY balance DESC
   `).all();
 
+  const tutorsWithBalance = await Promise.all((tutorWallets.results || []).map(async (teacher: any) => {
+    const eligibility = await getTeacherPayoutEligibility(env.DB, teacher.id);
+    return {
+      ...teacher,
+      account_number_masked: maskAccountNumber(teacher.account_number),
+      payout_ready: eligibility.eligible,
+      blocking_reasons: eligibility.blockingReasons,
+    };
+  }));
+
   return Response.json({
     payouts: payouts.results || [],
-    tutors_with_balance: tutorWallets.results || [],
+    tutors_with_balance: tutorsWithBalance,
     summary: {
       total_pending: (payouts.results?.filter((p: any) => p.status === 'pending').length || 0),
       total_processing: (payouts.results?.filter((p: any) => p.status === 'processing').length || 0),
@@ -74,7 +97,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
-  if (!user || user.role !== 'super_admin') {
+  if (!user || (user.role !== 'super_admin' && !isSystemOverride(user))) {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
@@ -96,15 +119,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 };
 
 async function createBatchPayouts(env: Env) {
+  const secret = getPayoutFlutterwaveSecret(env);
+  if (!secret) {
+    throw new Error('Flutterwave payout gateway is not configured.');
+  }
+
   // Get all tutors with balance > 10
   const tutorsWithBalance = await env.DB.prepare(`
     SELECT 
       u.id, u.name, u.email,
-      COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE -amount END), 0) as balance
+      COALESCE(te.available_balance, 0) as balance
     FROM users u
-    LEFT JOIN wallet_transactions wt ON wt.user_id = u.id
-    WHERE u.role = 'teacher'
-    GROUP BY u.id
+    JOIN teacher_earnings te ON te.teacher_id = u.id
+    WHERE u.role IN ('teacher', 'tutor')
     HAVING balance > 10
   `).all<TutorWalletRow>();
 
@@ -135,6 +162,11 @@ async function createBatchPayouts(env: Env) {
 }
 
 async function payoutTutor(env: Env, tutorId: number, amount: number): Promise<PayoutResult> {
+  const secret = getPayoutFlutterwaveSecret(env);
+  if (!secret) {
+    throw new Error('Flutterwave payout gateway is not configured.');
+  }
+
   if (amount <= 0) {
     throw new Error('Amount must be greater than 0');
   }
@@ -148,6 +180,20 @@ async function payoutTutor(env: Env, tutorId: number, amount: number): Promise<P
     throw new Error('Tutor not found');
   }
 
+  const eligibility = await getTeacherPayoutEligibility(env.DB, tutorId);
+  if (!eligibility.eligible || !eligibility.settings) {
+    throw new Error(eligibility.blockingReasons[0] || 'Teacher payout setup is not ready.');
+  }
+
+  const earnings = await env.DB.prepare(`
+    SELECT available_balance FROM teacher_earnings WHERE teacher_id = ?
+  `).bind(tutorId).first<{ available_balance: number }>();
+
+  const availableBalance = Number(earnings?.available_balance || 0);
+  if (availableBalance < amount) {
+    throw new Error(`Insufficient available balance for payout. Available: ₦${availableBalance.toLocaleString()}`);
+  }
+
   // Create payout record
   const payoutId = `P-${Date.now()}-${tutorId}`;
 
@@ -156,17 +202,31 @@ async function payoutTutor(env: Env, tutorId: number, amount: number): Promise<P
     VALUES (?, ?, ?, 'pending', datetime('now'))
   `).bind(payoutId, tutorId, amount).run();
 
-  // Send to Flutterwave (simulate for now)
-  const flwRef = `FLW-${Date.now()}`;
+  const transfer = await initiateFlutterwaveTransfer({
+    secret,
+    payoutId,
+    amount,
+    destination: eligibility.settings,
+    teacher: tutor,
+  });
+  const flwRef = String(transfer?.reference || transfer?.id || payoutId);
 
   // Update payout status
   await env.DB.prepare(`
     UPDATE payouts 
-    SET status = 'processing', flutterwave_reference = ?
+    SET status = 'processing', flutterwave_reference = ?, flutterwave_meta = ?, updated_at = datetime('now')
     WHERE id = ?
-  `).bind(flwRef, payoutId).run();
+  `).bind(flwRef, JSON.stringify(transfer || {}), payoutId).run();
 
-  // Debit tutor wallet
+  // Debit teacher earnings balance and record payout history.
+  await env.DB.prepare(`
+    UPDATE teacher_earnings
+    SET available_balance = available_balance - ?,
+        total_withdrawn = COALESCE(total_withdrawn, 0) + ?,
+        last_updated = datetime('now')
+    WHERE teacher_id = ?
+  `).bind(amount, amount, tutorId).run();
+
   await env.DB.prepare(`
     INSERT INTO wallet_transactions (user_id, type, amount, reference, status, created_at)
     VALUES (?, 'payout', ?, ?, 'completed', datetime('now'))

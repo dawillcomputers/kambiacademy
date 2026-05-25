@@ -18,14 +18,27 @@ export default function TeacherSettings() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [payoutSaving, setPayoutSaving] = useState(false);
+  const [payoutMessage, setPayoutMessage] = useState('');
+  const [payoutError, setPayoutError] = useState('');
   const [email, setEmail] = useState('');
   const [overview, setOverview] = useState<any>(null);
+  const [payoutState, setPayoutState] = useState<any>(null);
+  const [identityDocument, setIdentityDocument] = useState<File | null>(null);
+  const [addressDocument, setAddressDocument] = useState<File | null>(null);
   const [form, setForm] = useState({
     name: '',
     bio: '',
     avatar_url: '',
     country: '',
     certificate_name: '',
+  });
+  const [payoutForm, setPayoutForm] = useState({
+    account_name: '',
+    bank_name: '',
+    bank_code: '',
+    account_number: '',
+    payout_currency: 'NGN',
   });
 
   useEffect(() => {
@@ -35,9 +48,10 @@ export default function TeacherSettings() {
       setLoading(true);
       setError('');
 
-      const [profileResult, billingResult] = await Promise.allSettled([
+      const [profileResult, billingResult, payoutResult] = await Promise.allSettled([
         api.getProfile(),
         api.getBillingOverview(),
+        api.getTeacherPayoutSettings(),
       ]);
 
       if (cancelled) {
@@ -60,6 +74,17 @@ export default function TeacherSettings() {
 
       if (billingResult.status === 'fulfilled') {
         setOverview(billingResult.value.teacher || null);
+      }
+
+      if (payoutResult.status === 'fulfilled') {
+        setPayoutState(payoutResult.value);
+        setPayoutForm({
+          account_name: payoutResult.value.settings?.account_name || '',
+          bank_name: payoutResult.value.settings?.bank_name || '',
+          bank_code: payoutResult.value.settings?.bank_code || '',
+          account_number: payoutResult.value.settings?.account_number || '',
+          payout_currency: payoutResult.value.settings?.payout_currency || 'NGN',
+        });
       }
 
       setLoading(false);
@@ -92,6 +117,10 @@ export default function TeacherSettings() {
 
   const handleChange = (field: keyof typeof form, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handlePayoutFieldChange = (field: keyof typeof payoutForm, value: string) => {
+    setPayoutForm((current) => ({ ...current, [field]: value }));
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -131,6 +160,55 @@ export default function TeacherSettings() {
   };
 
   const liveHours = overview?.liveHours;
+  const payoutStatus = payoutState?.settings?.verification_status || 'missing';
+  const payoutDocuments = payoutState?.documents || [];
+  const payoutBlockingReasons = payoutState?.blocking_reasons || [];
+  const payoutStatusClass = payoutStatus === 'approved'
+    ? 'bg-emerald-100 text-emerald-700'
+    : payoutStatus === 'rejected'
+      ? 'bg-rose-100 text-rose-700'
+      : payoutStatus === 'pending_review'
+        ? 'bg-amber-100 text-amber-700'
+        : 'bg-slate-100 text-slate-700';
+
+  const handlePayoutSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setPayoutSaving(true);
+    setPayoutMessage('');
+    setPayoutError('');
+
+    try {
+      const payload = new FormData();
+      payload.set('account_name', payoutForm.account_name.trim());
+      payload.set('bank_name', payoutForm.bank_name.trim());
+      payload.set('bank_code', payoutForm.bank_code.trim());
+      payload.set('account_number', payoutForm.account_number.trim());
+      payload.set('payout_currency', payoutForm.payout_currency.trim());
+      if (identityDocument) {
+        payload.set('identity_document', identityDocument);
+      }
+      if (addressDocument) {
+        payload.set('address_document', addressDocument);
+      }
+
+      const response = await api.saveTeacherPayoutSettings(payload);
+      setPayoutState(response);
+      setPayoutForm({
+        account_name: response.settings?.account_name || payoutForm.account_name,
+        bank_name: response.settings?.bank_name || payoutForm.bank_name,
+        bank_code: response.settings?.bank_code || payoutForm.bank_code,
+        account_number: response.settings?.account_number || payoutForm.account_number,
+        payout_currency: response.settings?.payout_currency || payoutForm.payout_currency,
+      });
+      setPayoutMessage(response.message || 'Payout settings saved.');
+      setIdentityDocument(null);
+      setAddressDocument(null);
+    } catch (saveError) {
+      setPayoutError(saveError instanceof Error ? saveError.message : 'Unable to save payout settings.');
+    } finally {
+      setPayoutSaving(false);
+    }
+  };
 
   return (
     <TeacherDashboardLayout>
@@ -297,6 +375,175 @@ export default function TeacherSettings() {
                       : 'There is no live-hour cap on your current teacher setup.'}
                   </p>
                   <p className="mt-2 text-xs text-slate-500">Reset date: {liveHours?.resetAt ? new Date(liveHours.resetAt).toLocaleString() : 'Not available'}</p>
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-slate-200 bg-white px-6 py-6 shadow-lg shadow-slate-200/60">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Automatic Payouts</p>
+                    <h2 className="mt-2 text-2xl font-bold text-slate-950">Bank account and verification</h2>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${payoutStatusClass}`}>
+                    {payoutStatus.replace('_', ' ')}
+                  </span>
+                </div>
+
+                <p className="mt-4 text-sm leading-6 text-slate-600">
+                  Automatic teacher payouts can only run after your bank details, identity verification, and address verification are reviewed and approved by a superadmin.
+                </p>
+
+                {payoutMessage && <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">{payoutMessage}</div>}
+                {payoutError && <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{payoutError}</div>}
+
+                <form className="mt-6 space-y-5" onSubmit={handlePayoutSubmit}>
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700">Account name</label>
+                      <input
+                        type="text"
+                        value={payoutForm.account_name}
+                        onChange={(event) => handlePayoutFieldChange('account_name', event.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+                        placeholder="Name on bank account"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700">Bank name</label>
+                      <input
+                        type="text"
+                        value={payoutForm.bank_name}
+                        onChange={(event) => handlePayoutFieldChange('bank_name', event.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+                        placeholder="e.g. Access Bank"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-5 md:grid-cols-3">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700">Bank code</label>
+                      <input
+                        type="text"
+                        value={payoutForm.bank_code}
+                        onChange={(event) => handlePayoutFieldChange('bank_code', event.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+                        placeholder="044"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700">Account number</label>
+                      <input
+                        type="text"
+                        value={payoutForm.account_number}
+                        onChange={(event) => handlePayoutFieldChange('account_number', event.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+                        placeholder="0123456789"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700">Currency</label>
+                      <input
+                        type="text"
+                        value={payoutForm.payout_currency}
+                        onChange={(event) => handlePayoutFieldChange('payout_currency', event.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-900"
+                        placeholder="NGN"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700">Identity verification</label>
+                      <input
+                        type="file"
+                        accept="application/pdf,image/png,image/jpeg,image/webp"
+                        onChange={(event) => setIdentityDocument(event.target.files?.[0] || null)}
+                        className="mt-2 block w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                      />
+                      <p className="mt-2 text-xs text-slate-500">Upload NIN, passport, or driver&apos;s licence in PDF, PNG, JPG, or WebP format.</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700">Address verification</label>
+                      <input
+                        type="file"
+                        accept="application/pdf,image/png,image/jpeg,image/webp"
+                        onChange={(event) => setAddressDocument(event.target.files?.[0] || null)}
+                        className="mt-2 block w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                      />
+                      <p className="mt-2 text-xs text-slate-500">Upload a recent utility bill or another address document for manual review.</p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={payoutSaving}
+                    className="inline-flex rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {payoutSaving ? 'Saving payout setup...' : 'Save payout settings'}
+                  </button>
+                </form>
+
+                <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-5">
+                    <p className="text-sm font-semibold text-slate-900">Current review state</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      {payoutState?.settings?.transfer_enabled
+                        ? 'Automatic payouts are enabled for your verified bank account.'
+                        : 'Automatic payouts are still blocked until review is approved.'}
+                    </p>
+                    {payoutState?.settings?.review_notes && (
+                      <p className="mt-3 text-sm text-slate-700">Review notes: {payoutState.settings.review_notes}</p>
+                    )}
+                    <div className="mt-4 space-y-2">
+                      {payoutBlockingReasons.map((reason: string) => (
+                        <div key={reason} className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                          {reason}
+                        </div>
+                      ))}
+                      {!payoutBlockingReasons.length && (
+                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                          Your payout setup is approved and ready for automatic transfers.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-5">
+                    <p className="text-sm font-semibold text-slate-900">Uploaded documents</p>
+                    <div className="mt-4 space-y-3">
+                      {payoutDocuments.map((document: any) => (
+                        <div key={document.id} className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="font-semibold text-slate-900">{document.document_label || document.document_type}</p>
+                              <p className="mt-1 text-xs text-slate-500">{document.file_name}</p>
+                            </div>
+                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${document.review_status === 'approved' ? 'bg-emerald-100 text-emerald-700' : document.review_status === 'rejected' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {document.review_status}
+                            </span>
+                          </div>
+                          <div className="mt-3 flex items-center justify-between gap-3">
+                            <p className="text-xs text-slate-500">Uploaded {new Date(document.uploaded_at).toLocaleString()}</p>
+                            <a
+                              href={api.getTeacherPayoutDocumentUrl(document.id)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs font-semibold text-slate-700 underline decoration-slate-300 underline-offset-4 hover:text-slate-950"
+                            >
+                              View document
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                      {!payoutDocuments.length && (
+                        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-6 text-sm text-slate-500">
+                          No payout verification documents uploaded yet.
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </section>

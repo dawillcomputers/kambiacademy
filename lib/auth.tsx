@@ -4,7 +4,7 @@ export interface AuthUser {
   id: number;
   name: string;
   email: string;
-  role: 'student' | 'teacher' | 'admin' | 'super_admin' | 'SOU';
+  role: 'student' | 'teacher' | 'tutor' | 'admin' | 'super_admin' | 'SOU';
   status?: string;
   mustChangePassword?: boolean;
   enrolledCourses?: string[];
@@ -137,9 +137,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = useCallback(async () => {
-    await authFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    const token = localStorage.getItem('auth_token');
+
     localStorage.removeItem('auth_token');
     setUser(null);
+
+    if (!token) {
+      return;
+    }
+
+    void fetch(`${apiBaseUrl}/api/auth/logout`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    }).catch(() => {});
   }, []);
 
   const refreshUser = useCallback(async () => {

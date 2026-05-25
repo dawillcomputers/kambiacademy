@@ -45,8 +45,8 @@ const FaqItem: React.FC<{
 
 
 interface FaqProps {
-    onBack: () => void;
-    canGoBack: boolean;
+    onBack?: () => void;
+    canGoBack?: boolean;
 }
 
 const Faq: React.FC<FaqProps> = ({ onBack, canGoBack }) => {

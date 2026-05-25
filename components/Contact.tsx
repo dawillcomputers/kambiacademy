@@ -4,8 +4,8 @@ import Button from './Button';
 import Card from './Card';
 
 interface ContactProps {
-    onBack: () => void;
-    canGoBack: boolean;
+    onBack?: () => void;
+    canGoBack?: boolean;
 }
 
 const Contact: React.FC<ContactProps> = ({ onBack, canGoBack }) => {

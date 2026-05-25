@@ -238,6 +238,15 @@ export const api = {
       body: JSON.stringify({ key, value }),
     }),
 
+  getPayoutVerificationQueue: () =>
+    request<{ requests: any[] }>('/api/admin/payout-verifications'),
+
+  reviewPayoutVerification: (teacherId: number, action: 'approve' | 'reject', notes?: string) =>
+    request<{ message: string; requests: any[] }>('/api/admin/payout-verifications', {
+      method: 'PATCH',
+      body: JSON.stringify({ teacherId, action, notes }),
+    }),
+
   adminGetComplaints: () =>
     request<{ complaints: any[] }>('/api/complaints'),
 
@@ -552,6 +561,35 @@ export const api = {
     request<{ success: boolean }>('/api/profile', {
       method: 'PATCH',
       body: JSON.stringify(data),
+    }),
+
+  getTeacherPayoutSettings: () =>
+    request<any>('/api/teacher/payout-settings'),
+
+  saveTeacherPayoutSettings: (formData: FormData) =>
+    request<any>('/api/teacher/payout-settings', {
+      method: 'POST',
+      body: formData,
+    }),
+
+  getTeacherPayoutDocumentUrl: (id: number) => {
+    const token = localStorage.getItem('auth_token') || '';
+    return `${apiBaseUrl}/api/teacher/payout-documents/download?id=${id}&token=${encodeURIComponent(token)}`;
+  },
+
+  getFinancePayouts: () =>
+    request<any>('/api/finance/payouts'),
+
+  runFinancePayoutAction: (action: 'create_batch' | 'reconcile' | 'payout_tutor', body?: Record<string, any>) =>
+    request<any>('/api/finance/payouts', {
+      method: 'POST',
+      body: JSON.stringify({ action, ...(body || {}) }),
+    }),
+
+  askAssistant: (command: string) =>
+    request<any>('/api/ai/command', {
+      method: 'POST',
+      body: JSON.stringify({ command }),
     }),
 
   // Revenue

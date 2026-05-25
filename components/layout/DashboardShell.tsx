@@ -98,8 +98,15 @@ export default function DashboardShell({
   }, []);
 
   const handleLogout = async () => {
+    setProfileMenuOpen(false);
     await logout();
-    navigate('/');
+    navigate('/login', { replace: true });
+  };
+
+  const handleSwitchAccount = async () => {
+    setProfileMenuOpen(false);
+    await logout();
+    navigate('/login?switch=1', { replace: true });
   };
 
   const isActive = (path?: string) => {
@@ -206,6 +213,14 @@ export default function DashboardShell({
             )}
             <button
               type="button"
+              onClick={handleSwitchAccount}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm ${t.muted} ${t.hoverBg} hover:text-white transition-colors`}
+            >
+              <span className="text-base">🔄</span>
+              <span>Switch account</span>
+            </button>
+            <button
+              type="button"
               onClick={handleLogout}
               className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm ${t.muted} hover:bg-red-500/15 hover:text-red-400 transition-colors`}
             >
@@ -214,6 +229,25 @@ export default function DashboardShell({
             </button>
           </div>
         )}
+
+        <div className={`mt-2 grid gap-2 ${collapsed ? 'justify-center' : 'grid-cols-2'}`}>
+          <button
+            type="button"
+            onClick={handleSwitchAccount}
+            className={`flex items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold ${t.muted} ${t.hoverBg} hover:text-white transition-colors`}
+          >
+            <span>🔄</span>
+            {!collapsed && <span>Switch</span>}
+          </button>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex items-center justify-center gap-2 rounded-xl border border-rose-400/15 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20 hover:text-white"
+          >
+            <span>🚪</span>
+            {!collapsed && <span>Logout</span>}
+          </button>
+        </div>
       </div>
     </>
   );

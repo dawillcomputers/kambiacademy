@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../lib/auth';
 import { User } from '../../../types';
 
+const isTeacherRole = (role?: string) => role === 'teacher' || role === 'tutor';
+
 interface DashboardLayoutProps {
   children: React.ReactNode;
   user?: User;
@@ -71,11 +73,18 @@ export default function DashboardLayout({ children, user, showMaterials = false 
   }, []);
 
   const effectiveUser = (user || (authUser as unknown as User | undefined));
-  const isTeacher = (authUser?.role === 'teacher') || ((effectiveUser as any)?.role === 'teacher');
+  const isTeacher = isTeacherRole(authUser?.role) || isTeacherRole((effectiveUser as any)?.role);
 
   const handleLogout = async () => {
+    setProfileMenuOpen(false);
     await logout();
     navigate('/login', { replace: true });
+  };
+
+  const handleSwitchAccount = async () => {
+    setProfileMenuOpen(false);
+    await logout();
+    navigate('/login?switch=1', { replace: true });
   };
 
   const menu = isTeacher ? buildTeacherMenu() : buildStudentMenu(showMaterials);
@@ -270,6 +279,14 @@ export default function DashboardLayout({ children, user, showMaterials = false 
                     <span className="text-base">👤</span>
                     <span>Open profile</span>
                   </Link>
+                  <button
+                    type="button"
+                    onClick={handleSwitchAccount}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    <span className="text-base">🔄</span>
+                    <span>Switch account</span>
+                  </button>
                   <button
                     type="button"
                     onClick={handleLogout}

@@ -4,6 +4,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import Button from './Button';
 
+const isTeacherRole = (role?: string) => role === 'teacher' || role === 'tutor';
+
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,10 +15,11 @@ const Login: React.FC = () => {
   const { login, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const isSwitchMode = searchParams.get('switch') === '1';
 
   // Redirect already-logged-in users — respect ?redirect param first
   useEffect(() => {
-    if (user) {
+    if (user && !isSwitchMode) {
       const redirect = searchParams.get('redirect');
       if (redirect) {
         navigate(redirect, { replace: true });
@@ -24,13 +27,13 @@ const Login: React.FC = () => {
         navigate('/superadmin', { replace: true });
       } else if (user.role === 'admin') {
         navigate('/admin', { replace: true });
-      } else if (user.role === 'teacher') {
+      } else if (isTeacherRole(user.role)) {
         navigate('/teacher', { replace: true });
       } else {
         navigate('/student', { replace: true });
       }
     }
-  }, [user, navigate, searchParams]);
+  }, [isSwitchMode, user, navigate, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +47,7 @@ const Login: React.FC = () => {
         navigate('/superadmin', { replace: true });
       } else if (loggedInUser?.role === 'admin') {
         navigate('/admin', { replace: true });
-      } else if (loggedInUser?.role === 'teacher') {
+      } else if (isTeacherRole(loggedInUser?.role)) {
         navigate('/teacher', { replace: true });
       } else {
         const redirect = searchParams.get('redirect') || '/student';
@@ -72,12 +75,12 @@ const Login: React.FC = () => {
         {/* Right Form Side */}
         <div className="w-full lg:w-1/2 py-16 px-8 sm:px-12">
           <div className="mb-8 text-center">
-            <h2 className="text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
+            <h2 className="text-3xl font-extrabold text-gray-900">{isSwitchMode ? 'Switch account' : 'Sign in to your account'}</h2>
             <p className="mt-2 text-sm text-gray-600">
-              Or{' '}
-              <Link to={`/signup${searchParams.get('redirect') ? `?redirect=${encodeURIComponent(searchParams.get('redirect')!)}` : ''}`} className="font-medium text-indigo-600 hover:text-indigo-500 underline">
+              {isSwitchMode ? 'Sign in with another account to continue.' : 'Or '}
+              {!isSwitchMode && <Link to={`/signup${searchParams.get('redirect') ? `?redirect=${encodeURIComponent(searchParams.get('redirect')!)}` : ''}`} className="font-medium text-indigo-600 hover:text-indigo-500 underline">
                 create a new account
-              </Link>
+              </Link>}
             </p>
           </div>
           <form className="space-y-6" onSubmit={handleSubmit}>
