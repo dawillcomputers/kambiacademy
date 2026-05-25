@@ -8,6 +8,8 @@ type AssistantMessage = {
   content: string;
 };
 
+const MAX_STORED_MESSAGES = 18;
+
 const suggestionMap: Record<string, string[]> = {
   student: [
     'Recommend the best next course for me',
@@ -74,23 +76,56 @@ export default function KambiAIAssistant() {
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
+  const [assistantSuggestions, setAssistantSuggestions] = useState<string[]>([]);
 
-  const suggestions = useMemo(() => suggestionMap[user?.role || ''] || suggestionMap.student, [user?.role]);
+  const defaultSuggestions = useMemo(() => suggestionMap[user?.role || ''] || suggestionMap.student, [user?.role]);
+  const suggestions = assistantSuggestions.length ? assistantSuggestions : defaultSuggestions;
+
+  const storageKey = useMemo(() => (user ? `kambi-ai-history:${user.id}` : ''), [user?.id]);
 
   useEffect(() => {
     if (!user) {
       setMessages([]);
+      setAssistantSuggestions([]);
       return;
     }
 
-    setMessages([
-      {
-        id: `assistant-welcome-${user.role}`,
-        role: 'assistant',
-        content: welcomeByRole(user.role),
-      },
-    ]);
-  }, [user?.role]);
+    const welcomeMessage: AssistantMessage = {
+      id: `assistant-welcome-${user.role}`,
+      role: 'assistant',
+      content: welcomeByRole(user.role),
+    };
+
+    try {
+      const savedHistory = storageKey ? window.localStorage.getItem(storageKey) : null;
+      if (savedHistory) {
+        const parsed = JSON.parse(savedHistory) as AssistantMessage[];
+        if (Array.isArray(parsed) && parsed.length) {
+          setMessages(parsed);
+        } else {
+          setMessages([welcomeMessage]);
+        }
+      } else {
+        setMessages([welcomeMessage]);
+      }
+    } catch {
+      setMessages([welcomeMessage]);
+    }
+
+    setAssistantSuggestions(defaultSuggestions);
+  }, [defaultSuggestions, storageKey, user?.role]);
+
+  useEffect(() => {
+    if (!storageKey || !messages.length) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(messages.slice(-MAX_STORED_MESSAGES)));
+    } catch {
+      // Ignore storage failures and keep the in-memory conversation active.
+    }
+  }, [messages, storageKey]);
 
   if (!user) {
     return null;
@@ -113,7 +148,13 @@ export default function KambiAIAssistant() {
     setIsSending(true);
 
     try {
-      const payload = await api.askAssistant(trimmed);
+      const payload = await api.askAssistant(trimmed, [...messages.slice(-8), nextUserMessage].map((message) => ({
+        role: message.role,
+        content: message.content,
+      })));
+      if (Array.isArray(payload?.suggestions) && payload.suggestions.length) {
+        setAssistantSuggestions(payload.suggestions.filter((value: unknown): value is string => typeof value === 'string' && value.trim().length > 0));
+      }
       setMessages((current) => [
         ...current,
         {
@@ -200,7 +241,7 @@ export default function KambiAIAssistant() {
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 rows={2}
-                placeholder="Ask Kambi AI about courses, billing, payouts, or admin workflows..."
+                placeholder="Ask Kambi AI anything..."
                 className="min-h-[80px] flex-1 rounded-3xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
               />
               <button

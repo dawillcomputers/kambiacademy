@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import DashboardShell, { SidebarItem } from '../../../../components/layout/DashboardShell';
 import { api } from '../../../../lib/api';
 import SuperAdminDashboard from '../../../../components/SuperAdminDashboard';
@@ -143,7 +143,6 @@ const SuperAdminRoutes: React.FC = () => {
   const superAdminBilling = subscriptionState?.superAdminBilling;
   const isBillingRoute = location.pathname === '/superadmin/billing' || location.pathname.startsWith('/superadmin/billing/');
   const shouldShowBanner = Boolean(superAdminBilling?.applies && !superAdminBilling?.exempt && (superAdminBilling?.isWarning || superAdminBilling?.isDue || superAdminBilling?.isLocked));
-  const shouldRedirectToBilling = Boolean(superAdminBilling?.isLocked) && !isBillingRoute;
 
   return (
     <DashboardShell
@@ -165,8 +164,6 @@ const SuperAdminRoutes: React.FC = () => {
           <div className="mx-6 rounded-[28px] border border-white/10 bg-[#111B2E] px-6 py-10 text-sm text-[#A9B4CC] shadow-lg lg:mx-8">
             Checking superadmin billing status...
           </div>
-        ) : shouldRedirectToBilling ? (
-          <Navigate to="/superadmin/billing" replace />
         ) : (
           <Routes>
             <Route path="/" element={<SuperAdminDashboard />} />

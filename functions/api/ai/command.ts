@@ -5,6 +5,13 @@ interface Env {
   AI_PROVIDER?: string;
   AI_MODEL?: string;
   API_KEY?: string;
+  GOOGLE_API_KEY?: string;
+  GEMINI_API_KEY?: string;
+  SYSTEM_AI_PROVIDER?: string;
+  SYSTEM_AI_MODEL?: string;
+  SYSTEM_OPENAI_API_KEY?: string;
+  SYSTEM_ANTHROPIC_API_KEY?: string;
+  SYSTEM_GOOGLE_API_KEY?: string;
   OPENAI_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
 }
@@ -40,7 +47,11 @@ const quickSuggestions: Record<string, string[]> = {
 };
 
 const isTeacherRole = (role?: string) => role === 'teacher' || role === 'tutor';
-const isSuccessfulIntent = (status?: string | null) => ['success', 'successful', 'completed'].includes(String(status || '').toLowerCase());
+
+type AssistantHistoryEntry = {
+  role: 'assistant' | 'user';
+  content: string;
+};
 
 function resolveRoleCapabilities(role?: string) {
   if (role === 'student') {
@@ -59,18 +70,18 @@ function resolveRoleCapabilities(role?: string) {
 }
 
 function normalizeAIProvider(env: Env) {
-  const configured = String(env.AI_PROVIDER || '').toLowerCase();
+  const configured = String(env.SYSTEM_AI_PROVIDER || env.AI_PROVIDER || '').toLowerCase();
   if (configured === 'openai' || configured === 'anthropic' || configured === 'google') {
     return configured;
   }
 
-  if (env.OPENAI_API_KEY) {
+  if (env.SYSTEM_OPENAI_API_KEY || env.OPENAI_API_KEY) {
     return 'openai';
   }
-  if (env.ANTHROPIC_API_KEY) {
+  if (env.SYSTEM_ANTHROPIC_API_KEY || env.ANTHROPIC_API_KEY) {
     return 'anthropic';
   }
-  if (env.API_KEY) {
+  if (env.SYSTEM_GOOGLE_API_KEY || env.GEMINI_API_KEY || env.GOOGLE_API_KEY || env.API_KEY) {
     return 'google';
   }
 
@@ -79,22 +90,25 @@ function normalizeAIProvider(env: Env) {
 
 async function generateAIReply(env: Env, prompt: string) {
   const provider = normalizeAIProvider(env);
-  const model = env.AI_MODEL;
+  const model = env.SYSTEM_AI_MODEL || env.AI_MODEL;
+  const openAIKey = env.SYSTEM_OPENAI_API_KEY || env.OPENAI_API_KEY;
+  const anthropicKey = env.SYSTEM_ANTHROPIC_API_KEY || env.ANTHROPIC_API_KEY;
+  const googleKey = env.SYSTEM_GOOGLE_API_KEY || env.GEMINI_API_KEY || env.GOOGLE_API_KEY || env.API_KEY;
   if (!provider) {
     return '';
   }
 
-  if (provider === 'openai' && env.OPENAI_API_KEY) {
+  if (provider === 'openai' && openAIKey) {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${openAIKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model: model || 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.4,
+        temperature: 0.6,
       }),
     });
     const payload = await response.json().catch(() => null) as any;
@@ -105,17 +119,17 @@ async function generateAIReply(env: Env, prompt: string) {
     return String(payload?.choices?.[0]?.message?.content || '').trim();
   }
 
-  if (provider === 'anthropic' && env.ANTHROPIC_API_KEY) {
+  if (provider === 'anthropic' && anthropicKey) {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': env.ANTHROPIC_API_KEY,
+        'x-api-key': anthropicKey,
         'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model: model || 'claude-sonnet-4-5',
-        max_tokens: 512,
+        max_tokens: 768,
         messages: [{ role: 'user', content: prompt }],
       }),
     });
@@ -131,9 +145,9 @@ async function generateAIReply(env: Env, prompt: string) {
       .trim();
   }
 
-  if (provider === 'google' && env.API_KEY) {
+  if (provider === 'google' && googleKey) {
     const activeModel = model || 'gemini-1.5-flash';
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${env.API_KEY}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${googleKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -185,34 +199,78 @@ function fallbackAssistantReply(command: string, role?: string) {
       : 'Ask about platform activity, finance, payout reviews, or system health and I will summarize the next action to take.';
 }
 
-async function createAssistantReply(env: Env, user: { role: string; name: string }, command: string) {
+function summarizeHistory(history: AssistantHistoryEntry[]) {
+  return history
+    .slice(-8)
+    .map((entry) => `${entry.role === 'assistant' ? 'Assistant' : 'User'}: ${entry.content}`)
+    .join('\n');
+}
+
+function deriveUpgradeSuggestions(role: string, command: string, history: AssistantHistoryEntry[]) {
+  const text = `${history.map((entry) => entry.content).join(' ')} ${command}`.toLowerCase();
+  const suggestions: string[] = [];
+
+  if (isTeacherRole(role) && /(upload|storage|material|file|resource|document|recording)/.test(text)) {
+    suggestions.push('Storage Add-on: $2 monthly or $24 yearly for hosted files and teaching materials.');
+  }
+
+  if (isTeacherRole(role) && /(live class|live session|zoom|video|stream|broadcast|teach live|hours)/.test(text)) {
+    suggestions.push('Live Classes Add-on: $2 monthly or $24 yearly for realtime teaching tools.');
+  }
+
+  if ((role === 'admin' || role === 'super_admin' || role === 'SOU') && /(billing|renew|subscription|locked|approval|approve|course|user)/.test(text)) {
+    suggestions.push('Main Subscription: $9 monthly or $100 yearly keeps the admin console covered for the current billing cycle.');
+  }
+
+  return Array.from(new Set(suggestions)).slice(0, 3);
+}
+
+async function createAssistantReply(env: Env, user: { role: string; name: string }, command: string, history: AssistantHistoryEntry[]) {
+  const upgradeSuggestions = deriveUpgradeSuggestions(user.role, command, history);
   const prompt = [
     'You are Kambi AI, the in-product assistant for Kambi Academy.',
     resolveRoleCapabilities(user.role),
+    'You are backed by the platform system AI keys and may answer any legitimate user question directly and helpfully.',
     'Keep answers concise, concrete, and operational. Avoid fluff. If you mention platform workflows, use the current dashboard names when possible.',
+    'Only mention upgrade suggestions when they are relevant to the user intent or recent chat history.',
+    'Current upgrade catalog: Main Subscription is $9 monthly or $100 yearly for admin and superadmin billing coverage. Teacher add-ons are optional: Storage Add-on is $2 monthly or $24 yearly, and Live Classes Add-on is $2 monthly or $24 yearly.',
     `Current user role: ${user.role}`,
+    history.length ? `Recent chat context:\n${summarizeHistory(history)}` : 'Recent chat context: none',
+    upgradeSuggestions.length ? `Relevant upgrade suggestions:\n- ${upgradeSuggestions.join('\n- ')}` : 'Relevant upgrade suggestions: none',
     `User prompt: ${command}`,
   ].join('\n\n');
 
   try {
     const generated = await generateAIReply(env, prompt);
     if (generated) {
-      return generated;
+      return {
+        message: generated,
+        suggestions: upgradeSuggestions.length ? upgradeSuggestions : quickSuggestions[user.role] || quickSuggestions.student,
+      };
     }
   } catch (error) {
     console.error('AI assistant generation failed:', error);
   }
 
-  return fallbackAssistantReply(command, user.role);
+  return {
+    message: fallbackAssistantReply(command, user.role),
+    suggestions: upgradeSuggestions.length ? upgradeSuggestions : quickSuggestions[user.role] || quickSuggestions.student,
+  };
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const body = await request.json<{ command?: string }>();
+  const body = await request.json<{ command?: string; history?: AssistantHistoryEntry[] }>();
   const rawCommand = String(body.command || '').trim();
   const cmd = rawCommand.toLowerCase();
+  const history = Array.isArray(body.history)
+    ? body.history
+        .filter((entry): entry is AssistantHistoryEntry => Boolean(entry && (entry.role === 'assistant' || entry.role === 'user') && typeof entry.content === 'string'))
+        .map((entry) => ({ role: entry.role, content: entry.content.trim().slice(0, 1000) }))
+        .filter((entry) => entry.content.length > 0)
+    : [];
 
   if (!cmd) {
     return Response.json({ error: 'Command cannot be empty' }, { status: 400 });
@@ -253,10 +311,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json(result);
     }
 
-    return Response.json({
-      message: await createAssistantReply(env, user as any, rawCommand),
-      suggestions: quickSuggestions[user.role] || quickSuggestions.student,
-    });
+    return Response.json(await createAssistantReply(env, user as any, rawCommand, history));
 
   } catch (error: any) {
     return Response.json({ error: error.message }, { status: 500 });

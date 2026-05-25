@@ -586,10 +586,10 @@ export const api = {
       body: JSON.stringify({ action, ...(body || {}) }),
     }),
 
-  askAssistant: (command: string) =>
+  askAssistant: (command: string, history?: Array<{ role: 'assistant' | 'user'; content: string }>) =>
     request<any>('/api/ai/command', {
       method: 'POST',
-      body: JSON.stringify({ command }),
+      body: JSON.stringify({ command, history }),
     }),
 
   // Revenue

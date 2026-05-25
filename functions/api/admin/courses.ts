@@ -4,12 +4,14 @@ interface Env {
   DB: D1Database;
 }
 
+const bypassSuperAdminApprovalGuard = (user: { role?: string } | null | undefined) => user?.role === 'super_admin' || user?.role === 'SOU';
+
 // GET: list tutor courses (admin sees all, tutor sees own)
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-  if (isFullAdmin(user)) {
+  if (isFullAdmin(user) && !bypassSuperAdminApprovalGuard(user)) {
     const subscriptionError = await requireSubscription(request, env.DB);
     if (subscriptionError) {
       return subscriptionError;
@@ -81,9 +83,11 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  const subscriptionError = await requireSubscription(request, env.DB);
-  if (subscriptionError) {
-    return subscriptionError;
+  if (!bypassSuperAdminApprovalGuard(admin)) {
+    const subscriptionError = await requireSubscription(request, env.DB);
+    if (subscriptionError) {
+      return subscriptionError;
+    }
   }
 
   const body = await request.json<{ courseId: number }>();
@@ -103,9 +107,11 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   // Check subscription for admin access (enforce after one week of non-payment)
-  const subscriptionError = await requireSubscription(request, env.DB);
-  if (subscriptionError) {
-    return subscriptionError;
+  if (!bypassSuperAdminApprovalGuard(admin)) {
+    const subscriptionError = await requireSubscription(request, env.DB);
+    if (subscriptionError) {
+      return subscriptionError;
+    }
   }
 
   const body = await request.json<{ courseId: number; status: 'approved' | 'rejected'; notes?: string }>();
