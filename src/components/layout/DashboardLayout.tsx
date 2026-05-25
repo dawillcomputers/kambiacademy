@@ -192,6 +192,16 @@ export default function DashboardLayout({ children, user, showMaterials = false 
               </div>
             )}
           </Link>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            title="Logout"
+            className={`mt-3 flex w-full items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 ${collapsed ? 'gap-0' : 'gap-2'}`}
+          >
+            <span>🚪</span>
+            {!collapsed && <span>Logout</span>}
+          </button>
         </div>
       </aside>
 

@@ -116,7 +116,7 @@ export default function TeacherDashboardLayout({ children }: TeacherDashboardLay
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex shrink-0 flex-col border-r border-slate-200 bg-white transition-[width,transform] duration-300 ease-in-out ${collapsed ? 'w-20' : 'w-72'} ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} md:sticky md:top-0 md:h-screen`}
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 shrink-0 flex-col border-r border-slate-200 bg-white transition-[width,transform] duration-300 ease-in-out ${collapsed ? 'md:w-20' : 'md:w-72'} ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:static md:h-screen md:translate-x-0 md:z-auto`}
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
           <Link to="/teacher" className="flex items-center gap-2 overflow-hidden">
@@ -241,6 +241,16 @@ export default function TeacherDashboardLayout({ children }: TeacherDashboardLay
               </div>
             )}
           </Link>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            title="Logout"
+            className={`mt-3 flex w-full items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 ${collapsed ? 'gap-0' : 'gap-2'}`}
+          >
+            <span>🚪</span>
+            {!collapsed && <span>Logout</span>}
+          </button>
         </div>
       </aside>
 
