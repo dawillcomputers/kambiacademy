@@ -152,6 +152,8 @@ export interface BootcampRegistration {
   profile_photo: string;
   linkedin_url: string;
   registration_status: string;
+  temp_password?: string;
+  must_change_password?: number;
   created_at: string;
 }
 
@@ -185,6 +187,8 @@ export const bootcampApi = {
     api.get<{ registrations: BootcampRegistration[] }>(`/api/bootcamps/registrations${bootcampId ? `?bootcamp=${bootcampId}` : ''}`),
   appointManager: (bootcampId: number, userId: number) =>
     api.post<{ message: string }>('/api/bootcamps/registrations', { action: 'appoint_manager', bootcampId, userId }),
+  resetPassword: (userId: number) =>
+    api.post<{ message: string; tempPassword: string }>('/api/bootcamps/registrations', { action: 'reset_password', userId }),
 
   // Enrollments
   myEnrollments: () => api.get<{ bootcamps: Bootcamp[] }>('/api/bootcamps/enroll'),

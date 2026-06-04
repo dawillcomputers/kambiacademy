@@ -1,4 +1,4 @@
-import { getAuthUser } from '../../_shared/auth';
+import { getAuthUser, generateTempPassword, hashPassword } from '../../_shared/auth';
 import { isSuperAdminRole, canManageBootcamp } from '../../_shared/bootcamp';
 
 interface Env {
@@ -26,7 +26,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const query = bootcampId
     ? env.DB.prepare(
-        `SELECT r.*, b.title AS bootcamp_title, u.role AS user_role
+        `SELECT r.*, b.title AS bootcamp_title, u.role AS user_role, u.must_change_password AS must_change_password
          FROM bootcamp_registrations r
          LEFT JOIN bootcamps b ON r.bootcamp_id = b.id
          LEFT JOIN users u ON r.user_id = u.id
@@ -34,7 +34,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
          ORDER BY r.created_at DESC`,
       ).bind(bootcampId)
     : env.DB.prepare(
-        `SELECT r.*, b.title AS bootcamp_title, u.role AS user_role
+        `SELECT r.*, b.title AS bootcamp_title, u.role AS user_role, u.must_change_password AS must_change_password
          FROM bootcamp_registrations r
          LEFT JOIN bootcamps b ON r.bootcamp_id = b.id
          LEFT JOIN users u ON r.user_id = u.id
@@ -53,6 +53,27 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const body = await request.json<{ action?: string; bootcampId?: number; userId?: number }>();
+
+  // Reset a participant's password to a fresh temporary one.
+  if (body.action === 'reset_password') {
+    if (!body.userId) {
+      return Response.json({ error: 'userId is required.' }, { status: 400 });
+    }
+    const target = await env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(body.userId).first<{ id: number }>();
+    if (!target) {
+      return Response.json({ error: 'User not found.' }, { status: 404 });
+    }
+
+    const tempPassword = generateTempPassword();
+    const hash = await hashPassword(tempPassword);
+    await env.DB.prepare('UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?').bind(hash, body.userId).run();
+    // Force re-login and record the new temp password on the participant's registrations.
+    await env.DB.prepare('DELETE FROM user_sessions WHERE user_id = ?').bind(body.userId).run();
+    await env.DB.prepare('UPDATE bootcamp_registrations SET temp_password = ?, updated_at = datetime(\'now\') WHERE user_id = ?').bind(tempPassword, body.userId).run();
+
+    return Response.json({ message: 'Password reset.', tempPassword });
+  }
+
   if (body.action !== 'appoint_manager' || !body.bootcampId || !body.userId) {
     return Response.json({ error: 'action, bootcampId and userId are required.' }, { status: 400 });
   }

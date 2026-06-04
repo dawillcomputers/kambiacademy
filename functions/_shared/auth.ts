@@ -56,6 +56,16 @@ export function generateToken(): string {
   return crypto.randomUUID();
 }
 
+// Readable per-user temporary password, e.g. "Kambi-7f3k9q". Meets the login
+// path (any string works) and is easy to relay; users must change it on first
+// login. Avoids ambiguous characters.
+export function generateTempPassword(): string {
+  const alphabet = 'abcdefghijkmnpqrstuvwxyz23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  const suffix = [...bytes].map((b) => alphabet[b % alphabet.length]).join('');
+  return `Kambi-${suffix}`;
+}
+
 type SubscriptionGateType = 'platform' | 'storage' | 'live_class';
 
 const BILLING_START_DATE = '2026-05-01T00:00:00.000Z';

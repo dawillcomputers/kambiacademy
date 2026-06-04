@@ -1,12 +1,8 @@
-import { hashPassword, generateToken } from '../../_shared/auth';
+import { hashPassword, generateTempPassword } from '../../_shared/auth';
 
 interface Env {
   DB: D1Database;
 }
-
-// Fixed temporary password issued to every new bootcamp account. Users are
-// forced to change it on first login (must_change_password = 1).
-const TEMP_PASSWORD = 'asd@123';
 
 interface RegistrationBody {
   bootcampId?: number;
@@ -81,12 +77,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   // Find or create the bootcamp account.
   let userId: number;
   let isNewAccount = false;
+  let tempPassword = '';
   const existing = await env.DB.prepare('SELECT id, role FROM users WHERE email = ?').bind(email).first<{ id: number; role: string }>();
 
   if (existing) {
     userId = Number(existing.id);
   } else {
-    const passwordHash = await hashPassword(TEMP_PASSWORD);
+    tempPassword = generateTempPassword();
+    const passwordHash = await hashPassword(tempPassword);
     const result = await env.DB.prepare(
       "INSERT INTO users (name, email, password_hash, role, status, must_change_password) VALUES (?, ?, ?, 'bootcamp_student', 'active', 1)",
     )
@@ -105,8 +103,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
        fintech_interests, experience_level, tech_project_before, coding_experience, coding_languages,
        career_goals, career_goals_text, startup_interest, team_interest, startup_idea, startup_idea_text,
        linkedin_url, github_url, portfolio_url, profile_photo,
-       consent_terms, consent_updates, consent_community, consent_jobs, registration_status
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+       consent_terms, consent_updates, consent_community, consent_jobs, temp_password, registration_status
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
   )
     .bind(
       userId, bootcamp.id, body.full_name.trim(), email, body.phone || '', body.gender || '', body.date_of_birth || '', body.age_range || '',
@@ -115,7 +113,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       jsonArray(body.fintech_interests), body.experience_level || '', body.tech_project_before || '', body.coding_experience || '', jsonArray(body.coding_languages),
       jsonArray(body.career_goals), body.career_goals_text || '', body.startup_interest || '', body.team_interest || '', body.startup_idea || '', body.startup_idea_text || '',
       body.linkedin_url || '', body.github_url || '', body.portfolio_url || '', body.profile_photo || '',
-      body.consent_terms ? 1 : 0, body.consent_updates ? 1 : 0, body.consent_community ? 1 : 0, body.consent_jobs ? 1 : 0,
+      body.consent_terms ? 1 : 0, body.consent_updates ? 1 : 0, body.consent_community ? 1 : 0, body.consent_jobs ? 1 : 0, tempPassword,
     )
     .run();
 
@@ -134,7 +132,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       bootcampSlug: bootcamp.slug,
       bootcampTitle: bootcamp.title,
       isNewAccount,
-      tempPassword: isNewAccount ? TEMP_PASSWORD : undefined,
+      tempPassword: isNewAccount ? tempPassword : undefined,
     },
     { status: 201 },
   );

@@ -64,6 +64,20 @@ const SuperAdminBootcamps: React.FC = () => {
     }
   };
 
+  const [resetPasswords, setResetPasswords] = useState<Record<number, string>>({});
+
+  const resetPassword = async (bootcampId: number, userId: number) => {
+    if (!confirm('Reset this participant\'s password? They will need the new temporary password to sign in.')) return;
+    try {
+      const res = await bootcampApi.resetPassword(userId);
+      setResetPasswords((prev) => ({ ...prev, [userId]: res.tempPassword }));
+      flash(`New temporary password: ${res.tempPassword}`);
+      await loadRegistrants(bootcampId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset password.');
+    }
+  };
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -249,8 +263,8 @@ const SuperAdminBootcamps: React.FC = () => {
                               <th className="px-4 py-2.5">Name</th>
                               <th className="px-4 py-2.5">Email</th>
                               <th className="px-4 py-2.5">Location</th>
-                              <th className="px-4 py-2.5">Level</th>
-                              <th className="px-4 py-2.5 text-right">Action</th>
+                              <th className="px-4 py-2.5">Temp password</th>
+                              <th className="px-4 py-2.5 text-right">Actions</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -272,15 +286,28 @@ const SuperAdminBootcamps: React.FC = () => {
                                   </td>
                                   <td className="px-4 py-2.5 text-slate-600">{r.email}</td>
                                   <td className="px-4 py-2.5 text-slate-600">{[r.city, r.state, r.country].filter(Boolean).join(', ') || '—'}</td>
-                                  <td className="px-4 py-2.5 text-slate-600">{r.experience_level || '—'}</td>
-                                  <td className="px-4 py-2.5 text-right">
-                                    {isManager ? (
-                                      <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">Manager</span>
+                                  <td className="px-4 py-2.5">
+                                    {resetPasswords[r.user_id] ? (
+                                      <code className="rounded bg-amber-100 px-2 py-0.5 font-mono text-xs font-semibold text-amber-800">{resetPasswords[r.user_id]}</code>
+                                    ) : r.must_change_password === 1 && r.temp_password ? (
+                                      <code className="rounded bg-indigo-50 px-2 py-0.5 font-mono text-xs font-semibold text-indigo-700">{r.temp_password}</code>
                                     ) : (
-                                      <button onClick={() => appoint(bootcamp.id, r.user_id)} className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">
-                                        Make manager
-                                      </button>
+                                      <span className="text-xs text-slate-400">Set by user</span>
                                     )}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right">
+                                    <div className="flex justify-end gap-2">
+                                      <button onClick={() => resetPassword(bootcamp.id, r.user_id)} className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200">
+                                        Reset password
+                                      </button>
+                                      {isManager ? (
+                                        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">Manager</span>
+                                      ) : (
+                                        <button onClick={() => appoint(bootcamp.id, r.user_id)} className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">
+                                          Make manager
+                                        </button>
+                                      )}
+                                    </div>
                                   </td>
                                 </tr>
                               );

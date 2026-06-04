@@ -112,7 +112,7 @@ const BootcampRegister: React.FC = () => {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [done, setDone] = useState<{ title: string; email: string } | null>(null);
+  const [done, setDone] = useState<{ title: string; email: string; tempPassword?: string } | null>(null);
 
   useEffect(() => {
     bootcampApi.list().then((res) => {
@@ -174,7 +174,7 @@ const BootcampRegister: React.FC = () => {
     setError('');
     try {
       const result = await bootcampApi.register({ ...form, slug });
-      setDone({ title: result.bootcampTitle, email: result.email });
+      setDone({ title: result.bootcampTitle, email: result.email, tempPassword: result.tempPassword });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed.');
@@ -196,8 +196,17 @@ const BootcampRegister: React.FC = () => {
           </div>
           <div className="space-y-6 px-8 py-8">
             <div className="rounded-2xl border border-indigo-100 bg-indigo-50 px-5 py-4 text-sm text-indigo-800">
-              Your account was created for <strong>{done.email}</strong>. Sign in with the temporary password{' '}
-              <code className="rounded bg-white px-1.5 py-0.5 font-mono font-semibold">asd@123</code> and you'll be asked to set your own password.
+              {done.tempPassword ? (
+                <>
+                  Your account was created for <strong>{done.email}</strong>. Sign in with your temporary password:
+                  <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-4 py-3">
+                    <code className="font-mono text-lg font-bold tracking-wider text-indigo-700">{done.tempPassword}</code>
+                  </div>
+                  <p className="mt-2 text-xs text-indigo-600">Save this now — you'll be asked to set your own password on first login.</p>
+                </>
+              ) : (
+                <>An account already exists for <strong>{done.email}</strong>. Sign in with your existing password to access this bootcamp.</>
+              )}
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900">Next steps</h2>
