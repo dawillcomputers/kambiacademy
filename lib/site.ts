@@ -41,10 +41,10 @@ const sessionStatusMap = {
 } as const satisfies Record<SessionStatus, string>;
 
 export const primaryLinkClass =
-  'inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800';
+  'shimmer inline-flex items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-fuchsia-500/30';
 
 export const secondaryLinkClass =
-  'inline-flex items-center justify-center rounded-full border border-slate-300 bg-white/70 px-5 py-3 text-sm font-semibold text-slate-900 transition hover:-translate-y-0.5 hover:border-slate-400 hover:bg-white';
+  'inline-flex items-center justify-center rounded-full border border-indigo-200 bg-white/70 px-5 py-3 text-sm font-semibold text-indigo-700 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-white';
 
 export const getCourseTone = (tone: CourseTone) => courseToneMap[tone];
 

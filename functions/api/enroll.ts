@@ -447,7 +447,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: 'Authentication required.' }, { status: 401 });
   }
 
-  if (user.role !== 'student') {
+  if (user.role !== 'student' && user.role !== 'bootcamp_student') {
     return Response.json({ error: 'Only students can enroll in courses.' }, { status: 403 });
   }
 

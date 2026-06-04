@@ -12,7 +12,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     let enrolledCourses: string[] = [];
-    if (user.role === 'student') {
+    if (user.role === 'student' || user.role === 'bootcamp_student') {
       const enrollments = await env.DB.prepare(
         'SELECT course_slug FROM enrollments WHERE user_id = ? ORDER BY created_at DESC'
       ).bind(user.id).all<{ course_slug: string }>();

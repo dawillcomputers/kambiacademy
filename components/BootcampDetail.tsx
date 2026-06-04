@@ -1,18 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Bootcamp, bootcampApi, formatBootcampDate } from '../lib/bootcamp';
-import { useAuth } from '../lib/auth';
 
 const BootcampDetail: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
-  const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
 
   const [bootcamp, setBootcamp] = useState<Bootcamp | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [registering, setRegistering] = useState(false);
 
   const load = useCallback(async () => {
     if (!slug) return;
@@ -32,39 +28,7 @@ const BootcampDetail: React.FC = () => {
     void load();
   }, [load]);
 
-  const register = useCallback(async () => {
-    if (!slug || !bootcamp) return;
-
-    if (!user) {
-      navigate(`/signup?redirect=${encodeURIComponent(`/bootcamps/${slug}?register=1`)}`);
-      return;
-    }
-
-    if (user.role !== 'student') {
-      setError('Only learner accounts can register for a bootcamp.');
-      return;
-    }
-
-    setRegistering(true);
-    setError('');
-    try {
-      await bootcampApi.enroll(slug);
-      await refreshUser();
-      navigate(`/student/bootcamp/${slug}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not complete your registration.');
-    } finally {
-      setRegistering(false);
-    }
-  }, [slug, bootcamp, user, navigate, refreshUser]);
-
-  // Auto-register when arriving back from sign-up with ?register=1.
-  useEffect(() => {
-    if (searchParams.get('register') === '1' && user?.role === 'student' && bootcamp && !bootcamp.enrolled && bootcamp.status === 'open' && !registering) {
-      void register();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, user, bootcamp]);
+  const goToRegister = () => navigate(`/bootcamps/${slug}/register`);
 
   if (loading) {
     return (
@@ -154,11 +118,10 @@ const BootcampDetail: React.FC = () => {
                 </Link>
               ) : isOpen ? (
                 <button
-                  onClick={register}
-                  disabled={registering}
-                  className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                  onClick={goToRegister}
+                  className="w-full rounded-2xl bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5"
                 >
-                  {registering ? 'Registering…' : user ? 'Register for this bootcamp' : 'Sign up & register'}
+                  Register for this bootcamp
                 </button>
               ) : (
                 <p className="rounded-2xl bg-slate-100 px-5 py-3 text-center text-sm font-medium text-slate-500">

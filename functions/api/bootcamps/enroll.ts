@@ -26,7 +26,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-  if (user.role !== 'student') {
+  if (user.role !== 'student' && user.role !== 'bootcamp_student') {
     return Response.json(
       { error: 'Only learner accounts can register for a bootcamp. Sign up as a student to join.' },
       { status: 403 },

@@ -41,7 +41,7 @@ const Contact: React.FC<ContactProps> = ({ onBack, canGoBack }) => {
                 <p className="text-lg text-indigo-100 max-w-2xl mx-auto">We'd love to hear from you! Whether you have a question about courses, pricing, or anything else, our team is ready to answer all your questions.</p>
             </div>
         </header>
-        <div className="grid lg:grid-cols-5 gap-12 max-w-7xl mx-auto items-start">
+        <div data-reveal className="grid lg:grid-cols-5 gap-12 max-w-7xl mx-auto items-start">
             <div className="lg:col-span-3">
                 <Card className="p-8 sm:p-12">
                     {isSubmitted ? (

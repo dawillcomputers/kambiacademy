@@ -168,9 +168,17 @@ export interface MeetSession {
   platformLabel: string;
 }
 
+export interface HeroSlide {
+  id?: string;
+  imageUrl: string;
+  headline?: string;
+  subtitle?: string;
+}
+
 export interface SiteData {
   branding: BrandingContent;
   hero: HeroContent;
+  heroSlides?: HeroSlide[];
   stats: Stat[];
   about: AboutContent;
   contact: ContactContent;

@@ -69,6 +69,26 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
     }
   }
 
+  // Hero carousel slides are managed by the super admin via platform_settings.
+  try {
+    const heroRow = await env.DB.prepare("SELECT value FROM platform_settings WHERE key = 'hero_slides'").first<{ value: string }>();
+    if (heroRow?.value) {
+      const parsed = JSON.parse(heroRow.value);
+      if (Array.isArray(parsed)) {
+        siteData.heroSlides = parsed
+          .filter((slide) => slide && typeof slide.imageUrl === 'string' && slide.imageUrl.trim())
+          .map((slide, index) => ({
+            id: String(slide.id ?? index + 1),
+            imageUrl: String(slide.imageUrl),
+            headline: typeof slide.headline === 'string' ? slide.headline : '',
+            subtitle: typeof slide.subtitle === 'string' ? slide.subtitle : '',
+          }));
+      }
+    }
+  } catch {
+    // No custom hero slides configured yet; the carousel falls back to defaults.
+  }
+
   try {
     const approvedTutorCourses = await env.DB.prepare(
       `SELECT tc.id, tc.slug, tc.title, tc.description, tc.level, tc.price, tc.duration_label, tc.category, tc.status,

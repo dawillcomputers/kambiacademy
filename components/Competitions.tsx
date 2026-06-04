@@ -109,7 +109,7 @@ const Competitions: React.FC = () => {
           <p className="mt-2 text-sm text-slate-500">Winners and highlights from our bootcamps will appear here.</p>
         </div>
       ) : (
-        <section className="grid gap-6 lg:grid-cols-2">
+        <section data-reveal className="grid gap-6 lg:grid-cols-2">
           {competitions.map((competition) => (
             <CompetitionCard key={competition.id} competition={competition} />
           ))}

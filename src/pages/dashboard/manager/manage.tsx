@@ -15,7 +15,7 @@ const ManagerManageBootcamp: React.FC = () => {
   const [tab, setTab] = useState<Tab>('content');
 
   // Settings form
-  const [form, setForm] = useState({ tagline: '', description: '', cover_image_url: '', start_date: '', end_date: '' });
+  const [form, setForm] = useState({ title: '', tagline: '', description: '', cover_image_url: '', start_date: '', end_date: '' });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -27,6 +27,7 @@ const ManagerManageBootcamp: React.FC = () => {
       setBootcamp(match);
       if (match) {
         setForm({
+          title: match.title || '',
           tagline: match.tagline || '',
           description: match.description || '',
           cover_image_url: match.cover_image_url || '',
@@ -135,6 +136,14 @@ const ManagerManageBootcamp: React.FC = () => {
         <form onSubmit={saveSettings} className="max-w-2xl space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           {message && <p className="text-sm font-semibold text-emerald-600">{message}</p>}
           {error && <p className="text-sm font-semibold text-rose-600">{error}</p>}
+          <div>
+            <label className="text-sm font-medium text-slate-700">Bootcamp name</label>
+            <input
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
           <div>
             <label className="text-sm font-medium text-slate-700">Tagline</label>
             <input

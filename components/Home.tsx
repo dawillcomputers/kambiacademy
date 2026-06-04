@@ -4,11 +4,10 @@ import {
   formatSessionDate,
   getCourseTone,
   getInitials,
-  primaryLinkClass,
-  secondaryLinkClass,
 } from '../lib/site';
-import { CallToAction, SiteData } from '../types';
+import { SiteData } from '../types';
 import { BootcampCompetition, bootcampApi } from '../lib/bootcamp';
+import HeroCarousel from './HeroCarousel';
 
 const BootcampHighlight: React.FC = () => {
   const [competitions, setCompetitions] = useState<BootcampCompetition[]>([]);
@@ -29,8 +28,8 @@ const BootcampHighlight: React.FC = () => {
   }, []);
 
   return (
-    <section className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
-      <div className="overflow-hidden rounded-[32px] border border-indigo-900 bg-gradient-to-br from-indigo-700 to-slate-950 px-6 py-8 text-white shadow-2xl shadow-indigo-300/30 sm:px-8">
+    <section data-reveal className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
+      <div className="bg-gradient-animated overflow-hidden rounded-[32px] border border-indigo-900 bg-gradient-to-br from-indigo-700 via-violet-700 to-fuchsia-700 px-6 py-8 text-white shadow-2xl shadow-indigo-300/30 sm:px-8">
         <p className="text-xs font-semibold uppercase tracking-[0.32em] text-indigo-200">Kambi × FintechNG</p>
         <h2 className="mt-3 font-display text-3xl font-bold">Join the Fintech Bootcamp Hub.</h2>
         <p className="mt-4 max-w-xl text-sm leading-7 text-indigo-100">
@@ -89,27 +88,6 @@ interface HomeProps {
   siteData: SiteData;
 }
 
-const ActionLink: React.FC<{
-  action: CallToAction;
-  className: string;
-}> = ({ action, className }) => {
-  const isExternal = action.external || /^https?:\/\//.test(action.href);
-
-  if (isExternal) {
-    return (
-      <a href={action.href} target="_blank" rel="noreferrer" className={className}>
-        {action.label}
-      </a>
-    );
-  }
-
-  return (
-    <Link to={action.href} className={className}>
-      {action.label}
-    </Link>
-  );
-};
-
 const Home: React.FC<HomeProps> = ({ siteData }) => {
   const hero = siteData.hero ?? {
     eyebrow: 'Kambi Academy',
@@ -133,81 +111,69 @@ const Home: React.FC<HomeProps> = ({ siteData }) => {
 
   return (
     <div className="space-y-10 lg:space-y-14">
-      <section className="section-shell surface-ring relative overflow-hidden rounded-[32px] border border-white/70 px-6 py-10 sm:px-10 lg:px-12 lg:py-14">
-        <div className="hero-orb hero-orb--amber left-[-8%] top-[-8%] h-52 w-52" />
-        <div className="hero-orb hero-orb--blue right-[-6%] top-8 h-60 w-60" />
-        <div className="hero-orb hero-orb--teal bottom-[-10%] left-[34%] h-56 w-56" />
+      <HeroCarousel
+        slides={siteData.heroSlides}
+        eyebrow={hero.eyebrow}
+        headline={hero.headline}
+        description={hero.description}
+        highlights={hero.highlights}
+        primaryCta={hero.primaryCta}
+        secondaryCta={hero.secondaryCta}
+      />
 
-        <div className="relative grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">{hero.eyebrow}</p>
-            <h1 className="mt-4 max-w-3xl font-display text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
-              {hero.headline}
-            </h1>
-            <p className="mt-6 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">{hero.description}</p>
+      {stats.length > 0 && (
+        <section data-reveal className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {stats.slice(0, 4).map((stat, index) => {
+            const palettes = [
+              'from-indigo-500 to-violet-600',
+              'from-fuchsia-500 to-pink-600',
+              'from-amber-400 to-orange-500',
+              'from-emerald-400 to-teal-600',
+            ];
+            return (
+              <div
+                key={stat.label}
+                className="hover-lift rounded-[24px] border border-white/70 bg-white/80 px-5 py-6 shadow-lg shadow-slate-200/60"
+              >
+                <span className={`inline-flex h-1.5 w-10 rounded-full bg-gradient-to-r ${palettes[index % palettes.length]}`} />
+                <p className="mt-4 font-display text-3xl font-bold text-slate-950">{stat.value}</p>
+                <p className="mt-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{stat.label}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-500">{stat.detail}</p>
+              </div>
+            );
+          })}
+        </section>
+      )}
 
-            <div className="mt-8 flex flex-wrap gap-3">
-              <ActionLink action={hero.primaryCta} className={primaryLinkClass} />
-              <ActionLink action={hero.secondaryCta} className={secondaryLinkClass} />
-            </div>
-
-            <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              {hero.highlights.map((highlight) => (
-                <div key={highlight} className="flex items-start gap-3 rounded-2xl border border-white/60 bg-white/70 px-4 py-4 text-sm text-slate-600 shadow-sm">
-                  <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-950 text-xs font-bold text-white">+</span>
-                  <span>{highlight}</span>
-                </div>
-              ))}
-            </div>
+      {highlightedSessions.length > 0 && (
+        <section data-reveal className="overflow-hidden rounded-[28px] border border-slate-800 bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-950 p-6 text-white shadow-2xl sm:p-8">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-sky-200">Upcoming live sessions</p>
+            <Link to="/courses" className="text-sm font-semibold text-sky-300 transition hover:text-sky-200">Browse courses</Link>
           </div>
-
-          <div className="grid gap-4">
-            <div className="video-mask overflow-hidden rounded-[28px] border border-slate-800 p-6 text-white shadow-2xl shadow-slate-300/30">
-              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-sky-200">Next Sessions</p>
-              <div className="mt-6 space-y-4">
-                {highlightedSessions.length > 0 ? (
-                  highlightedSessions.map((session) => (
-                    <div key={session.id} className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-                      <p className="text-sm font-semibold text-white">{session.title}</p>
-                      <p className="mt-1 text-sm text-slate-300">{formatSessionDate(session.startsAt)}</p>
-                      <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-400">
-                        <span>Live Session</span>
-                        {session.courseSlug ? (
-                          <Link to={`/courses/${session.courseSlug}`} className="font-semibold text-sky-300 transition hover:text-sky-200">
-                            View course
-                          </Link>
-                        ) : (
-                          <span className="font-semibold text-sky-300">Open session</span>
-                        )}
-                      </div>
-                    </div>
-                  ))
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            {highlightedSessions.map((session) => (
+              <div key={session.id} className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur transition hover:border-white/25 hover:bg-white/10">
+                <p className="text-sm font-semibold text-white">{session.title}</p>
+                <p className="mt-1 text-sm text-slate-300">{formatSessionDate(session.startsAt)}</p>
+                {session.courseSlug ? (
+                  <Link to={`/courses/${session.courseSlug}`} className="mt-3 inline-block text-xs font-semibold text-sky-300 transition hover:text-sky-200">
+                    View course →
+                  </Link>
                 ) : (
-                  <p className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-                    Live session scheduling will appear here once the backend seed is applied.
-                  </p>
+                  <span className="mt-3 inline-block text-xs font-semibold text-sky-300">Open session</span>
                 )}
               </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-              {stats.slice(0, 3).map((stat) => (
-                <div key={stat.label} className="rounded-[24px] border border-white/70 bg-white/80 px-5 py-5 shadow-lg shadow-slate-200/60">
-                  <p className="text-xs uppercase tracking-[0.28em] text-slate-500">{stat.label}</p>
-                  <p className="mt-3 font-display text-3xl font-bold text-slate-950">{stat.value}</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">{stat.detail}</p>
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      <section className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
-        <div className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8 sm:px-8">
+      <section data-reveal className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
+        <div className="section-shell surface-ring hover-lift rounded-[32px] border border-white/70 px-6 py-8 sm:px-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Featured Courses</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-indigo-500">Featured Courses</p>
               <h2 className="mt-3 font-display text-3xl font-bold text-slate-950">Launch live programs built for real outcomes.</h2>
             </div>
             <Link to="/courses" className="text-sm font-semibold text-slate-950 transition hover:text-slate-700">
@@ -277,9 +243,9 @@ const Home: React.FC<HomeProps> = ({ siteData }) => {
 
       <BootcampHighlight />
 
-      <section className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+      <section data-reveal className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
         <div className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8 sm:px-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Learner Signals</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-fuchsia-500">Learner Signals</p>
           <h2 className="mt-3 font-display text-3xl font-bold text-slate-950">What learners remember after live learning ends.</h2>
           <p className="mt-4 text-sm leading-7 text-slate-600">
             Each program mixes live mentoring, hands-on lessons, and a steady pace that helps learners finish strong.
@@ -301,8 +267,8 @@ const Home: React.FC<HomeProps> = ({ siteData }) => {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[32px] border border-slate-900 bg-slate-950 px-6 py-8 text-white shadow-2xl shadow-slate-300/30 sm:px-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-sky-200">Ready to move</p>
+        <div className="bg-gradient-animated overflow-hidden rounded-[32px] border border-indigo-900 bg-gradient-to-br from-indigo-700 via-violet-700 to-fuchsia-700 px-6 py-8 text-white shadow-2xl shadow-indigo-300/40 sm:px-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-amber-200">Ready to move</p>
           <h2 className="mt-3 font-display text-3xl font-bold">Choose a program, meet your instructor, and join the next live session.</h2>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
             Browse programs, meet instructors, and join the next live session with a faster, simpler experience.

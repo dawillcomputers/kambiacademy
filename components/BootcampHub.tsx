@@ -60,7 +60,7 @@ const BootcampHub: React.FC = () => {
         </div>
       </section>
 
-      <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8 sm:px-8">
+      <section data-reveal className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8 sm:px-8">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Available Cohorts</p>

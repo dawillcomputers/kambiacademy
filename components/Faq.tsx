@@ -74,7 +74,7 @@ const Faq: React.FC<FaqProps> = ({ onBack, canGoBack }) => {
                 </div>
             </header>
 
-            <div className="grid lg:grid-cols-2 gap-12 items-start">
+            <div data-reveal className="grid lg:grid-cols-2 gap-12 items-start">
                 <div className="space-y-6">
                     <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
                         {faqData.map((item, index) => (

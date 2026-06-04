@@ -44,6 +44,8 @@ const ChangePassword: React.FC = () => {
         if (response.user.role === 'super_admin' || response.user.role === 'SOU') navigate('/superadmin');
         else if (response.user.role === 'admin') navigate('/admin');
         else if (response.user.role === 'teacher' || response.user.role === 'tutor') navigate('/teacher');
+        else if (response.user.role === 'bootcamp_manager') navigate('/manager');
+        else if (response.user.role === 'bootcamp_student') navigate('/student/bootcamp');
         else navigate('/student');
       }, 1500);
     } catch (err: any) {

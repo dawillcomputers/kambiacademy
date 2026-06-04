@@ -64,7 +64,7 @@ const About: React.FC<AboutProps> = ({ about, instructors, stats }) => {
 
       {/* Video Section */}
       {about.videoUrl && (
-        <section className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-10 sm:px-10">
+        <section data-reveal className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-10 sm:px-10">
           <div className="text-center mb-8">
             <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Watch Our Story</p>
             <h2 className="mt-3 font-display text-3xl font-bold text-slate-950">Experience Kambi Academy</h2>
@@ -115,7 +115,7 @@ const About: React.FC<AboutProps> = ({ about, instructors, stats }) => {
         </section>
       )}
 
-      <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+      <section data-reveal className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8 sm:px-8">
           <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Operating Principles</p>
           <div className="mt-6 space-y-4">

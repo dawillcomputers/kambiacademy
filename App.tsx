@@ -18,6 +18,8 @@ import JoinClass from './components/JoinClass';
 import KambiAIAssistant from './components/KambiAIAssistant';
 import BootcampHub from './components/BootcampHub';
 import BootcampDetail from './components/BootcampDetail';
+import BootcampRegister from './components/BootcampRegister';
+import BootcampLogin from './components/BootcampLogin';
 import Competitions from './components/Competitions';
 // Lazy-loaded dashboard chunks
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
@@ -40,6 +42,7 @@ const TeacherSettings = lazy(() => import('./src/pages/dashboard/teacher/setting
 const TeacherAI = lazy(() => import('./src/pages/dashboard/teacher/ai'));
 import { api } from './lib/api';
 import { AuthProvider, useAuth } from './lib/auth';
+import { useScrollReveal } from './lib/useScrollReveal';
 import { BrandingContent, SiteData } from './types';
 
 const isTeacherRole = (role?: string) => role === 'teacher' || role === 'tutor';
@@ -234,6 +237,8 @@ const AppShell: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
+  useScrollReveal();
+
   const loadSiteData = useCallback(async () => {
     setIsLoading(true);
     setError('');
@@ -372,6 +377,8 @@ const AppShell: React.FC = () => {
               <Route path="/courses/:slug" element={<RequireAuth><CourseDetailRoute siteData={resolvedSiteData} /></RequireAuth>} />
               <Route path="/bootcamps" element={<BootcampHub />} />
               <Route path="/bootcamps/:slug" element={<BootcampDetail />} />
+              <Route path="/bootcamps/:slug/register" element={<BootcampRegister />} />
+              <Route path="/bootcamp/login" element={<BootcampLogin />} />
               <Route path="/competitions" element={<Competitions />} />
               <Route path="/faq" element={<Faq />} />
               <Route path="/teach" element={<BecomeTutor />} />

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Bootcamp, BootcampInput, bootcampApi } from '../../../../lib/bootcamp';
+import { Bootcamp, BootcampInput, BootcampRegistration, bootcampApi } from '../../../../lib/bootcamp';
 import CompetitionsManager from '../../../../components/bootcamp/CompetitionsManager';
 import ResourcesManager from '../../../../components/bootcamp/ResourcesManager';
 
@@ -32,6 +32,37 @@ const SuperAdminBootcamps: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [managerEmails, setManagerEmails] = useState<Record<number, string>>({});
+  const [registrants, setRegistrants] = useState<Record<number, BootcampRegistration[]>>({});
+  const [registrantsLoading, setRegistrantsLoading] = useState<number | null>(null);
+
+  const loadRegistrants = useCallback(async (bootcampId: number) => {
+    setRegistrantsLoading(bootcampId);
+    try {
+      const res = await bootcampApi.registrations(bootcampId);
+      setRegistrants((prev) => ({ ...prev, [bootcampId]: res.registrations || [] }));
+    } catch {
+      setRegistrants((prev) => ({ ...prev, [bootcampId]: [] }));
+    } finally {
+      setRegistrantsLoading(null);
+    }
+  }, []);
+
+  const toggleExpand = (bootcampId: number) => {
+    const next = expanded === bootcampId ? null : bootcampId;
+    setExpanded(next);
+    if (next && registrants[next] === undefined) void loadRegistrants(next);
+  };
+
+  const appoint = async (bootcampId: number, userId: number) => {
+    if (!confirm('Appoint this registrant as the bootcamp manager?')) return;
+    try {
+      await bootcampApi.appointManager(bootcampId, userId);
+      flash('Manager appointed.');
+      await Promise.all([load(), loadRegistrants(bootcampId)]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to appoint manager.');
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -188,8 +219,8 @@ const SuperAdminBootcamps: React.FC = () => {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={() => setExpanded(expanded === bootcamp.id ? null : bootcamp.id)} className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100">
-                    {expanded === bootcamp.id ? 'Hide' : 'Manage content'}
+                  <button onClick={() => toggleExpand(bootcamp.id)} className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100">
+                    {expanded === bootcamp.id ? 'Hide' : 'Manage'}
                   </button>
                   <button onClick={() => toggleStatus(bootcamp)} className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200">
                     {bootcamp.status === 'open' ? 'Close' : 'Open'}
@@ -200,6 +231,66 @@ const SuperAdminBootcamps: React.FC = () => {
 
               {expanded === bootcamp.id && (
                 <div className="space-y-6 border-t border-slate-100 bg-slate-50 p-5">
+                  <div>
+                    <h4 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
+                      Registrants ({registrants[bootcamp.id]?.length ?? 0})
+                    </h4>
+                    {registrantsLoading === bootcamp.id ? (
+                      <p className="text-sm text-slate-500">Loading registrants…</p>
+                    ) : (registrants[bootcamp.id]?.length ?? 0) === 0 ? (
+                      <p className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm text-slate-500">
+                        No one has registered for this bootcamp yet.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                        <table className="w-full text-sm">
+                          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                            <tr>
+                              <th className="px-4 py-2.5">Name</th>
+                              <th className="px-4 py-2.5">Email</th>
+                              <th className="px-4 py-2.5">Location</th>
+                              <th className="px-4 py-2.5">Level</th>
+                              <th className="px-4 py-2.5 text-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {(registrants[bootcamp.id] || []).map((r) => {
+                              const isManager = r.user_id === bootcamp.manager_id;
+                              return (
+                                <tr key={r.id} className="hover:bg-slate-50">
+                                  <td className="px-4 py-2.5">
+                                    <div className="flex items-center gap-2">
+                                      {r.profile_photo ? (
+                                        <img src={r.profile_photo} alt={r.full_name} className="h-7 w-7 rounded-full object-cover" />
+                                      ) : (
+                                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+                                          {r.full_name.charAt(0).toUpperCase()}
+                                        </span>
+                                      )}
+                                      <span className="font-medium text-slate-900">{r.full_name}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-2.5 text-slate-600">{r.email}</td>
+                                  <td className="px-4 py-2.5 text-slate-600">{[r.city, r.state, r.country].filter(Boolean).join(', ') || '—'}</td>
+                                  <td className="px-4 py-2.5 text-slate-600">{r.experience_level || '—'}</td>
+                                  <td className="px-4 py-2.5 text-right">
+                                    {isManager ? (
+                                      <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">Manager</span>
+                                    ) : (
+                                      <button onClick={() => appoint(bootcamp.id, r.user_id)} className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">
+                                        Make manager
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex flex-wrap items-end gap-2">
                     <div className="flex-1 min-w-[220px]">
                       <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Assign / change manager</label>

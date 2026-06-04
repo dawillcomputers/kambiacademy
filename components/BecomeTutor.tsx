@@ -79,7 +79,7 @@ const BecomeTutor: React.FC = () => {
               </div>
           </section>
 
-           <section className="bg-white rounded-2xl shadow-xl p-8 md:p-12">
+           <section data-reveal className="bg-white rounded-2xl shadow-xl p-8 md:p-12">
             <h2 className="text-3xl font-bold text-center mb-8">How It Works</h2>
             <div className="grid md:grid-cols-4 gap-8 text-center max-w-4xl mx-auto relative">
                 {/* Dashed line connector for desktop */}
@@ -108,7 +108,7 @@ const BecomeTutor: React.FC = () => {
             </div>
           </section>
           
-           <section className="max-w-3xl mx-auto">
+           <section data-reveal className="max-w-3xl mx-auto">
                 <h2 className="text-3xl font-bold text-center mb-8">Instructor FAQ</h2>
                 <div className="bg-white p-6 rounded-2xl shadow-xl">
                     {tutorFaqData.map((item, index) => (

@@ -7,6 +7,7 @@ import SuperAdminDashboard from '../../../../components/SuperAdminDashboard';
 import SuperAdminUsers from './users';
 import SuperAdminCourses from './courses';
 import SuperAdminBootcamps from './bootcamps';
+import SuperAdminHomepage from './homepage';
 import SuperAdminAnalytics from './analytics';
 import SuperAdminFinance from './finance';
 import SuperAdminSettings from './settings';
@@ -97,6 +98,7 @@ const SuperAdminBillingBanner: React.FC<{ billing: any }> = ({ billing }) => {
 
 const fullSidebarItems: SidebarItem[] = [
   { name: 'Dashboard', icon: '📊', path: '/superadmin' },
+  { name: 'Homepage', icon: '🎨', path: '/superadmin/homepage' },
   { name: 'Users', icon: '👥', path: '/superadmin/users' },
   { name: 'Courses', icon: '📚', path: '/superadmin/courses' },
   { name: 'Bootcamps', icon: '🚀', path: '/superadmin/bootcamps' },
@@ -187,6 +189,7 @@ const SuperAdminRoutes: React.FC = () => {
             ) : (
               <>
                 <Route path="/" element={<SuperAdminDashboard />} />
+                <Route path="/homepage" element={<SuperAdminHomepage />} />
                 <Route path="/users" element={<SuperAdminUsers />} />
                 <Route path="/courses" element={<SuperAdminCourses />} />
                 <Route path="/bootcamps" element={<SuperAdminBootcamps />} />

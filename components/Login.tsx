@@ -31,6 +31,8 @@ const Login: React.FC = () => {
         navigate('/teacher', { replace: true });
       } else if (user.role === 'bootcamp_manager') {
         navigate('/manager', { replace: true });
+      } else if (user.role === 'bootcamp_student') {
+        navigate('/student/bootcamp', { replace: true });
       } else {
         navigate('/student', { replace: true });
       }
@@ -53,6 +55,8 @@ const Login: React.FC = () => {
         navigate('/teacher', { replace: true });
       } else if (loggedInUser?.role === 'bootcamp_manager') {
         navigate('/manager', { replace: true });
+      } else if (loggedInUser?.role === 'bootcamp_student') {
+        navigate(searchParams.get('redirect') || '/student/bootcamp', { replace: true });
       } else {
         const redirect = searchParams.get('redirect') || '/student';
         navigate(redirect, { replace: true });

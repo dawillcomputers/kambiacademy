@@ -94,7 +94,7 @@ const CourseList: React.FC<CourseListProps> = ({ courses, instructors }) => {
                 </div>
             </section>
 
-            <section className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
+            <section data-reveal className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
                 {filteredCourses.map((course) => {
                     const tone = getCourseTone(course.tone);
                     const instructor = instructorMap.get(course.instructorId);

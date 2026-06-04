@@ -83,6 +83,80 @@ export interface CompetitionInput {
   winners?: CompetitionWinner[];
 }
 
+export interface BootcampRegistrationInput {
+  bootcampId?: number;
+  slug?: string;
+  full_name: string;
+  email: string;
+  phone?: string;
+  gender?: string;
+  date_of_birth?: string;
+  age_range?: string;
+  country?: string;
+  state?: string;
+  city?: string;
+  highest_qualification?: string;
+  field_of_study?: string;
+  institution?: string;
+  employment_status?: string;
+  organization_name?: string;
+  current_role?: string;
+  fintech_interests?: string[];
+  experience_level?: string;
+  tech_project_before?: string;
+  coding_experience?: string;
+  coding_languages?: string[];
+  career_goals?: string[];
+  career_goals_text?: string;
+  startup_interest?: string;
+  team_interest?: string;
+  startup_idea?: string;
+  startup_idea_text?: string;
+  linkedin_url?: string;
+  github_url?: string;
+  portfolio_url?: string;
+  profile_photo?: string;
+  consent_terms?: boolean;
+  consent_updates?: boolean;
+  consent_community?: boolean;
+  consent_jobs?: boolean;
+}
+
+export interface BootcampRegistrationResult {
+  message: string;
+  email: string;
+  bootcampSlug: string;
+  bootcampTitle: string;
+  isNewAccount: boolean;
+  tempPassword?: string;
+}
+
+export interface BootcampRegistration {
+  id: number;
+  user_id: number;
+  bootcamp_id: number;
+  bootcamp_title?: string;
+  user_role?: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  gender: string;
+  age_range: string;
+  country: string;
+  state: string;
+  city: string;
+  highest_qualification: string;
+  employment_status: string;
+  experience_level: string;
+  fintech_interests: string;
+  profile_photo: string;
+  linkedin_url: string;
+  registration_status: string;
+  created_at: string;
+}
+
+const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 export const bootcampApi = {
   // Public / participant listing
   list: () => api.get<{ bootcamps: Bootcamp[] }>('/api/bootcamps'),
@@ -94,6 +168,23 @@ export const bootcampApi = {
   create: (input: BootcampInput) => api.post<{ id: number; slug: string }>('/api/bootcamps', input),
   update: (input: BootcampInput) => api.patch<{ message: string }>('/api/bootcamps', input),
   remove: (id: number) => api.del<{ message: string }>(`/api/bootcamps?id=${id}`),
+
+  // Detailed registration (creates a separate bootcamp account)
+  register: (input: BootcampRegistrationInput) => api.post<BootcampRegistrationResult>('/api/bootcamps/register', input),
+  uploadRegistrationPhoto: async (file: File): Promise<{ url: string }> => {
+    const formData = new FormData();
+    formData.set('file', file);
+    const res = await fetch(`${apiBase}/api/bootcamps/registration-photo`, { method: 'POST', body: formData });
+    const data = (await res.json()) as { url?: string; error?: string };
+    if (!res.ok) throw new Error(data.error || 'Photo upload failed.');
+    return { url: data.url || '' };
+  },
+
+  // Registrants (super admin / manager)
+  registrations: (bootcampId?: number) =>
+    api.get<{ registrations: BootcampRegistration[] }>(`/api/bootcamps/registrations${bootcampId ? `?bootcamp=${bootcampId}` : ''}`),
+  appointManager: (bootcampId: number, userId: number) =>
+    api.post<{ message: string }>('/api/bootcamps/registrations', { action: 'appoint_manager', bootcampId, userId }),
 
   // Enrollments
   myEnrollments: () => api.get<{ bootcamps: Bootcamp[] }>('/api/bootcamps/enroll'),
