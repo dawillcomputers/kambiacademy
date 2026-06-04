@@ -4,6 +4,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { primaryLinkClass } from '../lib/site';
 import { BrandingContent } from '../types';
+import Logo from './Logo';
 
 interface HeaderProps {
   branding: BrandingContent;
@@ -68,9 +69,9 @@ const Header: React.FC<HeaderProps> = ({ branding }) => {
     <header className="sticky top-0 z-50 border-b border-white/60 bg-white/80 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4 sm:px-6 lg:px-8">
         <Link to="/" className="min-w-0 transition hover:opacity-90">
-          <p className="text-gradient font-display text-xl font-bold sm:text-2xl">{branding.name}</p>
+          <Logo imgClassName="h-10 w-10" text={branding.name} textClassName="text-gradient font-display text-xl font-bold sm:text-2xl" />
           {user ? null : (
-            <p className="hidden truncate text-sm text-slate-500 md:block">{branding.strapline}</p>
+            <p className="mt-0.5 hidden truncate pl-12 text-sm text-slate-500 md:block">{branding.strapline}</p>
           )}
         </Link>
 

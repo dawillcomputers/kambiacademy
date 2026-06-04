@@ -79,8 +79,11 @@ export default function DashboardLayout({ children, user, showMaterials = false 
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0
       `}>
-        <div className="p-5 font-bold text-xl flex items-center justify-between">
-          <span>Kambi Academy</span>
+        <div className="p-5 flex items-center justify-between">
+          <span className="flex items-center gap-2.5 text-xl font-bold">
+            <img src="/kambiacademy_logo.jpg" alt="Kambi Academy" className="h-9 w-9 rounded-lg object-contain" />
+            Kambi Academy
+          </span>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-white/60 hover:text-white p-1">
             ✕
           </button>

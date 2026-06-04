@@ -83,6 +83,7 @@ const Login: React.FC = () => {
         {/* Right Form Side */}
         <div className="w-full lg:w-1/2 py-16 px-8 sm:px-12">
           <div className="mb-8 text-center">
+            <img src="/kambiacademy_logo.jpg" alt="Kambi Academy" className="mx-auto mb-4 h-14 w-14 rounded-xl object-contain" />
             <h2 className="text-3xl font-extrabold text-gray-900">{isSwitchMode ? 'Switch account' : 'Sign in to your account'}</h2>
             <p className="mt-2 text-sm text-gray-600">
               {isSwitchMode ? 'Sign in with another account to continue.' : 'Or '}

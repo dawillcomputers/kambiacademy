@@ -3,6 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { secondaryLinkClass } from '../lib/site';
 import { BrandingContent, ContactContent } from '../types';
+import Logo from './Logo';
 
 interface FooterProps {
   branding: BrandingContent;
@@ -12,6 +13,8 @@ interface FooterProps {
 const quickLinks = [
   { label: 'About', to: '/about' },
   { label: 'Courses', to: '/courses' },
+  { label: 'Bootcamps', to: '/bootcamps' },
+  { label: 'Winners', to: '/competitions' },
   { label: 'Teach', to: '/teach' },
   { label: 'FAQ', to: '/faq' },
   { label: 'Contact', to: '/contact' },
@@ -21,7 +24,7 @@ const Footer: React.FC<FooterProps> = ({ branding, contact }) => (
   <footer className="mt-16 border-t border-white/60 bg-slate-950 text-slate-100">
     <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.2fr_0.8fr_0.9fr] lg:px-8">
       <div>
-        <p className="font-display text-2xl font-bold">{branding.name}</p>
+        <Logo imgClassName="h-11 w-11" text={branding.name} textClassName="font-display text-2xl font-bold text-white" />
         <p className="mt-4 max-w-md text-sm leading-7 text-slate-300">{branding.strapline}</p>
         <div className="mt-6">
           <Link to={branding.secondaryCta.href} className={`${secondaryLinkClass} border-slate-700 bg-slate-900 text-white hover:border-slate-500 hover:bg-slate-800`}>

@@ -8,12 +8,13 @@ const blankCreate: BootcampInput = {
   tagline: '',
   description: '',
   cover_image_url: '',
-  category: 'Fintech',
+  category: 'Bootcamp',
   price: 0,
   start_date: '',
   end_date: '',
   status: 'open',
   managerEmail: '',
+  initial_participants: 0,
 };
 
 const statusBadge = (status: string) => {
@@ -193,6 +194,19 @@ const SuperAdminBootcamps: React.FC = () => {
     }
   };
 
+  const [initialCounts, setInitialCounts] = useState<Record<number, string>>({});
+  const saveInitial = async (bootcamp: Bootcamp) => {
+    const raw = initialCounts[bootcamp.id];
+    const value = Number(raw ?? bootcamp.initial_participants ?? 0);
+    try {
+      await bootcampApi.update({ id: bootcamp.id, initial_participants: value });
+      flash('Initial participant count saved.');
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save count.');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -256,7 +270,7 @@ const SuperAdminBootcamps: React.FC = () => {
             <Labeled label="Category" description="Field or theme, e.g. Design, Data, Fintech.">
               <input value={createForm.category} onChange={(e) => setCreateForm({ ...createForm, category: e.target.value })} className={fieldCls} />
             </Labeled>
-            <Labeled label="Price (₦)" description="Set 0 for a free cohort.">
+            <Labeled label="Amount (₦)" description="Registration fee. Set 0 for a free cohort.">
               <input type="number" min={0} value={createForm.price} onChange={(e) => setCreateForm({ ...createForm, price: Number(e.target.value) })} className={fieldCls} />
             </Labeled>
             <Labeled label="Start date" description="When the cohort begins.">
@@ -267,7 +281,7 @@ const SuperAdminBootcamps: React.FC = () => {
             </Labeled>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <Labeled label="Manager" description="Choose a manager from people who have registered. You can also appoint one later from “View registrants”.">
               <select value={createForm.managerEmail} onChange={(e) => setCreateForm({ ...createForm, managerEmail: e.target.value })} className={fieldCls}>
                 <option value="">No manager yet</option>
@@ -282,6 +296,9 @@ const SuperAdminBootcamps: React.FC = () => {
                 <option value="draft">Draft (hidden)</option>
                 <option value="closed">Closed</option>
               </select>
+            </Labeled>
+            <Labeled label="Initial participant count" description="A starting number shown on the signup page. It grows automatically as people register.">
+              <input type="number" min={0} value={createForm.initial_participants ?? 0} onChange={(e) => setCreateForm({ ...createForm, initial_participants: Number(e.target.value) })} className={fieldCls} />
             </Labeled>
           </div>
 
@@ -479,6 +496,23 @@ const SuperAdminBootcamps: React.FC = () => {
                     </div>
                     <button onClick={() => assignManager(bootcamp)} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
                       Save manager
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="min-w-[220px] flex-1">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Initial participant count</label>
+                      <p className="text-[11px] text-slate-400">Shown on the signup page; grows automatically with registrations (currently {bootcamp.enrollment_count ?? 0} registered).</p>
+                      <input
+                        type="number"
+                        min={0}
+                        value={initialCounts[bootcamp.id] ?? String(bootcamp.initial_participants ?? 0)}
+                        onChange={(e) => setInitialCounts((prev) => ({ ...prev, [bootcamp.id]: e.target.value }))}
+                        className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <button onClick={() => saveInitial(bootcamp)} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
+                      Save count
                     </button>
                   </div>
 

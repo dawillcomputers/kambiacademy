@@ -66,6 +66,7 @@ const SignUp: React.FC = () => {
         
         <div className="w-full lg:w-1/2 py-12 px-8 sm:px-12">
           <div className="mb-10 text-center">
+            <img src="/kambiacademy_logo.jpg" alt="Kambi Academy" className="mx-auto mb-4 h-14 w-14 rounded-xl object-contain" />
             <h2 className="text-4xl font-black text-gray-900 tracking-tight">
               Create Your Account
             </h2>

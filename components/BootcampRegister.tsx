@@ -1,38 +1,30 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Bootcamp, BootcampRegistrationInput, bootcampApi } from '../lib/bootcamp';
+import { BootcampRegistrationInput, SignupConfig, bootcampApi } from '../lib/bootcamp';
 
-const TOTAL_STEPS = 10;
-
-const COUNTRIES = ['Nigeria', 'Ghana', 'Kenya', 'South Africa', 'Other'];
 const QUALIFICATIONS = ['Secondary School', 'OND/ND', 'HND', "Bachelor's Degree", "Master's Degree", 'PhD', 'Other'];
 const AGE_RANGES = ['Under 18', '18 – 24', '25 – 34', '35 – 44', '45+'];
 const GENDERS = ['Male', 'Female', 'Prefer not to say'];
 const EMPLOYMENT = ['Student', 'Unemployed', 'Employed', 'Self-Employed', 'Entrepreneur'];
-const FINTECH_AREAS = [
-  'Digital Payments', 'Blockchain', 'Cybersecurity', 'Product Management', 'Data Analytics',
-  'Financial Inclusion', 'AI in Finance', 'Lending', 'Savings & Investments', 'RegTech',
-  'InsurTech', 'Embedded Finance', 'Open Banking', 'Mobile Money',
-];
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
 const LANGUAGES = ['JavaScript', 'Python', 'Java', 'PHP', 'Flutter', 'Other'];
 const CAREER_GOALS = ['Career Change', 'Get a Job', 'Build a Startup', 'Improve Skills', 'Networking', 'Academic Purposes', 'Other'];
 
-const BENEFITS = [
-  'Learn from industry experts',
-  'Build real-world fintech projects',
-  'Network with professionals',
-  'Access mentorship opportunities',
-  'Earn a certificate',
-  'Participate in hackathons',
-  'Access jobs and internships',
-];
-const STATS = [
-  { value: '5,000+', label: 'Participants' },
-  { value: '20+', label: 'Facilitators' },
-  { value: '100+', label: 'Projects Built' },
-  { value: '15+', label: 'Startup Teams' },
-];
+// Canonical order for optional sections a manager can enable.
+const OPTIONAL_ORDER = ['location', 'education', 'employment', 'interests', 'skills', 'goals', 'innovation', 'community'];
+
+const SECTION_TITLE: Record<string, string> = {
+  personal: 'Personal Information',
+  location: 'Location',
+  education: 'Educational Background',
+  employment: 'Employment',
+  interests: 'Areas of Interest',
+  skills: 'Skills Assessment',
+  goals: 'Your Goals',
+  innovation: 'Innovation & Startup',
+  community: 'Community & Networking',
+  consent: 'Consent & Agreements',
+};
 
 const emptyForm: BootcampRegistrationInput = {
   full_name: '', email: '', phone: '', gender: '', date_of_birth: '', age_range: '',
@@ -46,13 +38,11 @@ const emptyForm: BootcampRegistrationInput = {
   consent_terms: false, consent_updates: false, consent_community: false, consent_jobs: false,
 };
 
-// ---- Small field primitives -------------------------------------------------
 const inputCls = 'w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500';
-const labelCls = 'block text-sm font-semibold text-slate-700';
 
 const Field: React.FC<{ label: string; required?: boolean; children: React.ReactNode }> = ({ label, required, children }) => (
   <div className="space-y-1.5">
-    <label className={labelCls}>{label}{required && <span className="text-rose-500"> *</span>}</label>
+    <label className="block text-sm font-semibold text-slate-700">{label}{required && <span className="text-rose-500"> *</span>}</label>
     {children}
   </div>
 );
@@ -60,14 +50,8 @@ const Field: React.FC<{ label: string; required?: boolean; children: React.React
 const RadioGroup: React.FC<{ options: string[]; value?: string; onChange: (v: string) => void; columns?: number }> = ({ options, value, onChange, columns = 1 }) => (
   <div className={`grid gap-2 ${columns === 2 ? 'sm:grid-cols-2' : columns >= 3 ? 'sm:grid-cols-3' : ''}`}>
     {options.map((opt) => (
-      <button
-        type="button"
-        key={opt}
-        onClick={() => onChange(opt)}
-        className={`flex items-center gap-2 rounded-xl border-2 px-4 py-2.5 text-left text-sm font-medium transition ${
-          value === opt ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
-        }`}
-      >
+      <button type="button" key={opt} onClick={() => onChange(opt)}
+        className={`flex items-center gap-2 rounded-xl border-2 px-4 py-2.5 text-left text-sm font-medium transition ${value === opt ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
         <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${value === opt ? 'border-indigo-500' : 'border-slate-300'}`}>
           {value === opt && <span className="h-2 w-2 rounded-full bg-indigo-500" />}
         </span>
@@ -84,17 +68,9 @@ const CheckboxGroup: React.FC<{ options: string[]; values: string[]; onChange: (
       {options.map((opt) => {
         const checked = values.includes(opt);
         return (
-          <button
-            type="button"
-            key={opt}
-            onClick={() => toggle(opt)}
-            className={`flex items-center gap-2 rounded-xl border-2 px-4 py-2.5 text-left text-sm font-medium transition ${
-              checked ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
-            }`}
-          >
-            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 ${checked ? 'border-indigo-500 bg-indigo-500 text-white' : 'border-slate-300'}`}>
-              {checked && '✓'}
-            </span>
+          <button type="button" key={opt} onClick={() => toggle(opt)}
+            className={`flex items-center gap-2 rounded-xl border-2 px-4 py-2.5 text-left text-sm font-medium transition ${checked ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
+            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 ${checked ? 'border-indigo-500 bg-indigo-500 text-white' : 'border-slate-300'}`}>{checked && '✓'}</span>
             {opt}
           </button>
         );
@@ -106,8 +82,8 @@ const CheckboxGroup: React.FC<{ options: string[]; values: string[]; onChange: (
 const BootcampRegister: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const [bootcamp, setBootcamp] = useState<Bootcamp | null>(null);
-  const [step, setStep] = useState(1);
+  const [config, setConfig] = useState<SignupConfig | null>(null);
+  const [stepIndex, setStepIndex] = useState(0);
   const [form, setForm] = useState<BootcampRegistrationInput>(emptyForm);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -115,41 +91,42 @@ const BootcampRegister: React.FC = () => {
   const [done, setDone] = useState<{ title: string; email: string; tempPassword?: string } | null>(null);
 
   useEffect(() => {
-    bootcampApi.list().then((res) => {
-      const match = (res.bootcamps || []).find((b) => b.slug === slug) || null;
-      setBootcamp(match);
-    }).catch(() => {});
+    if (!slug) return;
+    bootcampApi.signupConfig(slug).then(setConfig).catch(() => setError('This bootcamp is not available for registration.'));
   }, [slug]);
 
+  // Ordered list of steps: personal first, manager-enabled sections, consent last.
+  const steps = useMemo(() => {
+    const enabled = new Set(config?.sections || []);
+    const middle = OPTIONAL_ORDER.filter((s) => enabled.has(s));
+    return ['personal', ...middle, 'consent'];
+  }, [config]);
+
+  const interestOptions = config?.interests || [];
   const set = (patch: Partial<BootcampRegistrationInput>) => setForm((prev) => ({ ...prev, ...patch }));
+  const current = steps[stepIndex];
 
   const stepValid = useMemo(() => {
-    switch (step) {
-      case 1: return !!(form.full_name.trim() && form.email.trim() && form.phone?.trim() && form.gender && form.age_range);
-      case 2: return !!(form.country && form.state?.trim());
-      case 3: return !!form.highest_qualification;
-      case 4: return !!form.employment_status;
-      case 5: return (form.fintech_interests?.length || 0) > 0;
-      case 6: return !!form.experience_level;
-      case 7: return (form.career_goals?.length || 0) > 0;
-      case 10: return !!form.consent_terms;
+    switch (current) {
+      case 'personal': return !!(form.full_name.trim() && form.email.trim() && form.phone?.trim() && form.gender && form.age_range);
+      case 'location': return !!(form.country && form.state?.trim());
+      case 'education': return !!form.highest_qualification;
+      case 'employment': return !!form.employment_status;
+      case 'interests': return interestOptions.length === 0 || (form.fintech_interests?.length || 0) > 0;
+      case 'skills': return !!form.experience_level;
+      case 'goals': return (form.career_goals?.length || 0) > 0;
+      case 'consent': return !!form.consent_terms;
       default: return true;
     }
-  }, [step, form]);
+  }, [current, form, interestOptions.length]);
 
   const next = () => {
-    if (!stepValid) {
-      setError('Please complete the required fields before continuing.');
-      return;
-    }
+    if (!stepValid) { setError('Please complete the required fields before continuing.'); return; }
     setError('');
-    setStep((s) => Math.min(TOTAL_STEPS, s + 1));
+    setStepIndex((s) => Math.min(steps.length - 1, s + 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-  const back = () => {
-    setError('');
-    setStep((s) => Math.max(1, s - 1));
-  };
+  const back = () => { setError(''); setStepIndex((s) => Math.max(0, s - 1)); };
 
   const handlePhoto = async (file?: File | null) => {
     if (!file) return;
@@ -166,10 +143,7 @@ const BootcampRegister: React.FC = () => {
   };
 
   const submit = async () => {
-    if (!stepValid) {
-      setError('You must agree to the Terms and Conditions to register.');
-      return;
-    }
+    if (!stepValid) { setError('You must agree to the Terms and Conditions to register.'); return; }
     setSubmitting(true);
     setError('');
     try {
@@ -183,16 +157,14 @@ const BootcampRegister: React.FC = () => {
     }
   };
 
-  // ---- Success screen -------------------------------------------------------
   if (done) {
-    const steps = ['Verify Email', 'Join WhatsApp Community', 'Complete Profile', 'Access Orientation Materials', 'Add Event to Calendar'];
+    const nextSteps = ['Verify Email', 'Join the Community', 'Complete Profile', 'Access Orientation Materials', 'Add Event to Calendar'];
     return (
       <div className="mx-auto max-w-2xl">
         <div className="overflow-hidden rounded-[32px] border border-white/70 bg-white shadow-2xl">
           <div className="bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 px-8 py-12 text-center text-white">
             <div className="text-5xl">🎉</div>
-            <h1 className="mt-4 font-display text-3xl font-bold">Welcome to the Kambi Academy × FintechNG Bootcamp</h1>
-            <p className="mt-3 text-indigo-100">{done.title}</p>
+            <h1 className="mt-4 font-display text-3xl font-bold">Welcome to {done.title}</h1>
           </div>
           <div className="space-y-6 px-8 py-8">
             <div className="rounded-2xl border border-indigo-100 bg-indigo-50 px-5 py-4 text-sm text-indigo-800">
@@ -202,7 +174,7 @@ const BootcampRegister: React.FC = () => {
                   <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-4 py-3">
                     <code className="font-mono text-lg font-bold tracking-wider text-indigo-700">{done.tempPassword}</code>
                   </div>
-                  <p className="mt-2 text-xs text-indigo-600">Save this now — you'll be asked to set your own password on first login.</p>
+                  <p className="mt-2 text-xs text-indigo-600">Save this now — you'll set your own password on first login.</p>
                 </>
               ) : (
                 <>An account already exists for <strong>{done.email}</strong>. Sign in with your existing password to access this bootcamp.</>
@@ -211,7 +183,7 @@ const BootcampRegister: React.FC = () => {
             <div>
               <h2 className="text-lg font-bold text-slate-900">Next steps</h2>
               <ul className="mt-3 space-y-2">
-                {steps.map((s) => (
+                {nextSteps.map((s) => (
                   <li key={s} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700">
                     <span className="text-emerald-500">✅</span> {s}
                   </li>
@@ -219,15 +191,8 @@ const BootcampRegister: React.FC = () => {
               </ul>
             </div>
             <div className="flex flex-wrap gap-3">
-              <button onClick={() => navigate('/bootcamp/login')} className="rounded-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5">
-                Go To Dashboard
-              </button>
-              <a href="https://chat.whatsapp.com" target="_blank" rel="noreferrer" className="rounded-full border border-slate-300 px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                Join Community
-              </a>
-              <button onClick={() => navigate('/bootcamps')} className="rounded-full border border-slate-300 px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                Download Welcome Pack
-              </button>
+              <button onClick={() => navigate('/bootcamp/login')} className="rounded-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5">Go To Dashboard</button>
+              <button onClick={() => navigate('/bootcamps')} className="rounded-full border border-slate-300 px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Back to bootcamps</button>
             </div>
           </div>
         </div>
@@ -235,29 +200,41 @@ const BootcampRegister: React.FC = () => {
     );
   }
 
-  const progress = Math.round((step / TOTAL_STEPS) * 100);
+  if (!config) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        {error ? <p className="text-sm font-semibold text-rose-600">{error}</p> : <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-500" />}
+      </div>
+    );
+  }
+
+  const progress = Math.round(((stepIndex + 1) / steps.length) * 100);
 
   return (
     <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr]">
-      {/* Left marketing panel */}
+      {/* Left marketing panel — driven by the bootcamp manager's config */}
       <aside className="hidden overflow-hidden rounded-[32px] bg-gradient-to-br from-indigo-700 via-violet-700 to-fuchsia-700 p-8 text-white shadow-2xl lg:block">
-        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-indigo-200">Kambi × FintechNG Bootcamp</p>
-        <h2 className="mt-4 font-display text-3xl font-bold leading-tight">Join Africa's Next Generation of Fintech Innovators</h2>
-        <ul className="mt-8 space-y-3">
-          {BENEFITS.map((b) => (
-            <li key={b} className="flex items-start gap-3 text-sm text-indigo-50">
-              <span className="text-emerald-300">✅</span> {b}
-            </li>
-          ))}
-        </ul>
-        <div className="mt-10 grid grid-cols-2 gap-4">
-          {STATS.map((s) => (
-            <div key={s.label} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-4 backdrop-blur">
-              <p className="font-display text-2xl font-bold">{s.value}</p>
-              <p className="text-xs text-indigo-100">{s.label}</p>
-            </div>
-          ))}
-        </div>
+        <img src="/kambiacademy_logo.jpg" alt="Kambi Academy" className="mb-5 h-11 w-11 rounded-xl bg-white/90 object-contain p-1" />
+        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-indigo-200">{config.title}</p>
+        <h2 className="mt-4 font-display text-3xl font-bold leading-tight">{config.headline}</h2>
+        {config.subtitle && <p className="mt-3 text-sm leading-7 text-indigo-100">{config.subtitle}</p>}
+        {config.benefits.length > 0 && (
+          <ul className="mt-8 space-y-3">
+            {config.benefits.map((b) => (
+              <li key={b} className="flex items-start gap-3 text-sm text-indigo-50"><span className="text-emerald-300">✅</span> {b}</li>
+            ))}
+          </ul>
+        )}
+        {config.stats.length > 0 && (
+          <div className="mt-10 grid grid-cols-2 gap-4">
+            {config.stats.map((s) => (
+              <div key={s.label} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-4 backdrop-blur">
+                <p className="font-display text-2xl font-bold">{s.value}</p>
+                <p className="text-xs text-indigo-100">{s.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </aside>
 
       {/* Right form */}
@@ -265,21 +242,21 @@ const BootcampRegister: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-indigo-500">Registration</p>
-            <h1 className="mt-1 font-display text-2xl font-bold text-slate-900">{bootcamp?.title || 'Fintech Bootcamp'}</h1>
+            <h1 className="mt-1 font-display text-2xl font-bold text-slate-900">{config.title}</h1>
           </div>
-          <span className="text-sm font-semibold text-slate-500">Step {step} of {TOTAL_STEPS}</span>
+          <span className="text-sm font-semibold text-slate-500">Step {stepIndex + 1} of {steps.length}</span>
         </div>
 
-        {/* Progress bar */}
         <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
           <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 transition-all duration-500" style={{ width: `${progress}%` }} />
         </div>
         <p className="mt-1.5 text-right text-xs font-semibold text-slate-400">{progress}% complete</p>
 
         <div className="mt-6 space-y-5">
-          {step === 1 && (
+          <h3 className="font-display text-lg font-bold text-slate-900">{SECTION_TITLE[current]}</h3>
+
+          {current === 'personal' && (
             <>
-              <h3 className="font-display text-lg font-bold text-slate-900">Personal Information</h3>
               <Field label="Full Name" required><input className={inputCls} value={form.full_name} onChange={(e) => set({ full_name: e.target.value })} placeholder="e.g. Johnathan Smith" /></Field>
               <Field label="Email Address" required><input type="email" className={inputCls} value={form.email} onChange={(e) => set({ email: e.target.value })} placeholder="name@example.com" /></Field>
               <Field label="Phone Number" required><input className={inputCls} value={form.phone} onChange={(e) => set({ phone: e.target.value })} placeholder="+234 ..." /></Field>
@@ -289,13 +266,12 @@ const BootcampRegister: React.FC = () => {
             </>
           )}
 
-          {step === 2 && (
+          {current === 'location' && (
             <>
-              <h3 className="font-display text-lg font-bold text-slate-900">Location Information</h3>
               <Field label="Country" required>
                 <select className={inputCls} value={form.country} onChange={(e) => set({ country: e.target.value })}>
                   <option value="">Select country</option>
-                  {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  {['Nigeria', 'Ghana', 'Kenya', 'South Africa', 'Other'].map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </Field>
               <Field label="State / Province" required><input className={inputCls} value={form.state} onChange={(e) => set({ state: e.target.value })} /></Field>
@@ -303,9 +279,8 @@ const BootcampRegister: React.FC = () => {
             </>
           )}
 
-          {step === 3 && (
+          {current === 'education' && (
             <>
-              <h3 className="font-display text-lg font-bold text-slate-900">Educational Background</h3>
               <Field label="Highest Qualification" required>
                 <select className={inputCls} value={form.highest_qualification} onChange={(e) => set({ highest_qualification: e.target.value })}>
                   <option value="">Select qualification</option>
@@ -317,29 +292,27 @@ const BootcampRegister: React.FC = () => {
             </>
           )}
 
-          {step === 4 && (
+          {current === 'employment' && (
             <>
-              <h3 className="font-display text-lg font-bold text-slate-900">Employment Information</h3>
               <Field label="Employment Status" required><RadioGroup columns={2} options={EMPLOYMENT} value={form.employment_status} onChange={(v) => set({ employment_status: v })} /></Field>
               <Field label="Organization Name"><input className={inputCls} value={form.organization_name} onChange={(e) => set({ organization_name: e.target.value })} /></Field>
               <Field label="Current Role"><input className={inputCls} value={form.current_role} onChange={(e) => set({ current_role: e.target.value })} /></Field>
             </>
           )}
 
-          {step === 5 && (
-            <>
-              <h3 className="font-display text-lg font-bold text-slate-900">Fintech Interests</h3>
-              <Field label="Which fintech areas interest you?" required>
-                <CheckboxGroup columns={2} options={FINTECH_AREAS} values={form.fintech_interests || []} onChange={(v) => set({ fintech_interests: v })} />
-              </Field>
-            </>
+          {current === 'interests' && (
+            <Field label="Which areas interest you?" required={interestOptions.length > 0}>
+              {interestOptions.length > 0 ? (
+                <CheckboxGroup columns={2} options={interestOptions} values={form.fintech_interests || []} onChange={(v) => set({ fintech_interests: v })} />
+              ) : (
+                <p className="text-sm text-slate-500">No options configured.</p>
+              )}
+            </Field>
           )}
 
-          {step === 6 && (
+          {current === 'skills' && (
             <>
-              <h3 className="font-display text-lg font-bold text-slate-900">Skills Assessment</h3>
               <Field label="What best describes your level?" required><RadioGroup columns={3} options={LEVELS} value={form.experience_level} onChange={(v) => set({ experience_level: v })} /></Field>
-              <Field label="Have you worked on a tech project before?"><RadioGroup columns={2} options={['Yes', 'No']} value={form.tech_project_before} onChange={(v) => set({ tech_project_before: v })} /></Field>
               <Field label="Do you have coding experience?"><RadioGroup columns={2} options={['Yes', 'No']} value={form.coding_experience} onChange={(v) => set({ coding_experience: v })} /></Field>
               {form.coding_experience === 'Yes' && (
                 <Field label="Which languages?"><CheckboxGroup columns={3} options={LANGUAGES} values={form.coding_languages || []} onChange={(v) => set({ coding_languages: v })} /></Field>
@@ -347,19 +320,17 @@ const BootcampRegister: React.FC = () => {
             </>
           )}
 
-          {step === 7 && (
+          {current === 'goals' && (
             <>
-              <h3 className="font-display text-lg font-bold text-slate-900">Career Goals</h3>
-              <Field label="Why are you joining this bootcamp?" required><CheckboxGroup columns={2} options={CAREER_GOALS} values={form.career_goals || []} onChange={(v) => set({ career_goals: v })} /></Field>
+              <Field label="Why are you joining?" required><CheckboxGroup columns={2} options={CAREER_GOALS} values={form.career_goals || []} onChange={(v) => set({ career_goals: v })} /></Field>
               <Field label="What do you hope to achieve?"><textarea rows={4} className={inputCls} value={form.career_goals_text} onChange={(e) => set({ career_goals_text: e.target.value })} /></Field>
             </>
           )}
 
-          {step === 8 && (
+          {current === 'innovation' && (
             <>
-              <h3 className="font-display text-lg font-bold text-slate-900">Innovation & Startup Interest</h3>
-              <Field label="Interested in Startup Formation?"><RadioGroup columns={2} options={['Yes', 'No']} value={form.startup_interest} onChange={(v) => set({ startup_interest: v })} /></Field>
-              <Field label="Interested in Joining a Team?"><RadioGroup columns={2} options={['Yes', 'No']} value={form.team_interest} onChange={(v) => set({ team_interest: v })} /></Field>
+              <Field label="Interested in startup formation?"><RadioGroup columns={2} options={['Yes', 'No']} value={form.startup_interest} onChange={(v) => set({ startup_interest: v })} /></Field>
+              <Field label="Interested in joining a team?"><RadioGroup columns={2} options={['Yes', 'No']} value={form.team_interest} onChange={(v) => set({ team_interest: v })} /></Field>
               <Field label="Do you already have a startup idea?"><RadioGroup columns={2} options={['Yes', 'No']} value={form.startup_idea} onChange={(v) => set({ startup_idea: v })} /></Field>
               {form.startup_idea === 'Yes' && (
                 <Field label="Tell us about your idea"><textarea rows={3} className={inputCls} value={form.startup_idea_text} onChange={(e) => set({ startup_idea_text: e.target.value })} /></Field>
@@ -367,9 +338,8 @@ const BootcampRegister: React.FC = () => {
             </>
           )}
 
-          {step === 9 && (
+          {current === 'community' && (
             <>
-              <h3 className="font-display text-lg font-bold text-slate-900">Community & Networking</h3>
               <Field label="Profile Picture">
                 <div className="flex items-center gap-4">
                   {form.profile_photo ? (
@@ -389,26 +359,17 @@ const BootcampRegister: React.FC = () => {
             </>
           )}
 
-          {step === 10 && (
+          {current === 'consent' && (
             <>
-              <h3 className="font-display text-lg font-bold text-slate-900">Consent & Agreements</h3>
               {[
                 { key: 'consent_terms' as const, label: 'I agree to the Terms and Conditions', required: true },
                 { key: 'consent_updates' as const, label: 'I agree to receive updates from Kambi Academy' },
                 { key: 'consent_community' as const, label: 'I consent to being added to the community platform' },
                 { key: 'consent_jobs' as const, label: 'I consent to receiving internship and job opportunities' },
               ].map((c) => (
-                <button
-                  key={c.key}
-                  type="button"
-                  onClick={() => set({ [c.key]: !form[c.key] } as Partial<BootcampRegistrationInput>)}
-                  className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left text-sm font-medium transition ${
-                    form[c.key] ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                  }`}
-                >
-                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 ${form[c.key] ? 'border-indigo-500 bg-indigo-500 text-white' : 'border-slate-300'}`}>
-                    {form[c.key] && '✓'}
-                  </span>
+                <button key={c.key} type="button" onClick={() => set({ [c.key]: !form[c.key] } as Partial<BootcampRegistrationInput>)}
+                  className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left text-sm font-medium transition ${form[c.key] ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 ${form[c.key] ? 'border-indigo-500 bg-indigo-500 text-white' : 'border-slate-300'}`}>{form[c.key] && '✓'}</span>
                   {c.label}{c.required && <span className="text-rose-500"> *</span>}
                 </button>
               ))}
@@ -419,15 +380,13 @@ const BootcampRegister: React.FC = () => {
         {error && <p className="mt-5 text-sm font-semibold text-rose-600">{error}</p>}
 
         <div className="mt-7 flex items-center justify-between gap-3">
-          {step > 1 ? (
+          {stepIndex > 0 ? (
             <button onClick={back} className="rounded-full border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">Back</button>
           ) : (
             <Link to={`/bootcamps/${slug}`} className="rounded-full border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">Cancel</Link>
           )}
-          {step < TOTAL_STEPS ? (
-            <button onClick={next} className="rounded-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5">
-              Save & Continue
-            </button>
+          {stepIndex < steps.length - 1 ? (
+            <button onClick={next} className="rounded-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5">Save & Continue</button>
           ) : (
             <button onClick={submit} disabled={submitting} className="rounded-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 disabled:opacity-60">
               {submitting ? 'Submitting…' : 'Submit Registration'}

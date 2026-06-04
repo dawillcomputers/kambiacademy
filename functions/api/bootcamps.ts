@@ -19,6 +19,14 @@ interface BootcampBody {
   end_date?: string;
   managerEmail?: string;
   action?: 'close' | 'open';
+  // Registration / marketing config
+  initial_participants?: number;
+  signup_headline?: string;
+  signup_subtitle?: string;
+  signup_benefits?: string[];
+  signup_stats?: Array<{ label: string; value: string }>;
+  signup_sections?: string[];
+  signup_interests?: string[];
 }
 
 // GET /api/bootcamps
@@ -117,8 +125,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const status = body.status === 'draft' || body.status === 'closed' ? body.status : 'open';
 
   const result = await env.DB.prepare(
-    `INSERT INTO bootcamps (slug, title, tagline, description, cover_image_url, category, status, price, start_date, end_date, manager_id, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO bootcamps (slug, title, tagline, description, cover_image_url, category, status, price, start_date, end_date, manager_id, created_by, initial_participants)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       slug,
@@ -126,13 +134,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       body.tagline || '',
       body.description || '',
       body.cover_image_url || '',
-      body.category || 'Fintech',
+      body.category || 'Bootcamp',
       status,
       Number(body.price || 0),
       body.start_date || null,
       body.end_date || null,
       managerId,
       user!.id,
+      Number(body.initial_participants || 0),
     )
     .run();
 
@@ -195,6 +204,17 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
   if (body.end_date !== undefined) set('end_date', body.end_date || null);
   if (status) set('status', status);
   if (managerId !== undefined) set('manager_id', managerId);
+
+  // Initial participant seed is super-admin only.
+  if (body.initial_participants !== undefined && isSuper) set('initial_participants', Number(body.initial_participants || 0));
+
+  // Registration / marketing config (manager or super admin).
+  if (body.signup_headline !== undefined) set('signup_headline', body.signup_headline || '');
+  if (body.signup_subtitle !== undefined) set('signup_subtitle', body.signup_subtitle || '');
+  if (body.signup_benefits !== undefined) set('signup_benefits', JSON.stringify(Array.isArray(body.signup_benefits) ? body.signup_benefits : []));
+  if (body.signup_stats !== undefined) set('signup_stats', JSON.stringify(Array.isArray(body.signup_stats) ? body.signup_stats : []));
+  if (body.signup_sections !== undefined) set('signup_sections', JSON.stringify(Array.isArray(body.signup_sections) ? body.signup_sections : []));
+  if (body.signup_interests !== undefined) set('signup_interests', JSON.stringify(Array.isArray(body.signup_interests) ? body.signup_interests : []));
 
   if (updates.length === 0) {
     return Response.json({ error: 'Nothing to update.' }, { status: 400 });

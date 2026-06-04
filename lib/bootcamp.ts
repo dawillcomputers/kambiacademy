@@ -20,6 +20,32 @@ export interface Bootcamp {
   enrollment_count?: number;
   enrolled?: boolean;
   created_at?: string;
+  // Registration / marketing config (raw JSON strings on admin/manage scope)
+  initial_participants?: number;
+  signup_headline?: string;
+  signup_subtitle?: string;
+  signup_benefits?: string;
+  signup_stats?: string;
+  signup_sections?: string;
+  signup_interests?: string;
+}
+
+export interface SignupStat {
+  label: string;
+  value: string;
+}
+
+export interface SignupConfig {
+  bootcampId: number;
+  slug: string;
+  title: string;
+  status: string;
+  headline: string;
+  subtitle: string;
+  benefits: string[];
+  stats: SignupStat[];
+  sections: string[];
+  interests: string[];
 }
 
 export interface BootcampResource {
@@ -70,6 +96,13 @@ export interface BootcampInput {
   end_date?: string;
   managerEmail?: string;
   action?: 'open' | 'close';
+  initial_participants?: number;
+  signup_headline?: string;
+  signup_subtitle?: string;
+  signup_benefits?: string[];
+  signup_stats?: SignupStat[];
+  signup_sections?: string[];
+  signup_interests?: string[];
 }
 
 export interface CompetitionInput {
@@ -180,6 +213,9 @@ export const bootcampApi = {
   create: (input: BootcampInput) => api.post<{ id: number; slug: string }>('/api/bootcamps', input),
   update: (input: BootcampInput) => api.patch<{ message: string }>('/api/bootcamps', input),
   remove: (id: number) => api.del<{ message: string }>(`/api/bootcamps?id=${id}`),
+
+  // Per-bootcamp registration config (public — drives the signup wizard)
+  signupConfig: (slug: string) => api.get<SignupConfig>(`/api/bootcamps/signup-config?slug=${encodeURIComponent(slug)}`),
 
   // Detailed registration (creates a separate bootcamp account)
   register: (input: BootcampRegistrationInput) => api.post<BootcampRegistrationResult>('/api/bootcamps/register', input),

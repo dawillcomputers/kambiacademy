@@ -42,8 +42,9 @@ const BootcampLogin: React.FC = () => {
       {/* Brand panel */}
       <div className="hidden w-1/2 flex-col justify-between bg-gradient-to-br from-indigo-700 via-violet-700 to-fuchsia-700 p-10 text-white lg:flex">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-indigo-200">Kambi × FintechNG</p>
-          <h2 className="mt-4 font-display text-3xl font-bold leading-tight">Welcome back, fintech innovator.</h2>
+          <img src="/kambiacademy_logo.jpg" alt="Kambi Academy" className="mb-5 h-12 w-12 rounded-xl bg-white/90 object-contain p-1" />
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-indigo-200">Kambi Academy Bootcamps</p>
+          <h2 className="mt-4 font-display text-3xl font-bold leading-tight">Welcome back.</h2>
           <p className="mt-4 text-sm leading-7 text-indigo-100">
             Sign in to your bootcamp dashboard to access your hub, resources, competitions, and Kambi Academy courses.
           </p>

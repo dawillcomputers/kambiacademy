@@ -4,8 +4,9 @@ import { Bootcamp, bootcampApi } from '../../../../lib/bootcamp';
 import ResourcesManager from '../../../../components/bootcamp/ResourcesManager';
 import CompetitionsManager from '../../../../components/bootcamp/CompetitionsManager';
 import TeamManager from '../../../../components/bootcamp/TeamManager';
+import RegistrationConfig from '../../../../components/bootcamp/RegistrationConfig';
 
-type Tab = 'content' | 'competitions' | 'team' | 'settings';
+type Tab = 'content' | 'competitions' | 'team' | 'registration' | 'settings';
 
 const ManagerManageBootcamp: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -116,6 +117,7 @@ const ManagerManageBootcamp: React.FC = () => {
     { key: 'content', label: 'Hub content' },
     { key: 'competitions', label: 'Competitions' },
     { key: 'team', label: 'Facilitators & Mentors' },
+    { key: 'registration', label: 'Signup page' },
     { key: 'settings', label: 'Settings' },
   ];
 
@@ -150,6 +152,7 @@ const ManagerManageBootcamp: React.FC = () => {
       {tab === 'content' && <ResourcesManager bootcampId={bootcampId} />}
       {tab === 'competitions' && <CompetitionsManager bootcampId={bootcampId} />}
       {tab === 'team' && <TeamManager bootcampId={bootcampId} />}
+      {tab === 'registration' && <RegistrationConfig bootcamp={bootcamp} onSaved={load} />}
       {tab === 'settings' && (
         <form onSubmit={saveSettings} className="max-w-2xl space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           {message && <p className="text-sm font-semibold text-emerald-600">{message}</p>}

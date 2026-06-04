@@ -126,11 +126,16 @@ export default function DashboardShell({
     <>
       {/* Brand */}
       <div className={`flex items-center justify-between px-4 py-5 border-b ${t.sidebarBorder}`}>
-        {!collapsed && (
-          <div className="min-w-0">
-            <h1 className={`text-lg font-extrabold tracking-tight ${t.logo}`}>{title}</h1>
-            {subtitle && <p className={`text-xs mt-0.5 ${t.dimmed}`}>{subtitle}</p>}
+        {!collapsed ? (
+          <div className="flex min-w-0 items-center gap-2.5">
+            <img src="/kambiacademy_logo.jpg" alt="Kambi Academy" className="h-9 w-9 shrink-0 rounded-lg object-contain" />
+            <div className="min-w-0">
+              <h1 className={`text-lg font-extrabold tracking-tight ${t.logo}`}>{title}</h1>
+              {subtitle && <p className={`text-xs mt-0.5 ${t.dimmed}`}>{subtitle}</p>}
+            </div>
           </div>
+        ) : (
+          <img src="/kambiacademy_logo.jpg" alt="Kambi Academy" className="mx-auto h-8 w-8 rounded-lg object-contain" />
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
