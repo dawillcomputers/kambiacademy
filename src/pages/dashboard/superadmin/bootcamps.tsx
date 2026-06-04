@@ -22,6 +22,17 @@ const statusBadge = (status: string) => {
   return 'bg-amber-100 text-amber-700';
 };
 
+const fieldCls = 'w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500';
+
+// Label + description wrapper so every field is self-explanatory.
+const Labeled: React.FC<{ label: string; description: string; required?: boolean; children: React.ReactNode }> = ({ label, description, required, children }) => (
+  <div className="space-y-1">
+    <label className="block text-sm font-semibold text-slate-700">{label}{required && <span className="text-rose-500"> *</span>}</label>
+    <p className="text-xs text-slate-400">{description}</p>
+    <div className="pt-0.5">{children}</div>
+  </div>
+);
+
 const SuperAdminBootcamps: React.FC = () => {
   const [bootcamps, setBootcamps] = useState<Bootcamp[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +45,36 @@ const SuperAdminBootcamps: React.FC = () => {
   const [managerEmails, setManagerEmails] = useState<Record<number, string>>({});
   const [registrants, setRegistrants] = useState<Record<number, BootcampRegistration[]>>({});
   const [registrantsLoading, setRegistrantsLoading] = useState<number | null>(null);
+  const [allRegistrants, setAllRegistrants] = useState<BootcampRegistration[]>([]);
+  const [showRegistrants, setShowRegistrants] = useState(false);
+  const [coverUploading, setCoverUploading] = useState(false);
+
+  const loadAllRegistrants = useCallback(async () => {
+    try {
+      const res = await bootcampApi.registrations();
+      setAllRegistrants(res.registrations || []);
+    } catch {
+      setAllRegistrants([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadAllRegistrants();
+  }, [loadAllRegistrants]);
+
+  const handleCoverUpload = async (file?: File | null) => {
+    if (!file) return;
+    setCoverUploading(true);
+    setError('');
+    try {
+      const { url } = await bootcampApi.uploadCoverImage(file);
+      setCreateForm((prev) => ({ ...prev, cover_image_url: url }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Cover upload failed.');
+    } finally {
+      setCoverUploading(false);
+    }
+  };
 
   const loadRegistrants = useCallback(async (bootcampId: number) => {
     setRegistrantsLoading(bootcampId);
@@ -58,7 +99,7 @@ const SuperAdminBootcamps: React.FC = () => {
     try {
       await bootcampApi.appointManager(bootcampId, userId);
       flash('Manager appointed.');
-      await Promise.all([load(), loadRegistrants(bootcampId)]);
+      await Promise.all([load(), loadRegistrants(bootcampId), loadAllRegistrants()]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to appoint manager.');
     }
@@ -72,7 +113,7 @@ const SuperAdminBootcamps: React.FC = () => {
       const res = await bootcampApi.resetPassword(userId);
       setResetPasswords((prev) => ({ ...prev, [userId]: res.tempPassword }));
       flash(`New temporary password: ${res.tempPassword}`);
-      await loadRegistrants(bootcampId);
+      await Promise.all([loadRegistrants(bootcampId), loadAllRegistrants()]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reset password.');
     }
@@ -157,55 +198,163 @@ const SuperAdminBootcamps: React.FC = () => {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Bootcamps</h1>
-          <p className="mt-1 text-sm text-slate-500">Create and run multiple fintech bootcamps. Assign managers and close cohorts when done.</p>
+          <p className="mt-1 text-sm text-slate-500">Create and run multiple bootcamps across any field. Appoint managers from registrants and close cohorts when done.</p>
         </div>
-        <button
-          onClick={() => setShowCreate((v) => !v)}
-          className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
-        >
-          {showCreate ? 'Cancel' : '+ New bootcamp'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setShowRegistrants((v) => !v); if (!showRegistrants) void loadAllRegistrants(); }}
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            {showRegistrants ? 'Hide registrants' : `View registrants (${allRegistrants.length})`}
+          </button>
+          <button
+            onClick={() => setShowCreate((v) => !v)}
+            className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+          >
+            {showCreate ? 'Cancel' : '+ New bootcamp'}
+          </button>
+        </div>
       </div>
 
       {message && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">{message}</div>}
       {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>}
 
       {showCreate && (
-        <form onSubmit={create} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input value={createForm.title} onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })} placeholder="Bootcamp title *" required
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            <input value={createForm.tagline} onChange={(e) => setCreateForm({ ...createForm, tagline: e.target.value })} placeholder="Tagline"
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <form onSubmit={create} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Labeled label="Bootcamp name" description="The public title of this cohort, e.g. 'Product Design Bootcamp 2026'." required>
+              <input value={createForm.title} onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })} required className={fieldCls} />
+            </Labeled>
+            <Labeled label="Tagline" description="A short one-line hook shown under the title on cards and the detail page.">
+              <input value={createForm.tagline} onChange={(e) => setCreateForm({ ...createForm, tagline: e.target.value })} className={fieldCls} />
+            </Labeled>
           </div>
-          <textarea value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })} placeholder="Description" rows={3}
-            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          <input value={createForm.cover_image_url} onChange={(e) => setCreateForm({ ...createForm, cover_image_url: e.target.value })} placeholder="Cover image URL"
-            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <input value={createForm.category} onChange={(e) => setCreateForm({ ...createForm, category: e.target.value })} placeholder="Category"
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            <input type="number" min={0} value={createForm.price} onChange={(e) => setCreateForm({ ...createForm, price: Number(e.target.value) })} placeholder="Price (₦)"
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            <input type="date" value={createForm.start_date} onChange={(e) => setCreateForm({ ...createForm, start_date: e.target.value })}
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            <input type="date" value={createForm.end_date} onChange={(e) => setCreateForm({ ...createForm, end_date: e.target.value })}
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+
+          <Labeled label="Description" description="What participants will learn and do. Shown on the bootcamp's public page.">
+            <textarea value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })} rows={3} className={fieldCls} />
+          </Labeled>
+
+          <Labeled label="Cover image" description="Upload a wide landscape image (1600×900+) used on cards and the hero. You can also paste a URL.">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div
+                className="h-24 w-40 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 bg-cover bg-center text-center text-xs leading-[6rem] text-slate-400"
+                style={createForm.cover_image_url ? { backgroundImage: `url(${createForm.cover_image_url})` } : undefined}
+              >
+                {!createForm.cover_image_url && 'Preview'}
+              </div>
+              <div className="flex-1 space-y-2">
+                <label className="inline-flex cursor-pointer items-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                  {coverUploading ? 'Uploading…' : 'Upload image'}
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleCoverUpload(e.target.files?.[0])} />
+                </label>
+                <input value={createForm.cover_image_url} onChange={(e) => setCreateForm({ ...createForm, cover_image_url: e.target.value })} placeholder="…or paste an image URL" className={fieldCls} />
+              </div>
+            </div>
+          </Labeled>
+
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <Labeled label="Category" description="Field or theme, e.g. Design, Data, Fintech.">
+              <input value={createForm.category} onChange={(e) => setCreateForm({ ...createForm, category: e.target.value })} className={fieldCls} />
+            </Labeled>
+            <Labeled label="Price (₦)" description="Set 0 for a free cohort.">
+              <input type="number" min={0} value={createForm.price} onChange={(e) => setCreateForm({ ...createForm, price: Number(e.target.value) })} className={fieldCls} />
+            </Labeled>
+            <Labeled label="Start date" description="When the cohort begins.">
+              <input type="date" value={createForm.start_date} onChange={(e) => setCreateForm({ ...createForm, start_date: e.target.value })} className={fieldCls} />
+            </Labeled>
+            <Labeled label="End date" description="When the cohort ends.">
+              <input type="date" value={createForm.end_date} onChange={(e) => setCreateForm({ ...createForm, end_date: e.target.value })} className={fieldCls} />
+            </Labeled>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input value={createForm.managerEmail} onChange={(e) => setCreateForm({ ...createForm, managerEmail: e.target.value })} placeholder="Manager email (existing user)"
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            <select value={createForm.status} onChange={(e) => setCreateForm({ ...createForm, status: e.target.value as BootcampInput['status'] })}
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="open">Open (enrolling)</option>
-              <option value="draft">Draft (hidden)</option>
-              <option value="closed">Closed</option>
-            </select>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Labeled label="Manager" description="Choose a manager from people who have registered. You can also appoint one later from “View registrants”.">
+              <select value={createForm.managerEmail} onChange={(e) => setCreateForm({ ...createForm, managerEmail: e.target.value })} className={fieldCls}>
+                <option value="">No manager yet</option>
+                {allRegistrants.map((r) => (
+                  <option key={r.id} value={r.email}>{r.full_name} — {r.email}</option>
+                ))}
+              </select>
+            </Labeled>
+            <Labeled label="Status" description="Open accepts registrations. Draft hides it. Closed stops new registrations.">
+              <select value={createForm.status} onChange={(e) => setCreateForm({ ...createForm, status: e.target.value as BootcampInput['status'] })} className={fieldCls}>
+                <option value="open">Open (enrolling)</option>
+                <option value="draft">Draft (hidden)</option>
+                <option value="closed">Closed</option>
+              </select>
+            </Labeled>
           </div>
+
           <button type="submit" disabled={saving} className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60">
             {saving ? 'Creating…' : 'Create bootcamp'}
           </button>
         </form>
+      )}
+
+      {showRegistrants && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-3">
+            <h3 className="text-lg font-semibold text-slate-900">All registrants</h3>
+            <p className="text-sm text-slate-500">Everyone who registered for any bootcamp. Appoint a manager (for the bootcamp they registered for) or reset a password.</p>
+          </div>
+          {allRegistrants.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">No registrants yet.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-4 py-2.5">Name</th>
+                    <th className="px-4 py-2.5">Email</th>
+                    <th className="px-4 py-2.5">Bootcamp</th>
+                    <th className="px-4 py-2.5">Temp password</th>
+                    <th className="px-4 py-2.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {allRegistrants.map((r) => {
+                    const isManager = r.user_role === 'bootcamp_manager';
+                    return (
+                      <tr key={r.id} className="hover:bg-slate-50">
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-2">
+                            {r.profile_photo ? (
+                              <img src={r.profile_photo} alt={r.full_name} className="h-7 w-7 rounded-full object-cover" />
+                            ) : (
+                              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">{r.full_name.charAt(0).toUpperCase()}</span>
+                            )}
+                            <span className="font-medium text-slate-900">{r.full_name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-600">{r.email}</td>
+                        <td className="px-4 py-2.5 text-slate-600">{r.bootcamp_title || '—'}</td>
+                        <td className="px-4 py-2.5">
+                          {resetPasswords[r.user_id] ? (
+                            <code className="rounded bg-amber-100 px-2 py-0.5 font-mono text-xs font-semibold text-amber-800">{resetPasswords[r.user_id]}</code>
+                          ) : r.must_change_password === 1 && r.temp_password ? (
+                            <code className="rounded bg-indigo-50 px-2 py-0.5 font-mono text-xs font-semibold text-indigo-700">{r.temp_password}</code>
+                          ) : (
+                            <span className="text-xs text-slate-400">Set by user</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => resetPassword(r.bootcamp_id, r.user_id)} className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200">Reset password</button>
+                            {isManager ? (
+                              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">Manager</span>
+                            ) : (
+                              <button onClick={() => appoint(r.bootcamp_id, r.user_id)} className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Make manager</button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
 
       {loading ? (

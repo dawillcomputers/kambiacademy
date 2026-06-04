@@ -3,8 +3,9 @@ import { Link, useParams } from 'react-router-dom';
 import { Bootcamp, bootcampApi } from '../../../../lib/bootcamp';
 import ResourcesManager from '../../../../components/bootcamp/ResourcesManager';
 import CompetitionsManager from '../../../../components/bootcamp/CompetitionsManager';
+import TeamManager from '../../../../components/bootcamp/TeamManager';
 
-type Tab = 'content' | 'competitions' | 'settings';
+type Tab = 'content' | 'competitions' | 'team' | 'settings';
 
 const ManagerManageBootcamp: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +18,7 @@ const ManagerManageBootcamp: React.FC = () => {
   // Settings form
   const [form, setForm] = useState({ title: '', tagline: '', description: '', cover_image_url: '', start_date: '', end_date: '' });
   const [saving, setSaving] = useState(false);
+  const [coverUploading, setCoverUploading] = useState(false);
   const [message, setMessage] = useState('');
 
   const load = useCallback(async () => {
@@ -64,6 +66,20 @@ const ManagerManageBootcamp: React.FC = () => {
     }
   };
 
+  const handleCoverUpload = async (file?: File | null) => {
+    if (!file) return;
+    setCoverUploading(true);
+    setError('');
+    try {
+      const { url } = await bootcampApi.uploadCoverImage(file);
+      setForm((prev) => ({ ...prev, cover_image_url: url }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Cover upload failed.');
+    } finally {
+      setCoverUploading(false);
+    }
+  };
+
   const toggleStatus = async () => {
     if (!bootcamp) return;
     const action = bootcamp.status === 'open' ? 'close' : 'open';
@@ -99,6 +115,7 @@ const ManagerManageBootcamp: React.FC = () => {
   const tabs: { key: Tab; label: string }[] = [
     { key: 'content', label: 'Hub content' },
     { key: 'competitions', label: 'Competitions' },
+    { key: 'team', label: 'Facilitators & Mentors' },
     { key: 'settings', label: 'Settings' },
   ];
 
@@ -132,6 +149,7 @@ const ManagerManageBootcamp: React.FC = () => {
 
       {tab === 'content' && <ResourcesManager bootcampId={bootcampId} />}
       {tab === 'competitions' && <CompetitionsManager bootcampId={bootcampId} />}
+      {tab === 'team' && <TeamManager bootcampId={bootcampId} />}
       {tab === 'settings' && (
         <form onSubmit={saveSettings} className="max-w-2xl space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           {message && <p className="text-sm font-semibold text-emerald-600">{message}</p>}
@@ -162,12 +180,28 @@ const ManagerManageBootcamp: React.FC = () => {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-700">Cover image URL</label>
-            <input
-              value={form.cover_image_url}
-              onChange={(e) => setForm({ ...form, cover_image_url: e.target.value })}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+            <label className="text-sm font-medium text-slate-700">Cover image</label>
+            <p className="text-xs text-slate-400">Upload a wide image, or paste a URL.</p>
+            <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div
+                className="h-20 w-36 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 bg-cover bg-center text-center text-xs leading-[5rem] text-slate-400"
+                style={form.cover_image_url ? { backgroundImage: `url(${form.cover_image_url})` } : undefined}
+              >
+                {!form.cover_image_url && 'Preview'}
+              </div>
+              <div className="flex-1 space-y-2">
+                <label className="inline-flex cursor-pointer items-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                  {coverUploading ? 'Uploading…' : 'Upload image'}
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleCoverUpload(e.target.files?.[0])} />
+                </label>
+                <input
+                  value={form.cover_image_url}
+                  onChange={(e) => setForm({ ...form, cover_image_url: e.target.value })}
+                  placeholder="…or paste an image URL"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>

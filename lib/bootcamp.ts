@@ -157,6 +157,16 @@ export interface BootcampRegistration {
   created_at: string;
 }
 
+export interface Facilitator {
+  id: number;
+  bootcamp_id: number;
+  user_id?: number | null;
+  name: string;
+  email: string;
+  role: 'facilitator' | 'mentor';
+  created_at: string;
+}
+
 const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
 export const bootcampApi = {
@@ -181,6 +191,25 @@ export const bootcampApi = {
     if (!res.ok) throw new Error(data.error || 'Photo upload failed.');
     return { url: data.url || '' };
   },
+  uploadCoverImage: async (file: File): Promise<{ url: string }> => {
+    const formData = new FormData();
+    formData.set('file', file);
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${apiBase}/api/bootcamps/cover-image`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    const data = (await res.json()) as { url?: string; error?: string };
+    if (!res.ok) throw new Error(data.error || 'Cover upload failed.');
+    return { url: data.url || '' };
+  },
+
+  // Facilitators & mentors (managed by the bootcamp manager)
+  facilitators: (bootcampId: number) => api.get<{ facilitators: Facilitator[] }>(`/api/bootcamps/facilitators?bootcamp=${bootcampId}`),
+  addFacilitator: (input: { bootcamp_id: number; user_id?: number; name?: string; email?: string; role: 'facilitator' | 'mentor' }) =>
+    api.post<{ message: string }>('/api/bootcamps/facilitators', input),
+  removeFacilitator: (id: number) => api.del<{ message: string }>(`/api/bootcamps/facilitators?id=${id}`),
 
   // Registrants (super admin / manager)
   registrations: (bootcampId?: number) =>

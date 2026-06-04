@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Bootcamp, BootcampCompetition, BootcampResource, bootcampApi, formatBootcampDate } from '../../../../lib/bootcamp';
+import { Bootcamp, BootcampCompetition, BootcampResource, Facilitator, bootcampApi, formatBootcampDate } from '../../../../lib/bootcamp';
 
 const typeBadge = (type: string) => {
   if (type === 'announcement') return 'bg-amber-100 text-amber-700';
@@ -13,6 +13,7 @@ const StudentBootcampDetail: React.FC = () => {
   const [bootcamp, setBootcamp] = useState<Bootcamp | null>(null);
   const [resources, setResources] = useState<BootcampResource[]>([]);
   const [competitions, setCompetitions] = useState<BootcampCompetition[]>([]);
+  const [team, setTeam] = useState<Facilitator[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -25,12 +26,14 @@ const StudentBootcampDetail: React.FC = () => {
       setBootcamp(match);
 
       if (match) {
-        const [resourceRes, competitionRes] = await Promise.all([
+        const [resourceRes, competitionRes, teamRes] = await Promise.all([
           bootcampApi.resources(match.id).catch(() => ({ resources: [] as BootcampResource[] })),
           bootcampApi.publicCompetitions().catch(() => ({ competitions: [] as BootcampCompetition[] })),
+          bootcampApi.facilitators(match.id).catch(() => ({ facilitators: [] as Facilitator[] })),
         ]);
         setResources(resourceRes.resources || []);
         setCompetitions((competitionRes.competitions || []).filter((c) => c.bootcamp_slug === slug));
+        setTeam(teamRes.facilitators || []);
         setError('');
       } else {
         setError('You are not enrolled in this bootcamp.');
@@ -93,6 +96,25 @@ const StudentBootcampDetail: React.FC = () => {
           )}
         </div>
       </div>
+
+      {team.length > 0 && (
+        <section className="rounded-3xl bg-white p-6 shadow-lg">
+          <h2 className="text-lg font-bold text-slate-900">Facilitators & mentors</h2>
+          <div className="mt-4 flex flex-wrap gap-3">
+            {team.map((m) => (
+              <div key={m.id} className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-600 text-sm font-bold text-white">
+                  {m.name.charAt(0).toUpperCase()}
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">{m.name}</p>
+                  <p className="text-xs font-medium capitalize text-indigo-600">{m.role}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="rounded-3xl bg-white p-6 shadow-lg">
         <h2 className="text-lg font-bold text-slate-900">Hub content</h2>
