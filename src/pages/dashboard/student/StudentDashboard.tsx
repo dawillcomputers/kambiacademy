@@ -6,6 +6,8 @@ import { Assignment, Course, Material, Quiz, Submission } from '../../../../type
 import DashboardLayout from '../../../../components/layout/DashboardLayout';
 import PaymentModal from '../../../../components/PaymentModal';
 import AICourses from './ai-courses';
+import StudentBootcamps from './bootcamp';
+import StudentBootcampDetail from './bootcamp-detail';
 import StudentAssignmentDetail from './assignment-detail';
 import StudentAssignments from './assignments';
 import StudentChat from './chat';
@@ -223,6 +225,8 @@ const StudentDashboard: React.FC = () => {
           }
         />
         <Route path="profile" element={<StudentProfile user={user} />} />
+        <Route path="bootcamp" element={<StudentBootcamps />} />
+        <Route path="bootcamp/:slug" element={<StudentBootcampDetail />} />
         <Route path="chat" element={<StudentChat user={user} />} />
         <Route
           path="courses"

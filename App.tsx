@@ -16,9 +16,13 @@ import SignUp from './components/SignUp';
 import ChangePassword from './components/ChangePassword';
 import JoinClass from './components/JoinClass';
 import KambiAIAssistant from './components/KambiAIAssistant';
+import BootcampHub from './components/BootcampHub';
+import BootcampDetail from './components/BootcampDetail';
+import Competitions from './components/Competitions';
 // Lazy-loaded dashboard chunks
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const SuperAdminRoutes = lazy(() => import('./src/pages/dashboard/superadmin'));
+const ManagerRoutes = lazy(() => import('./src/pages/dashboard/manager'));
 const StudentDashboard = lazy(() => import('./src/pages/dashboard/student/StudentDashboard'));
 const TeacherDashboard = lazy(() => import('./src/pages/dashboard/teacher/overview'));
 const TeacherCourses = lazy(() => import('./src/pages/dashboard/teacher/my-courses'));
@@ -40,6 +44,7 @@ import { BrandingContent, SiteData } from './types';
 
 const isTeacherRole = (role?: string) => role === 'teacher' || role === 'tutor';
 const isSuperAdminConsoleRole = (role?: string) => role === 'super_admin' || role === 'SOU';
+const isBootcampManagerRole = (role?: string) => role === 'bootcamp_manager';
 
 const fallbackBranding: BrandingContent = {
   name: 'Kambi Academy',
@@ -123,6 +128,16 @@ const RequireTutor: React.FC<{ children: React.ReactElement }> = ({ children }) 
   return children;
 };
 
+const RequireBootcampManager: React.FC<{ children: React.ReactElement }> = ({ children }) => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return <LoadingState />;
+  if (!user || !isBootcampManagerRole(user.role)) return <Navigate to="/" replace />;
+  if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
+
+  return children;
+};
+
 const RequireChangePassword: React.FC<{ children: React.ReactElement }> = ({ children }) => {
   const { user, isLoading } = useAuth();
 
@@ -133,6 +148,7 @@ const RequireChangePassword: React.FC<{ children: React.ReactElement }> = ({ chi
     if (isSuperAdminConsoleRole(user.role)) return <Navigate to="/superadmin" replace />;
     if (user.role === 'admin') return <Navigate to="/admin" replace />;
     if (isTeacherRole(user.role)) return <Navigate to="/teacher" replace />;
+    if (isBootcampManagerRole(user.role)) return <Navigate to="/manager" replace />;
     return <Navigate to="/student" replace />;
   }
 
@@ -259,7 +275,7 @@ const AppShell: React.FC = () => {
   const location = useLocation();
 
   // Dashboard routes get full-width layout without header/footer
-  const isDashboard = /^\/(superadmin|admin|tutor|teacher|student|change-password)/.test(location.pathname);
+  const isDashboard = /^\/(superadmin|admin|tutor|teacher|student|manager|change-password)/.test(location.pathname);
 
   if (isDashboard) {
     return (
@@ -271,6 +287,7 @@ const AppShell: React.FC = () => {
           <Routes>
             <Route path="/admin" element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
             <Route path="/superadmin/*" element={<RequireSuperAdmin><SuperAdminRoutes /></RequireSuperAdmin>} />
+            <Route path="/manager/*" element={<RequireBootcampManager><ManagerRoutes /></RequireBootcampManager>} />
             <Route path="/tutor" element={<RequireTutor><Navigate to="/teacher" replace /></RequireTutor>} />
             <Route path="/student/*" element={<RequireAuth><StudentDashboard /></RequireAuth>} />
             <Route path="/change-password" element={<RequireChangePassword><ChangePassword /></RequireChangePassword>} />
@@ -326,6 +343,7 @@ const AppShell: React.FC = () => {
               <Route path="/payment-callback" element={<PaymentCallback />} />
               <Route path="/admin" element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
               <Route path="/superadmin/*" element={<RequireSuperAdmin><SuperAdminRoutes /></RequireSuperAdmin>} />
+              <Route path="/manager/*" element={<RequireBootcampManager><ManagerRoutes /></RequireBootcampManager>} />
               <Route path="/tutor" element={<RequireTutor><Navigate to="/teacher" replace /></RequireTutor>} />
               <Route path="/student/*" element={<RequireAuth><StudentDashboard /></RequireAuth>} />
               <Route path="/change-password" element={<RequireChangePassword><ChangePassword /></RequireChangePassword>} />
@@ -352,6 +370,9 @@ const AppShell: React.FC = () => {
               <Route path="/contact" element={<Contact />} />
               <Route path="/courses" element={<CourseList courses={resolvedSiteData.courses} instructors={resolvedSiteData.instructors} />} />
               <Route path="/courses/:slug" element={<RequireAuth><CourseDetailRoute siteData={resolvedSiteData} /></RequireAuth>} />
+              <Route path="/bootcamps" element={<BootcampHub />} />
+              <Route path="/bootcamps/:slug" element={<BootcampDetail />} />
+              <Route path="/competitions" element={<Competitions />} />
               <Route path="/faq" element={<Faq />} />
               <Route path="/teach" element={<BecomeTutor />} />
               <Route path="*" element={<Navigate to="/" replace />} />

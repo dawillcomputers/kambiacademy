@@ -1,4 +1,4 @@
-import { getAuthUser, requireSubscription, checkSubscription, isFullAdmin } from '../../_shared/auth';
+import { getAuthUser } from '../../_shared/auth';
 
 interface Env {
   DB: D1Database;
@@ -6,22 +6,8 @@ interface Env {
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const authUser = await getAuthUser(request, env.DB);
-  if (!authUser || !isFullAdmin(authUser)) {
+  if (!authUser || (authUser.role !== 'admin' && authUser.role !== 'super_admin')) {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
-  }
-
-  const hasSubscription = await checkSubscription(authUser, env.DB);
-  if (!hasSubscription) {
-    const accountAge = Date.now() - new Date(authUser.created_at).getTime();
-    const sevenDays = 7 * 24 * 60 * 60 * 1000;
-    if (accountAge > sevenDays) {
-      return Response.json({ error: 'Subscription required.', requiresPayment: true }, { status: 402 });
-    }
-  }
-
-  const subscriptionError = await requireSubscription(request, env.DB);
-  if (subscriptionError) {
-    return subscriptionError;
   }
 
   // Helper function to safely query tables that might not exist

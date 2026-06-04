@@ -1,25 +1,18 @@
-import { getAuthUser, requireSubscription, isFullAdmin } from '../../_shared/auth';
+import { getAuthUser } from '../../_shared/auth';
 
 interface Env {
   DB: D1Database;
 }
 
-const bypassSuperAdminApprovalGuard = (user: { role?: string } | null | undefined) => user?.role === 'super_admin' || user?.role === 'SOU';
+const canManageCourses = (user: { role?: string } | null | undefined) => user?.role === 'super_admin' || user?.role === 'admin';
 
 // GET: list tutor courses (admin sees all, tutor sees own)
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const user = await getAuthUser(request, env.DB);
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-  if (isFullAdmin(user) && !bypassSuperAdminApprovalGuard(user)) {
-    const subscriptionError = await requireSubscription(request, env.DB);
-    if (subscriptionError) {
-      return subscriptionError;
-    }
-  }
-
   let results;
-  if (isFullAdmin(user)) {
+  if (canManageCourses(user)) {
     const q = await env.DB.prepare(`
       SELECT tc.*, u.name as tutor_name, u.email as tutor_email
       FROM tutor_courses tc JOIN users u ON tc.tutor_id = u.id
@@ -79,15 +72,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 // DELETE: remove a course (admin/super_admin)
 export const onRequestDelete: PagesFunction<Env> = async ({ request, env }) => {
   const admin = await getAuthUser(request, env.DB);
-  if (!admin || !isFullAdmin(admin)) {
+  if (!admin || !canManageCourses(admin)) {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
-  }
-
-  if (!bypassSuperAdminApprovalGuard(admin)) {
-    const subscriptionError = await requireSubscription(request, env.DB);
-    if (subscriptionError) {
-      return subscriptionError;
-    }
   }
 
   const body = await request.json<{ courseId: number }>();
@@ -102,16 +88,8 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env }) => {
 // PATCH: admin approves / rejects a course
 export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
   const admin = await getAuthUser(request, env.DB);
-  if (!admin || !isFullAdmin(admin)) {
+  if (!admin || !canManageCourses(admin)) {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
-  }
-
-  // Check subscription for admin access (enforce after one week of non-payment)
-  if (!bypassSuperAdminApprovalGuard(admin)) {
-    const subscriptionError = await requireSubscription(request, env.DB);
-    if (subscriptionError) {
-      return subscriptionError;
-    }
   }
 
   const body = await request.json<{ courseId: number; status: 'approved' | 'rejected'; notes?: string }>();

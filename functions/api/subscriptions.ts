@@ -1,4 +1,4 @@
-import { getAuthUser, getSuperAdminBillingStatus, getSuperAdminNextMonthlyCoverageEndDate, isFullAdmin } from '../_shared/auth';
+import { getAuthUser, getSuperAdminBillingStatus, getSuperAdminNextMonthlyCoverageEndDate, isFullAdmin, resolveSystemBillingUser } from '../_shared/auth';
 
 interface Env {
   DB: D1Database;
@@ -358,6 +358,78 @@ async function createPendingSubscriptionCheckout(options: {
   };
 }
 
+async function createManualSubscriptionGrant(options: {
+  db: D1Database;
+  targetUser: { id: number; email: string; name: string; role: string };
+  grantedBy: { email: string; role: string };
+  type: SubscriptionType;
+  planType: PlanType;
+}) {
+  const { db, targetUser, grantedBy, type, planType } = options;
+  const config = tbl(type);
+  const fees = getFees(type);
+  const startDate = new Date();
+  const endDate = new Date(startDate);
+
+  if (targetUser.role === 'super_admin' && type === 'platform' && planType === 'monthly') {
+    endDate.setTime(new Date(getSuperAdminNextMonthlyCoverageEndDate(startDate)).getTime());
+  } else if (planType === 'monthly') {
+    endDate.setMonth(endDate.getMonth() + 1);
+  } else {
+    endDate.setFullYear(endDate.getFullYear() + 1);
+  }
+
+  const subscriptionId = crypto.randomUUID();
+  const transactionRef = `manual-${type}-${subscriptionId}-${Date.now()}`;
+  const nowIso = startDate.toISOString();
+
+  await insertSubscriptionRecord({
+    db,
+    config,
+    subscriptionId,
+    userId: targetUser.id,
+    planType,
+    paymentGateway: 'manual_override',
+    startDate: nowIso,
+    endDate: endDate.toISOString(),
+  });
+
+  await insertPaymentRecord({
+    db,
+    config,
+    subscriptionId,
+    amount: fees[planType],
+    paymentGateway: 'manual_override',
+    transactionRef,
+    createdAt: nowIso,
+  });
+
+  await db.prepare(`UPDATE ${config.sub} SET status = 'active', updatedAt = ? WHERE id = ?`).bind(nowIso, subscriptionId).run();
+
+  if (config.serviceType) {
+    await db.prepare(`UPDATE ${config.pay} SET status = 'success', paymentDate = ? WHERE subscriptionId = ? AND transactionRef = ? AND serviceType = ?`)
+      .bind(nowIso, subscriptionId, transactionRef, config.serviceType)
+      .run();
+  } else {
+    await db.prepare(`UPDATE ${config.pay} SET status = 'success', paymentDate = ? WHERE subscriptionId = ? AND transactionRef = ?`)
+      .bind(nowIso, subscriptionId, transactionRef)
+      .run();
+  }
+
+  await logSubscriptionAudit(
+    db,
+    'manual_subscription_access_granted',
+    `${grantedBy.email} manually marked ${getTypeLabel(type)} as paid for ${targetUser.email} on the ${planType} plan. Access granted until ${endDate.toISOString()}.`,
+  );
+
+  return {
+    subscriptionId,
+    transactionRef,
+    amount: fees[planType],
+    endDate: endDate.toISOString(),
+  };
+}
+
 async function verifyFlutterwavePayment(secret: string, transactionRef: string, expectedAmount: number, transactionId?: string) {
   const verifyUrl = transactionId
     ? `https://api.flutterwave.com/v3/transactions/${transactionId}/verify`
@@ -700,6 +772,48 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const body = await request.json<any>().catch(() => null);
   if (!body) {
     return Response.json({ error: 'Invalid request body' }, { status: 400 });
+  }
+
+  if (body.action === 'manualGrantSystemAccess') {
+    const planType = body.planType as PlanType;
+    if (planType !== 'monthly' && planType !== 'yearly') {
+      return Response.json({ error: 'Invalid plan type.' }, { status: 400 });
+    }
+
+    if (user.role !== 'super_admin' && user.role !== 'SOU') {
+      return Response.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const targetUser = await resolveSystemBillingUser(user, env.DB);
+    if (!targetUser) {
+      return Response.json({ error: 'No system billing owner could be resolved.' }, { status: 404 });
+    }
+
+    await cleanupUnpaidActiveSubscriptions(env.DB, targetUser.id, 'platform');
+
+    const existing = await getCurrentActiveSubscription(env.DB, targetUser.id, 'platform');
+    if (existing) {
+      return Response.json({ error: `Main subscription is already active until ${existing.endDate}.` }, { status: 400 });
+    }
+
+    const granted = await createManualSubscriptionGrant({
+      db: env.DB,
+      targetUser,
+      grantedBy: user,
+      type: 'platform',
+      planType,
+    });
+
+    return Response.json({
+      message: `Main subscription marked as paid. Access granted until ${granted.endDate}.`,
+      billingOwner: {
+        id: targetUser.id,
+        name: targetUser.name,
+        email: targetUser.email,
+        role: targetUser.role,
+      },
+      subscription: granted,
+    });
   }
 
   if (body.action === 'verify') {

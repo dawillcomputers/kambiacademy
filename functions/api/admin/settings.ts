@@ -1,4 +1,4 @@
-import { checkSubscription, getAuthUser, isFullAdmin, requireSubscription } from '../../_shared/auth';
+import { getAuthUser, isFullAdmin } from '../../_shared/auth';
 
 interface Env {
   DB: D1Database;
@@ -9,14 +9,6 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const admin = await getAuthUser(request, env.DB);
   if (!admin || !isFullAdmin(admin)) {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
-  }
-
-  const hasSubscription = await checkSubscription(admin, env.DB);
-  if (!hasSubscription) {
-    const subscriptionError = await requireSubscription(request, env.DB);
-    if (subscriptionError) {
-      return subscriptionError;
-    }
   }
 
   const { results } = await env.DB.prepare('SELECT key, value FROM platform_settings').all();
@@ -33,14 +25,6 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
   const admin = await getAuthUser(request, env.DB);
   if (!admin || !isFullAdmin(admin)) {
     return Response.json({ error: 'Unauthorized' }, { status: 403 });
-  }
-
-  const hasSubscription = await checkSubscription(admin, env.DB);
-  if (!hasSubscription) {
-    const subscriptionError = await requireSubscription(request, env.DB);
-    if (subscriptionError) {
-      return subscriptionError;
-    }
   }
 
   const body = await request.json<{ key: string; value: string }>();

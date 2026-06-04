@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Link, Route, Routes, useLocation } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import DashboardShell, { SidebarItem } from '../../../../components/layout/DashboardShell';
 import { api } from '../../../../lib/api';
+import { useAuth } from '../../../../lib/auth';
 import SuperAdminDashboard from '../../../../components/SuperAdminDashboard';
 import SuperAdminUsers from './users';
 import SuperAdminCourses from './courses';
+import SuperAdminBootcamps from './bootcamps';
 import SuperAdminAnalytics from './analytics';
 import SuperAdminFinance from './finance';
 import SuperAdminSettings from './settings';
@@ -93,10 +95,11 @@ const SuperAdminBillingBanner: React.FC<{ billing: any }> = ({ billing }) => {
   );
 };
 
-const sidebarItems: SidebarItem[] = [
+const fullSidebarItems: SidebarItem[] = [
   { name: 'Dashboard', icon: '📊', path: '/superadmin' },
   { name: 'Users', icon: '👥', path: '/superadmin/users' },
   { name: 'Courses', icon: '📚', path: '/superadmin/courses' },
+  { name: 'Bootcamps', icon: '🚀', path: '/superadmin/bootcamps' },
   { name: 'Pricing', icon: '🏷️', path: '/superadmin/pricing' },
   { name: 'Billing', icon: '💳', path: '/superadmin/billing' },
   { name: 'Finance', icon: '💰', path: '/superadmin/finance' },
@@ -105,7 +108,12 @@ const sidebarItems: SidebarItem[] = [
   { name: 'Audit Log', icon: '📋', path: '/superadmin/audit' },
 ];
 
+const systemOverrideSidebarItems: SidebarItem[] = [
+  { name: 'Billing', icon: '💳', path: '/superadmin/billing' },
+];
+
 const SuperAdminRoutes: React.FC = () => {
+  const { user } = useAuth();
   const location = useLocation();
   const [subscriptionState, setSubscriptionState] = useState<any>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
@@ -142,6 +150,8 @@ const SuperAdminRoutes: React.FC = () => {
 
   const superAdminBilling = subscriptionState?.superAdminBilling;
   const isBillingRoute = location.pathname === '/superadmin/billing' || location.pathname.startsWith('/superadmin/billing/');
+  const isSystemOverrideUser = user?.role === 'SOU';
+  const sidebarItems = isSystemOverrideUser ? systemOverrideSidebarItems : fullSidebarItems;
   const shouldShowBanner = Boolean(superAdminBilling?.applies && !superAdminBilling?.exempt && (superAdminBilling?.isWarning || superAdminBilling?.isDue || superAdminBilling?.isLocked));
 
   return (
@@ -160,21 +170,34 @@ const SuperAdminRoutes: React.FC = () => {
           </div>
         )}
 
-        {subscriptionLoading && !isBillingRoute ? (
+        {isSystemOverrideUser && !isBillingRoute ? (
+          <Navigate to="/superadmin/billing" replace />
+        ) : subscriptionLoading && !isBillingRoute ? (
           <div className="mx-6 rounded-[28px] border border-white/10 bg-[#111B2E] px-6 py-10 text-sm text-[#A9B4CC] shadow-lg lg:mx-8">
             Checking superadmin billing status...
           </div>
         ) : (
           <Routes>
-            <Route path="/" element={<SuperAdminDashboard />} />
-            <Route path="/users" element={<SuperAdminUsers />} />
-            <Route path="/courses" element={<SuperAdminCourses />} />
-            <Route path="/billing" element={<SuperAdminBilling />} />
-            <Route path="/pricing" element={<SuperAdminPricing />} />
-            <Route path="/analytics" element={<SuperAdminAnalytics />} />
-            <Route path="/finance" element={<SuperAdminFinance />} />
-            <Route path="/settings" element={<SuperAdminSettings />} />
-            <Route path="/audit" element={<SuperAdminAudit />} />
+            {isSystemOverrideUser ? (
+              <>
+                <Route path="/" element={<Navigate to="/superadmin/billing" replace />} />
+                <Route path="/billing" element={<SuperAdminBilling />} />
+                <Route path="*" element={<Navigate to="/superadmin/billing" replace />} />
+              </>
+            ) : (
+              <>
+                <Route path="/" element={<SuperAdminDashboard />} />
+                <Route path="/users" element={<SuperAdminUsers />} />
+                <Route path="/courses" element={<SuperAdminCourses />} />
+                <Route path="/bootcamps" element={<SuperAdminBootcamps />} />
+                <Route path="/billing" element={<SuperAdminBilling />} />
+                <Route path="/pricing" element={<SuperAdminPricing />} />
+                <Route path="/analytics" element={<SuperAdminAnalytics />} />
+                <Route path="/finance" element={<SuperAdminFinance />} />
+                <Route path="/settings" element={<SuperAdminSettings />} />
+                <Route path="/audit" element={<SuperAdminAudit />} />
+              </>
+            )}
           </Routes>
         )}
       </div>

@@ -15,23 +15,43 @@ const SuperAdminUsers: React.FC = () => {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [filter, setFilter] = useState<'all' | 'admin' | 'teacher' | 'student'>('all');
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const loadUsers = async () => {
+    try {
+      setError('');
+      const response = await api.adminGetUsers();
+      setUsers(response.users || []);
+    } catch (loadError) {
+      console.error('Failed to load users:', loadError);
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load users.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadUsers = async () => {
-      try {
-        setError('');
-        const response = await api.adminGetUsers();
-        setUsers(response.users || []);
-      } catch (error) {
-        console.error('Failed to load users:', error);
-        setError(error instanceof Error ? error.message : 'Failed to load users.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadUsers();
+    void loadUsers();
   }, []);
+
+  const handleUserAction = async (userId: number, action: 'approve_tutor' | 'suspend' | 'activate') => {
+    setMessage('');
+    setError('');
+    setActionLoading(`${userId}-${action}`);
+
+    try {
+      const response = await api.adminManageUser(userId, action);
+      setMessage(response?.message || 'User updated successfully.');
+      await loadUsers();
+    } catch (actionError) {
+      console.error('Failed to update user:', actionError);
+      setError(actionError instanceof Error ? actionError.message : 'Failed to update user.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const filteredUsers = users.filter(u => filter === 'all' || u.role === filter);
 
@@ -60,6 +80,9 @@ const SuperAdminUsers: React.FC = () => {
         <h1 className="text-2xl font-bold text-slate-900">User Management</h1>
         <p className="mt-1 text-sm text-slate-500">Manage all users across the platform</p>
       </div>
+
+      {message && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">{message}</div>}
+      {error && !loading && <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
@@ -101,6 +124,7 @@ const SuperAdminUsers: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Password</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Joined</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -134,6 +158,46 @@ const SuperAdminUsers: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                       {new Date(u.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-wrap gap-2">
+                        {u.status === 'pending' && (u.role === 'teacher' || u.role === 'tutor') && (
+                          <button
+                            type="button"
+                            onClick={() => handleUserAction(u.id, 'approve_tutor')}
+                            disabled={actionLoading === `${u.id}-approve_tutor`}
+                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {actionLoading === `${u.id}-approve_tutor` ? 'Approving...' : 'Approve Teacher'}
+                          </button>
+                        )}
+
+                        {(u.status === 'suspended' || (u.status === 'pending' && u.role !== 'teacher' && u.role !== 'tutor')) && (
+                          <button
+                            type="button"
+                            onClick={() => handleUserAction(u.id, 'activate')}
+                            disabled={actionLoading === `${u.id}-activate`}
+                            className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {actionLoading === `${u.id}-activate` ? 'Updating...' : 'Activate'}
+                          </button>
+                        )}
+
+                        {u.status === 'active' && u.role !== 'super_admin' && u.role !== 'SOU' && (
+                          <button
+                            type="button"
+                            onClick={() => handleUserAction(u.id, 'suspend')}
+                            disabled={actionLoading === `${u.id}-suspend`}
+                            className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {actionLoading === `${u.id}-suspend` ? 'Suspending...' : 'Suspend'}
+                          </button>
+                        )}
+
+                        {u.status !== 'pending' && u.status !== 'active' && u.status !== 'suspended' && (
+                          <span className="text-xs text-slate-400">No actions</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

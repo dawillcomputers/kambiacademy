@@ -29,7 +29,21 @@ interface TutorCourse {
   category: string; status: string; tutor_name?: string; tutor_email?: string; created_at: string;
 }
 
-type Tab = 'overview' | 'users' | 'courses' | 'complaints' | 'settings' | 'audit-log' | 'subscription';
+interface CertificateRecord {
+  id: number;
+  student_id: number;
+  student_name: string;
+  student_email: string;
+  course_slug: string;
+  certificate_name: string;
+  file_name: string;
+  mime_type: string;
+  file_size: number;
+  issued_at: string;
+  uploaded_by_name: string;
+}
+
+type Tab = 'overview' | 'users' | 'courses' | 'certificates' | 'complaints' | 'settings' | 'audit-log' | 'subscription';
 
 interface AuditLogEntry {
   id: number; user_name: string; changed_by_name: string; old_role: string; new_role: string; reason: string; created_at: string;

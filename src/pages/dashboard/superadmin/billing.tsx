@@ -155,6 +155,12 @@ export default function SuperAdminBillingPage() {
     setAllocationOnlyEnabled(Boolean(liveHoursPolicy.allocationOnlyEnabled));
   }, [overview?.system?.liveHoursPolicy]);
 
+  useEffect(() => {
+    if (overview?.viewer?.systemOnly) {
+      setActiveTab('system');
+    }
+  }, [overview?.viewer?.systemOnly]);
+
   const summary = overview?.system?.totals;
   const catalog = overview?.catalog;
   const viewer = overview?.viewer;
@@ -170,6 +176,11 @@ export default function SuperAdminBillingPage() {
   const currentSubscription = superAdminBilling?.currentSubscription;
   const scheduleTone = scheduleToneMap[superAdminBilling?.status || 'upcoming'] || scheduleToneMap.upcoming;
   const nextDueDate = currentSubscription?.endDate || superAdminBilling?.nextCycleDueDate || superAdminBilling?.dueDate;
+  const systemBillingOwner = systemPayments?.billingOwner;
+  const visibleTabs = viewer?.systemOnly ? BILLING_TABS.filter((tab) => tab.key === 'system') : BILLING_TABS;
+  const currentTab = visibleTabs.some((tab) => tab.key === activeTab)
+    ? activeTab
+    : ((visibleTabs[0]?.key || 'system') as BillingTab);
 
   const handlePlatformCheckout = async (planType: PlanType) => {
     setMessage('');
@@ -218,6 +229,21 @@ export default function SuperAdminBillingPage() {
       setError(checkoutError instanceof Error ? checkoutError.message : 'Failed to start the system checkout.');
     } finally {
       setCheckoutLoading(null);
+    }
+  };
+
+  const handleManualSystemGrant = async (planType: PlanType) => {
+    setMessage('');
+    setError('');
+    setSavingTarget(`manual-grant-${planType}`);
+    try {
+      const response = await api.adminGrantSystemSubscription(planType);
+      setMessage(response?.message || 'Main subscription marked as paid and access granted.');
+      await loadOverview();
+    } catch (grantError) {
+      setError(grantError instanceof Error ? grantError.message : 'Failed to grant manual billing access.');
+    } finally {
+      setSavingTarget(null);
     }
   };
 
@@ -414,7 +440,8 @@ export default function SuperAdminBillingPage() {
             </section>
           )}
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {!viewer?.systemOnly && (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-[24px] border border-white/10 bg-[#111B2E] px-5 py-5 shadow-lg shadow-black/20">
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6B7A99]">Estimated Revenue</p>
               <p className="mt-4 text-3xl font-bold text-[#EAF0FF]">{formatMoney(Number(summary?.totalEstimatedRevenue || 0))}</p>
@@ -435,28 +462,35 @@ export default function SuperAdminBillingPage() {
               <p className="mt-4 text-3xl font-bold text-[#EAF0FF]">{formatMoney(Number(summary?.dueAmount || 0))}</p>
               <p className="mt-4 text-sm text-[#A9B4CC]">Teacher add-ons are optional, so automatic teacher dues should stay at zero.</p>
             </div>
-          </div>
-
-          <div className="sticky top-3 z-20 rounded-[28px] border border-white/10 bg-[#0F172A]/95 px-2 py-2 shadow-xl shadow-black/20 backdrop-blur">
-            <div className="grid gap-2 lg:grid-cols-3">
-              {BILLING_TABS.map((tab) => {
-                const isActive = activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setActiveTab(tab.key)}
-                    className={`rounded-[22px] border px-4 py-4 text-left transition ${isActive ? 'border-indigo-400/30 bg-indigo-500/15 shadow-lg shadow-indigo-900/20' : 'border-white/5 bg-white/5 hover:bg-white/10'}`}
-                  >
-                    <p className="text-[20px] font-semibold text-[#EAF0FF]">{tab.label}</p>
-                    <p className="mt-2 text-sm leading-6 text-[#A9B4CC]">{tab.description}</p>
-                  </button>
-                );
-              })}
             </div>
-          </div>
+          )}
 
-          {activeTab === 'students' && (
+          {visibleTabs.length > 1 ? (
+            <div className="sticky top-3 z-20 rounded-[28px] border border-white/10 bg-[#0F172A]/95 px-2 py-2 shadow-xl shadow-black/20 backdrop-blur">
+              <div className="grid gap-2 lg:grid-cols-3">
+                {visibleTabs.map((tab) => {
+                  const isActive = currentTab === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setActiveTab(tab.key)}
+                      className={`rounded-[22px] border px-4 py-4 text-left transition ${isActive ? 'border-indigo-400/30 bg-indigo-500/15 shadow-lg shadow-indigo-900/20' : 'border-white/5 bg-white/5 hover:bg-white/10'}`}
+                    >
+                      <p className="text-[20px] font-semibold text-[#EAF0FF]">{tab.label}</p>
+                      <p className="mt-2 text-sm leading-6 text-[#A9B4CC]">{tab.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-[28px] border border-emerald-400/20 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-100 shadow-xl shadow-black/20">
+              System Override view is limited to system subscriptions, access control, and add-on monitoring.
+            </div>
+          )}
+
+          {currentTab === 'students' && (
             <div className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-[24px] border border-white/10 bg-[#111B2E] px-5 py-5 shadow-lg shadow-black/20">
@@ -536,7 +570,7 @@ export default function SuperAdminBillingPage() {
             </div>
           )}
 
-          {activeTab === 'teachers' && (
+          {currentTab === 'teachers' && (
             <div className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-[24px] border border-white/10 bg-[#111B2E] px-5 py-5 shadow-lg shadow-black/20">
@@ -688,7 +722,7 @@ export default function SuperAdminBillingPage() {
             </div>
           )}
 
-          {activeTab === 'system' && (
+          {currentTab === 'system' && (
             <div className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-[24px] border border-white/10 bg-[#111B2E] px-5 py-5 shadow-lg shadow-black/20">
@@ -719,6 +753,11 @@ export default function SuperAdminBillingPage() {
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6B7A99]">System Dues</p>
                       <h2 className="mt-2 text-2xl font-bold text-[#EAF0FF]">Current system payment stack</h2>
+                      {systemBillingOwner && (
+                        <p className="mt-2 text-sm text-[#A9B4CC]">
+                          Billing owner: {systemBillingOwner.name} ({systemBillingOwner.email})
+                        </p>
+                      )}
                     </div>
                     <div className="rounded-full bg-[#16233A] px-4 py-2 text-sm font-semibold text-[#EAF0FF]">
                       {formatMoney(Number(systemPayments?.totalDueAmount || 0))} total due
@@ -783,6 +822,42 @@ export default function SuperAdminBillingPage() {
                       </p>
                     </button>
                   </div>
+
+                  {(viewer?.role === 'super_admin' || viewer?.systemOverride) && (
+                    <div className="mt-5 rounded-3xl border border-amber-400/20 bg-amber-500/10 px-5 py-5 text-sm text-amber-100">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">Manual Access Grant</p>
+                      <p className="mt-3 leading-6">
+                        Use this when the main subscription was paid outside the gateway and access should be granted immediately. Monthly grants cover through the next 18th. Yearly grants cover the full year.
+                      </p>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() => handleManualSystemGrant('monthly')}
+                          disabled={Boolean(savingTarget)}
+                          className="rounded-2xl border border-indigo-400/30 bg-indigo-500/15 px-4 py-4 text-left text-[#EAF0FF] transition hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-100">Manual Monthly Grant</p>
+                          <p className="mt-2 text-2xl font-bold">{formatMoney(Number(platformService?.monthly || 9))}</p>
+                          <p className="mt-2 text-sm text-[#A9B4CC]">
+                            {savingTarget === 'manual-grant-monthly' ? 'Granting access...' : 'Mark monthly billing as paid and reopen access now.'}
+                          </p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleManualSystemGrant('yearly')}
+                          disabled={Boolean(savingTarget)}
+                          className="rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-4 text-left text-[#EAF0FF] transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">Manual Yearly Grant</p>
+                          <p className="mt-2 text-2xl font-bold">{formatMoney(Number(platformService?.yearly || 100))}</p>
+                          <p className="mt-2 text-sm text-[#A9B4CC]">
+                            {savingTarget === 'manual-grant-yearly' ? 'Granting access...' : 'Mark yearly billing as paid and cover the full year.'}
+                          </p>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </section>
 
                 <section className="space-y-6">

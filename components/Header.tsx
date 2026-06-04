@@ -13,6 +13,8 @@ const navItems = [
   { label: 'Home', to: '/' },
   { label: 'About', to: '/about' },
   { label: 'Courses', to: '/courses' },
+  { label: 'Bootcamps', to: '/bootcamps' },
+  { label: 'Winners', to: '/competitions' },
   { label: 'Teach', to: '/teach' },
   { label: 'FAQ', to: '/faq' },
   { label: 'Contact', to: '/contact' },
@@ -58,7 +60,9 @@ const Header: React.FC<HeaderProps> = ({ branding }) => {
       ? '/admin'
       : user?.role === 'teacher' || user?.role === 'tutor'
         ? '/teacher'
-        : '/student';
+        : user?.role === 'bootcamp_manager'
+          ? '/manager'
+          : '/student';
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/60 bg-white/80 backdrop-blur-xl">

@@ -12,6 +12,7 @@ interface DashboardLayoutProps {
 const buildMenu = (showMaterials: boolean = false) => [
   { name: "Dashboard", icon: "🏠", path: "/student" },
   { name: "My Courses", icon: "📚", path: "/student/courses" },
+  { name: "Bootcamp", icon: "🚀", path: "/student/bootcamp" },
   ...(showMaterials ? [{ name: "Materials", icon: "📁", path: "/student/materials" }] : []),
   { name: "Assignments", icon: "📝", path: "/student/assignments" },
   { name: "Submissions", icon: "📤", path: "/student/submissions" },

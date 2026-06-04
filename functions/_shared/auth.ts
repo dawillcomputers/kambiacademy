@@ -307,6 +307,28 @@ export async function getAuthUser(request: Request, db: D1Database) {
   }
 }
 
+export async function getPrimarySuperAdminUser(db: D1Database) {
+  return db
+    .prepare(
+      `SELECT id, name, email, role, status, must_change_password, created_at
+       FROM users
+       WHERE role = 'super_admin'
+         AND status = 'active'
+       ORDER BY created_at ASC, id ASC
+       LIMIT 1`,
+    )
+    .first<{ id: number; name: string; email: string; role: string; status: string; must_change_password: number; created_at: string }>();
+}
+
+export async function resolveSystemBillingUser(user: any, db: D1Database) {
+  if (user?.role !== 'SOU') {
+    return user;
+  }
+
+  const primarySuperAdmin = await getPrimarySuperAdminUser(db);
+  return primarySuperAdmin ?? user;
+}
+
 async function checkServiceSubscription(user: any, db: D1Database, serviceType: 'storage' | 'live_class'): Promise<boolean> {
   if (Date.now() < getBillingRequirementTimestamp(serviceType)) {
     return true;

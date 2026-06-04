@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   formatSessionDate,
@@ -8,6 +8,82 @@ import {
   secondaryLinkClass,
 } from '../lib/site';
 import { CallToAction, SiteData } from '../types';
+import { BootcampCompetition, bootcampApi } from '../lib/bootcamp';
+
+const BootcampHighlight: React.FC = () => {
+  const [competitions, setCompetitions] = useState<BootcampCompetition[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    bootcampApi
+      .publicCompetitions()
+      .then((res) => {
+        if (!cancelled) setCompetitions((res.competitions || []).slice(0, 3));
+      })
+      .catch(() => {
+        /* competitions are optional on the landing page */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <section className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
+      <div className="overflow-hidden rounded-[32px] border border-indigo-900 bg-gradient-to-br from-indigo-700 to-slate-950 px-6 py-8 text-white shadow-2xl shadow-indigo-300/30 sm:px-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-indigo-200">Kambi × FintechNG</p>
+        <h2 className="mt-3 font-display text-3xl font-bold">Join the Fintech Bootcamp Hub.</h2>
+        <p className="mt-4 max-w-xl text-sm leading-7 text-indigo-100">
+          Immersive cohorts to build fintech skills, ship projects, and compete. Registering unlocks your bootcamp hub and
+          keeps full access to every Kambi Academy course.
+        </p>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link to="/bootcamps" className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100">
+            Explore bootcamps
+          </Link>
+          <Link to="/competitions" className="inline-flex items-center justify-center rounded-full border border-white/30 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
+            See winners
+          </Link>
+        </div>
+      </div>
+
+      <div className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8 sm:px-8">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">🏆 Recent Winners</p>
+          <Link to="/competitions" className="text-sm font-semibold text-slate-950 transition hover:text-slate-700">View all</Link>
+        </div>
+        <div className="mt-6 space-y-4">
+          {competitions.length > 0 ? (
+            competitions.map((competition) => (
+              <div key={competition.id} className="rounded-[24px] border border-white/70 bg-white/85 p-5 shadow-lg shadow-slate-200/40">
+                <p className="font-semibold text-slate-950">{competition.title}</p>
+                {competition.bootcamp_title && <p className="text-xs font-medium text-indigo-600">{competition.bootcamp_title}</p>}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {competition.winners.slice(0, 4).map((winner, index) => (
+                    <span key={winner.id ?? index} className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                      {winner.image_url ? (
+                        <img src={winner.image_url} alt={winner.name} className="h-5 w-5 rounded-full object-cover" />
+                      ) : (
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-bold text-white">
+                          {winner.name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                      {winner.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="rounded-[24px] border border-dashed border-slate-300 bg-white/70 p-5 text-sm text-slate-500">
+              Competition winners from our bootcamps will be celebrated here.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+};
 
 interface HomeProps {
   siteData: SiteData;
@@ -198,6 +274,8 @@ const Home: React.FC<HomeProps> = ({ siteData }) => {
           </div>
         </div>
       </section>
+
+      <BootcampHighlight />
 
       <section className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
         <div className="section-shell surface-ring rounded-[32px] border border-white/70 px-6 py-8 sm:px-8">

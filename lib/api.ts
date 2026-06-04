@@ -50,10 +50,11 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
 };
 
 export const api = {
-  // Generic get/post/patch helpers for direct path calls
+  // Generic get/post/patch/delete helpers for direct path calls
   get: <T = any>(path: string) => request<T>(path),
   post: <T = any>(path: string, body?: any) => request<T>(path, { method: 'POST', ...(body ? { body: JSON.stringify(body) } : {}) }),
   patch: <T = any>(path: string, body?: any) => request<T>(path, { method: 'PATCH', ...(body ? { body: JSON.stringify(body) } : {}) }),
+  del: <T = any>(path: string, body?: any) => request<T>(path, { method: 'DELETE', ...(body ? { body: JSON.stringify(body) } : {}) }),
 
   getSite: () => request<SiteData>('/api/site'),
 
@@ -211,6 +212,29 @@ export const api = {
   adminGetCourses: () =>
     request<{ courses: any[] }>('/api/admin/courses'),
 
+  adminGetCertificates: () =>
+    request<{ certificates: any[] }>('/api/admin/certificates'),
+
+  adminUploadCertificate: (data: { student_id: number; course_slug: string; certificate_name: string; file: File }) => {
+    const formData = new FormData();
+    formData.set('student_id', String(data.student_id));
+    formData.set('course_slug', data.course_slug);
+    formData.set('certificate_name', data.certificate_name);
+    formData.set('file', data.file);
+    const token = localStorage.getItem('auth_token');
+    return fetch(`${apiBaseUrl}/api/admin/certificates`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    }).then(async (r) => {
+      const d = await r.json();
+      if (!r.ok) throw new Error((d as any).error || 'Upload failed');
+      return d;
+    });
+  },
+
   adminManageCourse: (courseId: number, status: 'approved' | 'rejected', notes?: string) =>
     request<any>('/api/admin/courses', {
       method: 'PATCH',
@@ -300,6 +324,15 @@ export const api = {
       body: JSON.stringify({
         action: 'bundleCheckout',
         items,
+      }),
+    }),
+
+  adminGrantSystemSubscription: (planType: 'monthly' | 'yearly') =>
+    request<any>('/api/subscriptions', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'manualGrantSystemAccess',
+        planType,
       }),
     }),
 
@@ -478,6 +511,12 @@ export const api = {
 
   getMaterialDownloadUrl: (id: number) =>
     `${apiBaseUrl}/api/materials/download?id=${id}`,
+
+  getCertificateDownloadUrl: (id: number) =>
+    `${apiBaseUrl}/api/certificates/download?id=${id}`,
+
+  getCertificates: () =>
+    request<{ certificates: any[] }>('/api/certificates'),
 
   // Audit log
   getAuditLog: (userId?: number) =>

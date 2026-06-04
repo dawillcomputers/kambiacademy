@@ -1,4 +1,4 @@
-import { getAuthUser, getSuperAdminBillingStatus, isFullAdmin, isSystemOverride } from '../_shared/auth';
+import { getAuthUser, getSuperAdminBillingStatus, isFullAdmin, isSystemOverride, resolveSystemBillingUser } from '../_shared/auth';
 import { getDefaultLiveHoursPolicy, getTeacherLiveHoursUsage } from '../_shared/liveUsage';
 
 interface Env {
@@ -651,15 +651,15 @@ async function buildTeacherPaymentsSnapshot(db: D1Database, teacherMetrics: Arra
 
 async function buildSystemPaymentsSnapshot(options: {
   db: D1Database;
-  user: { id: number; name: string; email: string; role: string };
+  billingOwner: { id: number; name: string; email: string; role: string };
   teacherMetrics: Array<any>;
   pricingOverrides: Array<any>;
 }) {
-  const { db, user, teacherMetrics, pricingOverrides } = options;
+  const { db, billingOwner, teacherMetrics, pricingOverrides } = options;
   const [platformState, storageState, liveClassState, settingsRows] = await Promise.all([
-    getPlatformSubscriptionState(db, user.id),
-    getScopedServiceState(db, user.id, 'storage'),
-    getScopedServiceState(db, user.id, 'live_class'),
+    getPlatformSubscriptionState(db, billingOwner.id),
+    getScopedServiceState(db, billingOwner.id, 'storage'),
+    getScopedServiceState(db, billingOwner.id, 'live_class'),
     safeAll<{ key: string; value: string }>(
       db,
       `SELECT key, value
@@ -760,6 +760,12 @@ async function buildSystemPaymentsSnapshot(options: {
   }));
 
   return {
+    billingOwner: {
+      id: billingOwner.id,
+      name: billingOwner.name,
+      email: billingOwner.email,
+      role: billingOwner.role,
+    },
     serviceStates,
     paymentHistory,
     baseDueItems,
@@ -824,7 +830,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       email: user.email,
       role: user.role,
       systemOverride: isSystemOverride(user),
-      canTrackEverything: user.role === 'super_admin' || isSystemOverride(user),
+      canTrackEverything: user.role === 'super_admin',
+      systemOnly: isSystemOverride(user),
     },
     catalog: BILLING_CATALOG,
     billingStartDate: BILLING_START_DATE,
@@ -846,6 +853,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   );
 
   const teacherMetrics = await Promise.all(teachers.map((teacher) => buildTeacherMetrics(env.DB, teacher)));
+  const billingOwner = await resolveSystemBillingUser(user, env.DB);
   const defaultLiveHoursPolicy = await getDefaultLiveHoursPolicy(env.DB);
   const systemEvents = await safeAll<{ action: string; description: string; timestamp: string }>(
     env.DB,
@@ -861,7 +869,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     buildTeacherPaymentsSnapshot(env.DB, teacherMetrics),
     buildSystemPaymentsSnapshot({
       db: env.DB,
-      user,
+      billingOwner,
       teacherMetrics,
       pricingOverrides,
     }),

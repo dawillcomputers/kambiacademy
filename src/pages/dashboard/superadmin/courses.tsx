@@ -19,15 +19,19 @@ interface TutorCourse {
 const SuperAdminCourses: React.FC = () => {
   const [courses, setCourses] = useState<TutorCourse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
   const loadCourses = async () => {
     try {
+      setError('');
       const response = await api.adminGetCourses();
       setCourses(response.courses || []);
-    } catch (error) {
-      console.error('Failed to load courses:', error);
+    } catch (loadError) {
+      console.error('Failed to load courses:', loadError);
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load courses.');
     } finally {
       setLoading(false);
     }
@@ -37,11 +41,15 @@ const SuperAdminCourses: React.FC = () => {
 
   const handleAction = async (courseId: number, status: 'approved' | 'rejected') => {
     setActionLoading(courseId);
+    setMessage('');
+    setError('');
     try {
-      await api.adminManageCourse(courseId, status);
+      const response = await api.adminManageCourse(courseId, status);
+      setMessage(response?.message || `Course ${status}.`);
       await loadCourses();
-    } catch (error) {
-      console.error('Failed to update course:', error);
+    } catch (actionError) {
+      console.error('Failed to update course:', actionError);
+      setError(actionError instanceof Error ? actionError.message : 'Failed to update course.');
     } finally {
       setActionLoading(null);
     }
@@ -50,11 +58,15 @@ const SuperAdminCourses: React.FC = () => {
   const handleDelete = async (courseId: number) => {
     if (!confirm('Are you sure you want to delete this course?')) return;
     setActionLoading(courseId);
+    setMessage('');
+    setError('');
     try {
-      await api.adminDeleteCourse(courseId);
+      const response = await api.adminDeleteCourse(courseId);
+      setMessage(response?.message || 'Course removed.');
       await loadCourses();
-    } catch (error) {
-      console.error('Failed to delete course:', error);
+    } catch (deleteError) {
+      console.error('Failed to delete course:', deleteError);
+      setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete course.');
     } finally {
       setActionLoading(null);
     }
@@ -77,6 +89,9 @@ const SuperAdminCourses: React.FC = () => {
         <h1 className="text-2xl font-bold text-slate-900">Course Management</h1>
         <p className="mt-1 text-sm text-slate-500">Review and manage all tutor-submitted courses</p>
       </div>
+
+      {message && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">{message}</div>}
+      {error && !loading && <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>}
 
       <div className="flex flex-wrap gap-2">
         {[
@@ -146,23 +161,23 @@ const SuperAdminCourses: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex gap-2">
-                        {course.status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => handleAction(course.id, 'approved')}
-                              disabled={actionLoading === course.id}
-                              className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => handleAction(course.id, 'rejected')}
-                              disabled={actionLoading === course.id}
-                              className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
-                            >
-                              Reject
-                            </button>
-                          </>
+                        {course.status !== 'approved' && (
+                          <button
+                            onClick={() => handleAction(course.id, 'approved')}
+                            disabled={actionLoading === course.id}
+                            className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                          >
+                            {actionLoading === course.id ? 'Saving...' : 'Approve'}
+                          </button>
+                        )}
+                        {course.status !== 'rejected' && (
+                          <button
+                            onClick={() => handleAction(course.id, 'rejected')}
+                            disabled={actionLoading === course.id}
+                            className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {actionLoading === course.id ? 'Saving...' : 'Reject'}
+                          </button>
                         )}
                         <button
                           onClick={() => handleDelete(course.id)}
