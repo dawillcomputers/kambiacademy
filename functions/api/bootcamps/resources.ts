@@ -4,6 +4,7 @@ import { recordActivity } from '../../_shared/activity';
 
 interface Env {
   DB: D1Database;
+  BUCKET: R2Bucket;
 }
 
 // GET /api/bootcamps/resources?bootcamp=ID — hub content for enrolled participants and managers.
@@ -20,7 +21,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const { results } = await env.DB.prepare(
-    `SELECT id, bootcamp_id, title, description, type, url, content, created_at
+    `SELECT id, bootcamp_id, title, description, type, url, content, category,
+            file_key, file_name, file_size, mime_type, download_count, created_at
      FROM bootcamp_resources WHERE bootcamp_id = ? ORDER BY created_at DESC`,
   ).bind(bootcampId).all();
 
@@ -36,9 +38,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     bootcamp_id?: number;
     title?: string;
     description?: string;
-    type?: 'link' | 'text' | 'announcement';
+    type?: 'link' | 'text' | 'announcement' | 'file';
     url?: string;
     content?: string;
+    category?: string;
+    file_key?: string;
+    file_name?: string;
+    file_size?: number;
+    mime_type?: string;
   }>();
 
   if (!body.bootcamp_id || !body.title) {
@@ -49,13 +56,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: 'You cannot manage this bootcamp.' }, { status: 403 });
   }
 
-  const type = body.type === 'text' || body.type === 'announcement' ? body.type : 'link';
+  const type = ['text', 'announcement', 'file'].includes(body.type || '') ? body.type! : 'link';
 
   const result = await env.DB.prepare(
-    `INSERT INTO bootcamp_resources (bootcamp_id, title, description, type, url, content, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO bootcamp_resources (bootcamp_id, title, description, type, url, content, category, file_key, file_name, file_size, mime_type, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
-    .bind(body.bootcamp_id, body.title, body.description || '', type, body.url || '', body.content || '', user.id)
+    .bind(
+      body.bootcamp_id, body.title, body.description || '', type, body.url || '', body.content || '',
+      body.category || 'General', body.file_key || '', body.file_name || '', Number(body.file_size || 0), body.mime_type || '',
+      user.id,
+    )
     .run();
 
   await recordActivity(env.DB, {
@@ -80,13 +91,16 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env }) => {
   const id = Number(url.searchParams.get('id'));
   if (!id) return Response.json({ error: 'A resource id is required.' }, { status: 400 });
 
-  const resource = await env.DB.prepare('SELECT bootcamp_id FROM bootcamp_resources WHERE id = ?').bind(id).first<{ bootcamp_id: number }>();
+  const resource = await env.DB.prepare('SELECT bootcamp_id, file_key FROM bootcamp_resources WHERE id = ?').bind(id).first<{ bootcamp_id: number; file_key: string }>();
   if (!resource) return Response.json({ error: 'Resource not found.' }, { status: 404 });
 
   if (!(await canManageBootcamp(env.DB, user, resource.bootcamp_id))) {
     return Response.json({ error: 'You cannot manage this bootcamp.' }, { status: 403 });
   }
 
+  if (resource.file_key) {
+    await env.BUCKET.delete(resource.file_key).catch(() => undefined);
+  }
   await env.DB.prepare('DELETE FROM bootcamp_resources WHERE id = ?').bind(id).run();
   return Response.json({ message: 'Resource removed.' });
 };

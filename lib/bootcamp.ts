@@ -54,9 +54,15 @@ export interface BootcampResource {
   bootcamp_id: number;
   title: string;
   description: string;
-  type: 'link' | 'text' | 'announcement';
+  type: 'link' | 'text' | 'announcement' | 'file';
   url: string;
   content: string;
+  category?: string;
+  file_key?: string;
+  file_name?: string;
+  file_size?: number;
+  mime_type?: string;
+  download_count?: number;
   created_at: string;
 }
 
@@ -69,6 +75,13 @@ export interface CompetitionWinner {
   note?: string;
 }
 
+export interface CompetitionPrize {
+  id?: number;
+  position?: number;
+  title: string;
+  reward: string;
+}
+
 export interface BootcampCompetition {
   id: number;
   bootcamp_id: number;
@@ -77,9 +90,12 @@ export interface BootcampCompetition {
   title: string;
   description: string;
   image_url: string;
+  flyer_url?: string;
+  rules?: string;
   event_date?: string | null;
   published: boolean;
   winners: CompetitionWinner[];
+  prizes?: CompetitionPrize[];
   created_at: string;
 }
 
@@ -112,9 +128,12 @@ export interface CompetitionInput {
   title?: string;
   description?: string;
   image_url?: string;
+  flyer_url?: string;
+  rules?: string;
   event_date?: string;
   published?: boolean;
   winners?: CompetitionWinner[];
+  prizes?: CompetitionPrize[];
 }
 
 export interface BootcampRegistrationInput {
@@ -213,6 +232,12 @@ export interface Facilitator {
   name: string;
   email: string;
   role: 'facilitator' | 'mentor';
+  industry?: string;
+  expertise?: string;
+  country?: string;
+  linkedin_url?: string;
+  bio?: string;
+  avatar_url?: string;
   created_at: string;
 }
 
@@ -265,6 +290,8 @@ export const bootcampApi = {
   facilitators: (bootcampId: number) => api.get<{ facilitators: Facilitator[] }>(`/api/bootcamps/facilitators?bootcamp=${bootcampId}`),
   addFacilitator: (input: { bootcamp_id: number; user_id?: number; name?: string; email?: string; role: 'facilitator' | 'mentor' }) =>
     api.post<{ message: string }>('/api/bootcamps/facilitators', input),
+  updateFacilitator: (input: { id: number; role?: string; industry?: string; expertise?: string; country?: string; linkedin_url?: string; bio?: string; avatar_url?: string }) =>
+    api.patch<{ message: string }>('/api/bootcamps/facilitators', input),
   removeFacilitator: (id: number) => api.del<{ message: string }>(`/api/bootcamps/facilitators?id=${id}`),
 
   // Registrants (super admin / manager)
@@ -281,9 +308,29 @@ export const bootcampApi = {
 
   // Hub resources
   resources: (bootcampId: number) => api.get<{ resources: BootcampResource[] }>(`/api/bootcamps/resources?bootcamp=${bootcampId}`),
-  addResource: (input: { bootcamp_id: number; title: string; description?: string; type?: string; url?: string; content?: string }) =>
-    api.post<{ id: number }>('/api/bootcamps/resources', input),
+  addResource: (input: {
+    bootcamp_id: number; title: string; description?: string; type?: string; url?: string; content?: string;
+    category?: string; file_key?: string; file_name?: string; file_size?: number; mime_type?: string;
+  }) => api.post<{ id: number }>('/api/bootcamps/resources', input),
   removeResource: (id: number) => api.del<{ message: string }>(`/api/bootcamps/resources?id=${id}`),
+  uploadResourceFile: async (bootcampId: number, file: File): Promise<{ file_key: string; file_name: string; file_size: number; mime_type: string }> => {
+    const formData = new FormData();
+    formData.set('file', file);
+    formData.set('bootcamp_id', String(bootcampId));
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${apiBase}/api/bootcamps/resource-file`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    const data = (await res.json()) as any;
+    if (!res.ok) throw new Error(data.error || 'File upload failed.');
+    return data;
+  },
+  resourceDownloadUrl: (resourceId: number) => {
+    const token = localStorage.getItem('auth_token') || '';
+    return `${apiBase}/api/bootcamps/resource-file?id=${resourceId}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
+  },
 
   // Competitions
   publicCompetitions: () => api.get<{ competitions: BootcampCompetition[] }>('/api/competitions'),

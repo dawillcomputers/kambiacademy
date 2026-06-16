@@ -14,18 +14,27 @@ interface WinnerInput {
   note?: string;
 }
 
+interface PrizeInput {
+  position?: number;
+  title?: string;
+  reward?: string;
+}
+
 interface CompetitionBody {
   id?: number;
   bootcamp_id?: number;
   title?: string;
   description?: string;
   image_url?: string;
+  flyer_url?: string;
+  rules?: string;
   event_date?: string;
   published?: boolean;
   winners?: WinnerInput[];
+  prizes?: PrizeInput[];
 }
 
-// Attach winners to a set of competitions.
+// Attach winners + prize levels to a set of competitions.
 async function withWinners(db: D1Database, competitions: any[]): Promise<any[]> {
   if (competitions.length === 0) return [];
   const ids = competitions.map((c) => Number(c.id));
@@ -35,6 +44,11 @@ async function withWinners(db: D1Database, competitions: any[]): Promise<any[]> 
      FROM bootcamp_competition_winners WHERE competition_id IN (${placeholders})
      ORDER BY position ASC, id ASC`,
   ).bind(...ids).all<any>();
+  const prizeRows = await db.prepare(
+    `SELECT id, competition_id, position, title, reward
+     FROM bootcamp_competition_prizes WHERE competition_id IN (${placeholders})
+     ORDER BY position ASC, id ASC`,
+  ).bind(...ids).all<any>();
 
   const byCompetition = new Map<number, any[]>();
   for (const w of results || []) {
@@ -42,8 +56,33 @@ async function withWinners(db: D1Database, competitions: any[]): Promise<any[]> 
     if (!byCompetition.has(key)) byCompetition.set(key, []);
     byCompetition.get(key)!.push(w);
   }
+  const prizesByCompetition = new Map<number, any[]>();
+  for (const p of prizeRows.results || []) {
+    const key = Number(p.competition_id);
+    if (!prizesByCompetition.has(key)) prizesByCompetition.set(key, []);
+    prizesByCompetition.get(key)!.push(p);
+  }
 
-  return competitions.map((c) => ({ ...c, published: !!c.published, winners: byCompetition.get(Number(c.id)) || [] }));
+  return competitions.map((c) => ({
+    ...c,
+    published: !!c.published,
+    winners: byCompetition.get(Number(c.id)) || [],
+    prizes: prizesByCompetition.get(Number(c.id)) || [],
+  }));
+}
+
+// Replace the prize levels for a competition atomically.
+async function replacePrizes(db: D1Database, competitionId: number, prizes?: PrizeInput[]): Promise<void> {
+  if (!Array.isArray(prizes)) return;
+  const valid = prizes.filter((p) => p && ((p.title || '').trim() || (p.reward || '').trim()));
+  const statements = [db.prepare('DELETE FROM bootcamp_competition_prizes WHERE competition_id = ?').bind(competitionId)];
+  valid.forEach((p, index) => {
+    statements.push(
+      db.prepare('INSERT INTO bootcamp_competition_prizes (competition_id, position, title, reward) VALUES (?, ?, ?, ?)')
+        .bind(competitionId, Number(p.position ?? index + 1), (p.title || '').trim(), (p.reward || '').trim()),
+    );
+  });
+  await db.batch(statements);
 }
 
 // GET /api/competitions
@@ -67,7 +106,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   // Public showcase for the Kambi Academy website.
   const { results } = await env.DB.prepare(
-    `SELECT c.id, c.bootcamp_id, c.title, c.description, c.image_url, c.event_date, c.published, c.created_at,
+    `SELECT c.id, c.bootcamp_id, c.title, c.description, c.image_url, c.flyer_url, c.rules, c.event_date, c.published, c.created_at,
             b.title AS bootcamp_title, b.slug AS bootcamp_slug
      FROM bootcamp_competitions c
      JOIN bootcamps b ON c.bootcamp_id = b.id
@@ -96,14 +135,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const result = await env.DB.prepare(
-    `INSERT INTO bootcamp_competitions (bootcamp_id, title, description, image_url, event_date, published, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO bootcamp_competitions (bootcamp_id, title, description, image_url, flyer_url, rules, event_date, published, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       body.bootcamp_id,
       body.title,
       body.description || '',
       body.image_url || '',
+      body.flyer_url || '',
+      body.rules || '',
       body.event_date || null,
       body.published ? 1 : 0,
       user.id,
@@ -112,6 +153,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const competitionId = Number(result.meta.last_row_id);
   await replaceWinners(env.DB, competitionId, body.winners);
+  await replacePrizes(env.DB, competitionId, body.prizes);
 
   await recordActivity(env.DB, {
     bootcampId: body.bootcamp_id,
@@ -150,6 +192,8 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
   if (body.title !== undefined) set('title', body.title);
   if (body.description !== undefined) set('description', body.description);
   if (body.image_url !== undefined) set('image_url', body.image_url);
+  if (body.flyer_url !== undefined) set('flyer_url', body.flyer_url);
+  if (body.rules !== undefined) set('rules', body.rules);
   if (body.event_date !== undefined) set('event_date', body.event_date || null);
   if (body.published !== undefined) set('published', body.published ? 1 : 0);
 
@@ -161,6 +205,9 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
 
   if (Array.isArray(body.winners)) {
     await replaceWinners(env.DB, body.id, body.winners);
+  }
+  if (Array.isArray(body.prizes)) {
+    await replacePrizes(env.DB, body.id, body.prizes);
   }
 
   return Response.json({ message: 'Competition updated.' });
@@ -183,6 +230,7 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env }) => {
 
   await env.DB.batch([
     env.DB.prepare('DELETE FROM bootcamp_competition_winners WHERE competition_id = ?').bind(id),
+    env.DB.prepare('DELETE FROM bootcamp_competition_prizes WHERE competition_id = ?').bind(id),
     env.DB.prepare('DELETE FROM bootcamp_competitions WHERE id = ?').bind(id),
   ]);
 

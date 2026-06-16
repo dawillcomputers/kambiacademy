@@ -19,10 +19,43 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const { results } = await env.DB.prepare(
-    'SELECT id, bootcamp_id, user_id, name, email, role, created_at FROM bootcamp_facilitators WHERE bootcamp_id = ? ORDER BY role, name',
+    `SELECT id, bootcamp_id, user_id, name, email, role, industry, expertise, country, linkedin_url, bio, avatar_url, created_at
+     FROM bootcamp_facilitators WHERE bootcamp_id = ? ORDER BY role, name`,
   ).bind(bootcampId).all();
 
   return Response.json({ facilitators: results });
+};
+
+// PATCH /api/bootcamps/facilitators — update a team member's profile.
+export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
+  const user = await getAuthUser(request, env.DB);
+  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const body = await request.json<{
+    id?: number; role?: string; industry?: string; expertise?: string; country?: string; linkedin_url?: string; bio?: string; avatar_url?: string;
+  }>();
+  if (!body.id) return Response.json({ error: 'An id is required.' }, { status: 400 });
+
+  const row = await env.DB.prepare('SELECT bootcamp_id FROM bootcamp_facilitators WHERE id = ?').bind(body.id).first<{ bootcamp_id: number }>();
+  if (!row) return Response.json({ error: 'Not found.' }, { status: 404 });
+  if (!(await canManageBootcamp(env.DB, user, row.bootcamp_id))) {
+    return Response.json({ error: 'You cannot manage this bootcamp.' }, { status: 403 });
+  }
+
+  const updates: string[] = [];
+  const binds: unknown[] = [];
+  const set = (col: string, val: unknown) => { updates.push(`${col} = ?`); binds.push(val); };
+  if (body.role !== undefined) set('role', body.role === 'mentor' ? 'mentor' : 'facilitator');
+  if (body.industry !== undefined) set('industry', body.industry);
+  if (body.expertise !== undefined) set('expertise', body.expertise);
+  if (body.country !== undefined) set('country', body.country);
+  if (body.linkedin_url !== undefined) set('linkedin_url', body.linkedin_url);
+  if (body.bio !== undefined) set('bio', body.bio);
+  if (body.avatar_url !== undefined) set('avatar_url', body.avatar_url);
+  if (updates.length === 0) return Response.json({ message: 'Nothing to update.' });
+  binds.push(body.id);
+  await env.DB.prepare(`UPDATE bootcamp_facilitators SET ${updates.join(', ')} WHERE id = ?`).bind(...binds).run();
+  return Response.json({ message: 'Profile updated.' });
 };
 
 // POST /api/bootcamps/facilitators — manager/super admin appoints a facilitator or mentor.

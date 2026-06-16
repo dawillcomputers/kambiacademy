@@ -35,8 +35,15 @@ const StudentBootcampDetail: React.FC = () => {
   const [team, setTeam] = useState<Facilitator[]>([]);
   const [sessions, setSessions] = useState<LiveSession[]>([]);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [teamFilter, setTeamFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const filteredTeam = team.filter((m) => {
+    const q = teamFilter.trim().toLowerCase();
+    if (!q) return true;
+    return [m.name, m.email, m.expertise, m.industry, m.country, m.role].some((v) => (v || '').toLowerCase().includes(q));
+  });
 
   const load = useCallback(async () => {
     if (!slug) return;
@@ -153,19 +160,35 @@ const StudentBootcampDetail: React.FC = () => {
 
       {team.length > 0 && (
         <section className="rounded-3xl bg-white p-6 shadow-lg">
-          <h2 className="text-lg font-bold text-slate-900">Facilitators & mentors</h2>
-          <div className="mt-4 flex flex-wrap gap-3">
-            {team.map((m) => (
-              <div key={m.id} className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-600 text-sm font-bold text-white">
-                  {m.name.charAt(0).toUpperCase()}
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">{m.name}</p>
-                  <p className="text-xs font-medium capitalize text-indigo-600">{m.role}</p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-slate-900">Facilitators & mentors</h2>
+            <input
+              value={teamFilter}
+              onChange={(e) => setTeamFilter(e.target.value)}
+              placeholder="Search name, expertise, industry…"
+              className="w-full max-w-xs rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredTeam.map((m) => (
+              <div key={m.id} className="rounded-2xl border border-slate-200 p-4">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-600 text-sm font-bold text-white">
+                    {m.name.charAt(0).toUpperCase()}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900">{m.name}</p>
+                    <p className="text-xs font-medium capitalize text-indigo-600">{m.role}</p>
+                  </div>
                 </div>
+                {(m.expertise || m.industry || m.country) && (
+                  <p className="mt-2 text-xs text-slate-500">{[m.expertise, m.industry, m.country].filter(Boolean).join(' · ')}</p>
+                )}
+                {m.bio && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{m.bio}</p>}
+                {m.linkedin_url && <a href={m.linkedin_url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-semibold text-indigo-600 hover:underline">LinkedIn ↗</a>}
               </div>
             ))}
+            {filteredTeam.length === 0 && <p className="text-sm text-slate-500">No team members match “{teamFilter}”.</p>}
           </div>
         </section>
       )}
@@ -227,11 +250,19 @@ const StudentBootcampDetail: React.FC = () => {
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${typeBadge(resource.type)}`}>{resource.type}</span>
                   <p className="font-semibold text-slate-900">{resource.title}</p>
                 </div>
+                {resource.category && resource.category !== 'General' && (
+                  <span className="ml-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase text-indigo-600">{resource.category}</span>
+                )}
                 {resource.description && <p className="mt-1 text-sm text-slate-600">{resource.description}</p>}
                 {resource.content && <p className="mt-1 whitespace-pre-line text-sm text-slate-600">{resource.content}</p>}
                 {resource.url && (
                   <a href={resource.url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-sm font-medium text-indigo-600 hover:underline">
                     Open resource →
+                  </a>
+                )}
+                {resource.type === 'file' && resource.file_name && (
+                  <a href={bootcampApi.resourceDownloadUrl(resource.id)} className="mt-1 inline-flex items-center gap-2 text-sm font-medium text-indigo-600 hover:underline">
+                    ⬇ Download {resource.file_name}
                   </a>
                 )}
               </li>
@@ -250,6 +281,13 @@ const StudentBootcampDetail: React.FC = () => {
                 <div className="p-4">
                   <p className="font-semibold text-slate-900">{competition.title}</p>
                   {competition.description && <p className="mt-1 text-sm text-slate-600">{competition.description}</p>}
+                  {competition.prizes && competition.prizes.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {competition.prizes.map((p, i) => (
+                        <p key={p.id ?? i} className="text-xs text-slate-600"><span className="font-semibold text-amber-600">{p.title || `Prize ${i + 1}`}:</span> {p.reward}</p>
+                      ))}
+                    </div>
+                  )}
                   {competition.winners.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {competition.winners.map((winner, index) => (

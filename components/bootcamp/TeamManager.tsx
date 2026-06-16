@@ -13,6 +13,26 @@ const TeamManager: React.FC<Props> = ({ bootcampId }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState<number | null>(null);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [profile, setProfile] = useState({ industry: '', expertise: '', country: '', linkedin_url: '', bio: '' });
+
+  const openEditor = (m: Facilitator) => {
+    setEditing(m.id);
+    setProfile({
+      industry: m.industry || '', expertise: m.expertise || '', country: m.country || '',
+      linkedin_url: m.linkedin_url || '', bio: m.bio || '',
+    });
+  };
+
+  const saveProfile = async (id: number) => {
+    try {
+      await bootcampApi.updateFacilitator({ id, ...profile });
+      setEditing(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save profile.');
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -81,13 +101,35 @@ const TeamManager: React.FC<Props> = ({ bootcampId }) => {
             {team.length === 0 ? (
               <p className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm text-slate-500">No facilitators or mentors yet.</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <div className="grid gap-3 sm:grid-cols-2">
                 {team.map((m) => (
-                  <span key={m.id} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm">
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${roleBadge(m.role)}`}>{m.role}</span>
-                    <span className="font-medium text-slate-800">{m.name}</span>
-                    <button onClick={() => remove(m.id)} className="text-slate-400 hover:text-rose-600">✕</button>
-                  </span>
+                  <div key={m.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${roleBadge(m.role)}`}>{m.role}</span>
+                          <span className="font-semibold text-slate-900">{m.name}</span>
+                        </div>
+                        {(m.expertise || m.industry) && <p className="mt-1 text-xs text-slate-500">{[m.expertise, m.industry, m.country].filter(Boolean).join(' · ')}</p>}
+                        {m.linkedin_url && <a href={m.linkedin_url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-indigo-600 hover:underline">LinkedIn ↗</a>}
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <button onClick={() => (editing === m.id ? setEditing(null) : openEditor(m))} className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200">{editing === m.id ? 'Cancel' : 'Edit'}</button>
+                        <button onClick={() => remove(m.id)} className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-rose-100 hover:text-rose-700">✕</button>
+                      </div>
+                    </div>
+                    {editing === m.id && (
+                      <div className="mt-3 grid gap-2">
+                        {([['expertise', 'Expertise (e.g. Payments, ML)'], ['industry', 'Industry'], ['country', 'Country'], ['linkedin_url', 'LinkedIn URL']] as const).map(([key, ph]) => (
+                          <input key={key} value={(profile as any)[key]} onChange={(e) => setProfile({ ...profile, [key]: e.target.value })} placeholder={ph}
+                            className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                        ))}
+                        <textarea value={profile.bio} onChange={(e) => setProfile({ ...profile, bio: e.target.value })} rows={2} placeholder="Short bio"
+                          className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                        <button onClick={() => saveProfile(m.id)} className="justify-self-start rounded-lg bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Save profile</button>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

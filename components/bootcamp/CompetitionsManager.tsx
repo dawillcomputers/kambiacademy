@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { BootcampCompetition, CompetitionWinner, bootcampApi } from '../../lib/bootcamp';
+import { BootcampCompetition, CompetitionPrize, CompetitionWinner, bootcampApi } from '../../lib/bootcamp';
 
 interface Props {
   bootcampId: number;
@@ -10,14 +10,23 @@ interface FormState {
   title: string;
   description: string;
   image_url: string;
+  flyer_url: string;
+  rules: string;
   event_date: string;
   published: boolean;
   winners: CompetitionWinner[];
+  prizes: CompetitionPrize[];
 }
 
 const blankWinner = (): CompetitionWinner => ({ name: '', image_url: '', prize: '', note: '' });
+const blankPrize = (position: number): CompetitionPrize => ({ position, title: '', reward: '' });
 
-const emptyForm = (): FormState => ({ title: '', description: '', image_url: '', event_date: '', published: false, winners: [blankWinner()] });
+const PRIZE_LABELS = ['🥇 1st Prize', '🥈 2nd Prize', '🥉 3rd Prize'];
+
+const emptyForm = (): FormState => ({
+  title: '', description: '', image_url: '', flyer_url: '', rules: '', event_date: '', published: false,
+  winners: [blankWinner()], prizes: [blankPrize(1)],
+});
 
 const CompetitionsManager: React.FC<Props> = ({ bootcampId }) => {
   const [competitions, setCompetitions] = useState<BootcampCompetition[]>([]);
@@ -55,11 +64,18 @@ const CompetitionsManager: React.FC<Props> = ({ bootcampId }) => {
       title: competition.title,
       description: competition.description,
       image_url: competition.image_url,
+      flyer_url: competition.flyer_url || '',
+      rules: competition.rules || '',
       event_date: competition.event_date ? competition.event_date.slice(0, 10) : '',
       published: competition.published,
       winners: competition.winners.length ? competition.winners.map((w) => ({ ...w })) : [blankWinner()],
+      prizes: competition.prizes && competition.prizes.length ? competition.prizes.map((p) => ({ ...p })) : [blankPrize(1)],
     });
     setShowForm(true);
+  };
+
+  const updatePrize = (index: number, patch: Partial<CompetitionPrize>) => {
+    setForm((prev) => ({ ...prev, prizes: prev.prizes.map((p, i) => (i === index ? { ...p, ...patch } : p)) }));
   };
 
   const updateWinner = (index: number, patch: Partial<CompetitionWinner>) => {
@@ -75,11 +91,12 @@ const CompetitionsManager: React.FC<Props> = ({ bootcampId }) => {
     setSaving(true);
     setError('');
     const winners = form.winners.filter((w) => w.name.trim());
+    const prizes = form.prizes.filter((p) => (p.title || '').trim() || (p.reward || '').trim()).map((p, i) => ({ ...p, position: i + 1 }));
     try {
       if (form.id) {
-        await bootcampApi.updateCompetition({ ...form, winners });
+        await bootcampApi.updateCompetition({ ...form, winners, prizes });
       } else {
-        await bootcampApi.createCompetition({ bootcamp_id: bootcampId, ...form, winners });
+        await bootcampApi.createCompetition({ bootcamp_id: bootcampId, ...form, winners, prizes });
       }
       resetForm();
       await load();
@@ -152,12 +169,66 @@ const CompetitionsManager: React.FC<Props> = ({ bootcampId }) => {
             rows={2}
             className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
-          <input
-            value={form.image_url}
-            onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-            placeholder="Cover image URL (optional)"
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              value={form.image_url}
+              onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+              placeholder="Cover image URL (optional)"
+              className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <input
+              value={form.flyer_url}
+              onChange={(e) => setForm({ ...form, flyer_url: e.target.value })}
+              placeholder="Flyer image URL (optional)"
+              className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <textarea
+            value={form.rules}
+            onChange={(e) => setForm({ ...form, rules: e.target.value })}
+            placeholder="Rules / eligibility (optional)"
+            rows={2}
             className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-slate-700">Prizes</p>
+              <button
+                type="button"
+                onClick={() => setForm((prev) => ({ ...prev, prizes: [...prev.prizes, blankPrize(prev.prizes.length + 1)] }))}
+                className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-100"
+              >
+                + Add prize level
+              </button>
+            </div>
+            <div className="mt-3 space-y-2">
+              {form.prizes.map((prize, index) => (
+                <div key={index} className="grid gap-2 sm:grid-cols-[auto_1fr_1.6fr_auto] sm:items-center">
+                  <span className="text-xs font-bold text-slate-500">{PRIZE_LABELS[index] || `#${index + 1}`}</span>
+                  <input
+                    value={prize.title}
+                    onChange={(e) => updatePrize(index, { title: e.target.value })}
+                    placeholder="Label (e.g. 1st Place)"
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <input
+                    value={prize.reward}
+                    onChange={(e) => updatePrize(index, { reward: e.target.value })}
+                    placeholder="Reward (e.g. ₦500,000 + Internship)"
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, prizes: prev.prizes.filter((_, i) => i !== index) }))}
+                    className="rounded-lg bg-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-rose-100 hover:text-rose-700"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-center justify-between">
@@ -249,6 +320,15 @@ const CompetitionsManager: React.FC<Props> = ({ bootcampId }) => {
                   </span>
                 </div>
                 {competition.description && <p className="text-sm text-slate-600">{competition.description}</p>}
+                {competition.prizes && competition.prizes.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {competition.prizes.map((p, i) => (
+                      <span key={p.id ?? i} className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                        {p.title || `#${i + 1}`}{p.reward ? ` · ${p.reward}` : ''}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {competition.winners.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {competition.winners.map((winner, index) => (
