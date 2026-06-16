@@ -40,6 +40,7 @@ export interface SignupConfig {
   slug: string;
   title: string;
   status: string;
+  price: number;
   headline: string;
   subtitle: string;
   benefits: string[];
@@ -162,6 +163,21 @@ export interface BootcampRegistrationResult {
   bootcampTitle: string;
   isNewAccount: boolean;
   tempPassword?: string;
+  // Paid bootcamps return a Flutterwave checkout link instead of finishing immediately.
+  requiresPayment?: boolean;
+  amount?: number;
+  transactionRef?: string;
+  payment_url?: string;
+}
+
+export interface BootcampPaymentVerifyResult {
+  message: string;
+  email: string;
+  bootcampSlug: string;
+  bootcampTitle: string;
+  isNewAccount: boolean;
+  tempPassword?: string;
+  amountPaid?: number;
 }
 
 export interface BootcampRegistration {
@@ -217,8 +233,12 @@ export const bootcampApi = {
   // Per-bootcamp registration config (public — drives the signup wizard)
   signupConfig: (slug: string) => api.get<SignupConfig>(`/api/bootcamps/signup-config?slug=${encodeURIComponent(slug)}`),
 
-  // Detailed registration (creates a separate bootcamp account)
-  register: (input: BootcampRegistrationInput) => api.post<BootcampRegistrationResult>('/api/bootcamps/register', input),
+  // Detailed registration (creates a separate bootcamp account). Free bootcamps finish
+  // immediately; paid bootcamps return a Flutterwave `payment_url` to redirect to.
+  register: (input: BootcampRegistrationInput) => api.post<BootcampRegistrationResult>('/api/bootcamps/register', { ...input, action: 'initiate' }),
+  // Confirm a returning Flutterwave bootcamp payment and finalize the registration.
+  verifyRegistration: (input: { slug?: string; transactionRef: string; flutterwaveTransactionId?: string; status?: string }) =>
+    api.post<BootcampPaymentVerifyResult>('/api/bootcamps/register', { action: 'verify', ...input }),
   uploadRegistrationPhoto: async (file: File): Promise<{ url: string }> => {
     const formData = new FormData();
     formData.set('file', file);

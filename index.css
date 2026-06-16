@@ -310,6 +310,112 @@ option {
   background: radial-gradient(circle, rgba(236, 72, 153, 0.26), transparent 70%);
 }
 
+/* ===========================================================================
+   Superadmin / Bootcamp-manager dashboard theming
+   ---------------------------------------------------------------------------
+   The dashboard pages mix two authoring conventions: most pages are written in a
+   light "slate/white" palette, while a few (the main dashboard, billing, the
+   subscription banner) are written in the dark "#111B2E" palette. The shell adds
+   `.dash-root.dash-dark` (default) or `.dash-root.dash-light` so we can remap each
+   convention to the active theme in one place — without rewriting every page.
+   Scope is limited to `.dash-root`, so the public site and other dashboards are
+   untouched. Selectors carry an extra class, so they win on specificity.
+=========================================================================== */
+
+/* ---- DARK (default): make the light-authored pages legible on the dark shell ---- */
+.dash-dark .bg-white { background-color: #111B2E !important; }
+.dash-dark .bg-slate-50,
+.dash-dark .bg-slate-100,
+.dash-dark .bg-gray-50,
+.dash-dark .bg-gray-100 { background-color: #16233A !important; }
+.dash-dark .hover\:bg-slate-50:hover,
+.dash-dark .hover\:bg-slate-100:hover,
+.dash-dark .hover\:bg-gray-100:hover { background-color: #1c2b47 !important; }
+
+/* Primary "ink" buttons → brand indigo so they stand out on dark */
+.dash-dark .bg-slate-900,
+.dash-dark .bg-slate-950,
+.dash-dark .bg-slate-800 { background-color: #4f46e5 !important; }
+.dash-dark .hover\:bg-slate-800:hover,
+.dash-dark .hover\:bg-slate-900:hover,
+.dash-dark .hover\:bg-slate-950:hover { background-color: #4338ca !important; }
+
+/* Text */
+.dash-dark .text-slate-950,
+.dash-dark .text-slate-900,
+.dash-dark .text-slate-800,
+.dash-dark .text-gray-900,
+.dash-dark .text-gray-800 { color: #EAF0FF !important; }
+.dash-dark .text-slate-700,
+.dash-dark .text-gray-700 { color: #C7D2E5 !important; }
+.dash-dark .text-slate-600,
+.dash-dark .text-gray-600 { color: #A9B4CC !important; }
+.dash-dark .text-slate-500,
+.dash-dark .text-gray-500 { color: #94a3c2 !important; }
+.dash-dark .text-slate-400,
+.dash-dark .text-gray-400 { color: #7c8aa8 !important; }
+
+/* Borders + dividers */
+.dash-dark .border-slate-100,
+.dash-dark .border-slate-200,
+.dash-dark .border-gray-100,
+.dash-dark .border-gray-200 { border-color: rgba(255,255,255,0.08) !important; }
+.dash-dark .border-slate-300,
+.dash-dark .border-gray-300 { border-color: rgba(255,255,255,0.12) !important; }
+.dash-dark .border-slate-900,
+.dash-dark .border-t-slate-900,
+.dash-dark .border-b-slate-900 { border-color: #6366f1 !important; }
+.dash-dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(255,255,255,0.08) !important; }
+
+/* Pastel accent surfaces → translucent tints; their text → a lighter shade */
+.dash-dark .bg-indigo-50,  .dash-dark .bg-indigo-100  { background-color: rgba(99,102,241,0.16) !important; }
+.dash-dark .bg-emerald-50, .dash-dark .bg-emerald-100 { background-color: rgba(16,185,129,0.16) !important; }
+.dash-dark .bg-rose-50,    .dash-dark .bg-rose-100    { background-color: rgba(244,63,94,0.16) !important; }
+.dash-dark .bg-amber-50,   .dash-dark .bg-amber-100   { background-color: rgba(245,158,11,0.16) !important; }
+.dash-dark .bg-blue-50,    .dash-dark .bg-blue-100    { background-color: rgba(59,130,246,0.16) !important; }
+.dash-dark .bg-violet-50,  .dash-dark .bg-violet-100  { background-color: rgba(139,92,246,0.16) !important; }
+.dash-dark .bg-sky-50,     .dash-dark .bg-sky-100     { background-color: rgba(56,189,248,0.16) !important; }
+.dash-dark .text-indigo-600,  .dash-dark .text-indigo-700  { color: #a5b4fc !important; }
+.dash-dark .text-emerald-600, .dash-dark .text-emerald-700 { color: #6ee7b7 !important; }
+.dash-dark .text-rose-600,    .dash-dark .text-rose-700    { color: #fda4af !important; }
+.dash-dark .text-amber-600,   .dash-dark .text-amber-700, .dash-dark .text-amber-800 { color: #fcd34d !important; }
+.dash-dark .text-blue-600,    .dash-dark .text-blue-700    { color: #93c5fd !important; }
+.dash-dark .text-violet-600,  .dash-dark .text-violet-700  { color: #c4b5fd !important; }
+
+/* ---- LIGHT: make the dark-authored pages legible on the light shell ---- */
+.dash-light .bg-\[\#0B1220\] { background-color: #eef2f8 !important; }
+.dash-light .bg-\[\#111B2E\] { background-color: #ffffff !important; }
+.dash-light .bg-\[\#16233A\] { background-color: #f1f5f9 !important; }
+.dash-light .bg-\[\#0F172A\] { background-color: #ffffff !important; }
+.dash-light .text-\[\#EAF0FF\] { color: #0f172a !important; }
+.dash-light .text-\[\#A9B4CC\] { color: #475569 !important; }
+.dash-light .text-\[\#6B7A99\] { color: #64748b !important; }
+.dash-light .bg-\[\#EAF0FF\] { background-color: #0f172a !important; }
+
+.dash-light .border-white\/5,
+.dash-light .border-white\/10,
+.dash-light .border-white\/\[0\.06\] { border-color: rgba(15,23,42,0.10) !important; }
+.dash-light .border-white\/15,
+.dash-light .border-white\/20 { border-color: rgba(15,23,42,0.14) !important; }
+.dash-light .bg-white\/5  { background-color: rgba(15,23,42,0.03) !important; }
+.dash-light .bg-white\/10 { background-color: rgba(15,23,42,0.05) !important; }
+.dash-light .bg-white\/20 { background-color: rgba(15,23,42,0.08) !important; }
+.dash-light .hover\:bg-white\/10:hover,
+.dash-light .hover\:bg-white\/15:hover { background-color: rgba(15,23,42,0.06) !important; }
+.dash-light .bg-black\/10 { background-color: rgba(15,23,42,0.03) !important; }
+.dash-light .bg-black\/20 { background-color: rgba(15,23,42,0.05) !important; }
+.dash-light .text-white\/80 { color: #334155 !important; }
+.dash-light .text-white\/70 { color: #475569 !important; }
+.dash-light .text-white\/60,
+.dash-light .text-white\/50 { color: #64748b !important; }
+
+/* Light-tint accent text from the dark pages → readable on light */
+.dash-light .text-emerald-100, .dash-light .text-emerald-200, .dash-light .text-emerald-300 { color: #047857 !important; }
+.dash-light .text-amber-100,   .dash-light .text-amber-200,   .dash-light .text-amber-300   { color: #b45309 !important; }
+.dash-light .text-indigo-100,  .dash-light .text-indigo-200 { color: #4338ca !important; }
+.dash-light .text-rose-100,    .dash-light .text-rose-200,    .dash-light .text-rose-300    { color: #be123c !important; }
+.dash-light .text-orange-100,  .dash-light .text-orange-200 { color: #c2410c !important; }
+
 /* Respect users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,

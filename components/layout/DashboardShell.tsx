@@ -28,6 +28,21 @@ interface DashboardShellProps {
  *   accent:  #6366F1
  */
 
+// Light theme for the superadmin/manager dashboards. Dark stays the default; users
+// can flip to this from the sidebar toggle. The content pages are remapped to a light
+// palette by the `.dash-light` layer in index.css.
+const superadminLight = {
+  sidebar: 'bg-white',
+  sidebarBorder: 'border-slate-200',
+  active: 'bg-[#6366F1]',
+  hoverBg: 'hover:bg-slate-100',
+  content: 'bg-[#eef2f8]',
+  text: 'text-slate-900',
+  muted: 'text-slate-500',
+  dimmed: 'text-slate-400',
+  logo: 'text-slate-900',
+};
+
 const themes = {
   superadmin: {
     sidebar: 'bg-[#111B2E]',
@@ -78,7 +93,23 @@ export default function DashboardShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
-  const t = themes[variant];
+
+  // Light/dark toggle — only the superadmin & bootcamp-manager dashboards (both use the
+  // 'superadmin' variant) expose it. Dark is the default; the choice persists per browser.
+  const themeable = variant === 'superadmin';
+  const [mode, setMode] = useState<'dark' | 'light'>(() => {
+    if (typeof window === 'undefined') return 'dark';
+    return window.localStorage.getItem('kambi-dash-theme') === 'light' ? 'light' : 'dark';
+  });
+  const isLight = themeable && mode === 'light';
+  const toggleMode = () => {
+    setMode((prev) => {
+      const next = prev === 'light' ? 'dark' : 'light';
+      try { window.localStorage.setItem('kambi-dash-theme', next); } catch { /* ignore */ }
+      return next;
+    });
+  };
+  const t = isLight ? superadminLight : themes[variant];
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -155,7 +186,7 @@ export default function DashboardShell({
           const cls = `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150 ${
             active
               ? `${t.active} text-white shadow-lg shadow-black/20`
-              : `${t.muted} ${t.hoverBg} hover:text-white`
+              : `${t.muted} ${t.hoverBg} ${isLight ? 'hover:text-slate-900' : 'hover:text-white'}`
           }`;
 
           const inner = (
@@ -188,7 +219,7 @@ export default function DashboardShell({
           onClick={() => setProfileMenuOpen((open) => !open)}
           className={`flex w-full items-center rounded-xl px-2 py-2 text-left transition hover:bg-white/10 ${collapsed ? 'justify-center' : 'gap-3'}`}
         >
-          <div className="w-8 h-8 rounded-full bg-[#6366F1]/30 flex items-center justify-center text-sm font-bold text-white shrink-0">
+          <div className="w-8 h-8 rounded-full bg-[#6366F1] flex items-center justify-center text-sm font-bold text-white shrink-0">
             {user?.name?.charAt(0)?.toUpperCase() || '?'}
           </div>
           {!collapsed && (
@@ -205,12 +236,12 @@ export default function DashboardShell({
         </button>
 
         {profileMenuOpen && (
-          <div className={`mt-2 rounded-2xl border ${t.sidebarBorder} bg-black/20 p-2 backdrop-blur-xl`}>
+          <div className={`mt-2 rounded-2xl border ${t.sidebarBorder} ${isLight ? 'bg-white shadow-lg' : 'bg-black/20'} p-2 backdrop-blur-xl`}>
             {profilePath && (
               <Link
                 to={profilePath}
                 onClick={() => setProfileMenuOpen(false)}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm ${t.muted} ${t.hoverBg} hover:text-white`}
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm ${t.muted} ${t.hoverBg} ${isLight ? 'hover:text-slate-900' : 'hover:text-white'}`}
               >
                 <span className="text-base">👤</span>
                 <span>Open profile</span>
@@ -219,7 +250,7 @@ export default function DashboardShell({
             <button
               type="button"
               onClick={handleSwitchAccount}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm ${t.muted} ${t.hoverBg} hover:text-white transition-colors`}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm ${t.muted} ${t.hoverBg} ${isLight ? 'hover:text-slate-900' : 'hover:text-white'} transition-colors`}
             >
               <span className="text-base">🔄</span>
               <span>Switch account</span>
@@ -227,11 +258,23 @@ export default function DashboardShell({
           </div>
         )}
 
+        {themeable && (
+          <button
+            type="button"
+            onClick={toggleMode}
+            className={`mt-2 flex w-full items-center justify-center gap-2 rounded-xl border ${isLight ? 'border-slate-200' : 'border-white/10'} px-3 py-2 text-xs font-semibold ${t.muted} ${t.hoverBg} ${isLight ? 'hover:text-slate-900' : 'hover:text-white'} transition-colors`}
+            title={isLight ? 'Switch to dark mode' : 'Switch to light mode'}
+          >
+            <span>{isLight ? '🌙' : '☀️'}</span>
+            {!collapsed && <span>{isLight ? 'Dark mode' : 'Light mode'}</span>}
+          </button>
+        )}
+
         <div className={`mt-2 grid gap-2 ${collapsed ? 'justify-center' : 'grid-cols-2'}`}>
           <button
             type="button"
             onClick={handleSwitchAccount}
-            className={`flex items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold ${t.muted} ${t.hoverBg} hover:text-white transition-colors`}
+            className={`flex items-center justify-center gap-2 rounded-xl border ${isLight ? 'border-slate-200' : 'border-white/10'} px-3 py-2 text-xs font-semibold ${t.muted} ${t.hoverBg} ${isLight ? 'hover:text-slate-900' : 'hover:text-white'} transition-colors`}
           >
             <span>🔄</span>
             {!collapsed && <span>Switch</span>}
@@ -239,7 +282,7 @@ export default function DashboardShell({
           <button
             type="button"
             onClick={handleLogout}
-            className="flex items-center justify-center gap-2 rounded-xl border border-rose-400/15 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20 hover:text-white"
+            className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition ${isLight ? 'border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100' : 'border-rose-400/15 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 hover:text-white'}`}
           >
             <span>🚪</span>
             {!collapsed && <span>Logout</span>}
@@ -250,11 +293,11 @@ export default function DashboardShell({
   );
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className={`${themeable ? `dash-root ${isLight ? 'dash-light' : 'dash-dark'}` : ''} flex h-screen overflow-hidden`}>
       {/* Mobile hamburger */}
       <button
         onClick={() => setMobileOpen(true)}
-        className={`lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg ${t.sidebar} text-white shadow-lg`}
+        className={`lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg ${t.sidebar} ${isLight ? 'text-slate-900 border border-slate-200' : 'text-white'} shadow-lg`}
       >
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />

@@ -148,6 +148,11 @@ const BootcampRegister: React.FC = () => {
     setError('');
     try {
       const result = await bootcampApi.register({ ...form, slug });
+      // Paid bootcamps hand off to Flutterwave; the payment-callback page finalizes it.
+      if (result.requiresPayment && result.payment_url) {
+        window.location.assign(result.payment_url);
+        return;
+      }
       setDone({ title: result.bootcampTitle, email: result.email, tempPassword: result.tempPassword });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
@@ -156,6 +161,9 @@ const BootcampRegister: React.FC = () => {
       setSubmitting(false);
     }
   };
+
+  const fee = Number(config?.price || 0);
+  const feeLabel = fee > 0 ? `₦${fee.toLocaleString()}` : '';
 
   if (done) {
     const nextSteps = ['Verify Email', 'Join the Community', 'Complete Profile', 'Access Orientation Materials', 'Add Event to Calendar'];
@@ -361,6 +369,15 @@ const BootcampRegister: React.FC = () => {
 
           {current === 'consent' && (
             <>
+              {fee > 0 && (
+                <div className="flex items-center justify-between gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3.5">
+                  <div>
+                    <p className="text-sm font-semibold text-indigo-900">Registration fee</p>
+                    <p className="text-xs text-indigo-600">Secured by Flutterwave — pay after you agree below.</p>
+                  </div>
+                  <span className="font-display text-xl font-bold text-indigo-700">{feeLabel}</span>
+                </div>
+              )}
               {[
                 { key: 'consent_terms' as const, label: 'I agree to the Terms and Conditions', required: true },
                 { key: 'consent_updates' as const, label: 'I agree to receive updates from Kambi Academy' },
@@ -389,7 +406,7 @@ const BootcampRegister: React.FC = () => {
             <button onClick={next} className="rounded-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5">Save & Continue</button>
           ) : (
             <button onClick={submit} disabled={submitting} className="rounded-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 disabled:opacity-60">
-              {submitting ? 'Submitting…' : 'Submit Registration'}
+              {submitting ? 'Processing…' : fee > 0 ? `Pay ${feeLabel} & Register` : 'Submit Registration'}
             </button>
           )}
         </div>

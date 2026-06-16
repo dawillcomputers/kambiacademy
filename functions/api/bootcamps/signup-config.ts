@@ -65,6 +65,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       slug: bootcamp.slug,
       title: bootcamp.title,
       status: bootcamp.status,
+      price: Number(bootcamp.price || 0),
       headline: (bootcamp.signup_headline || '').trim() || `Join ${bootcamp.title}`,
       subtitle: (bootcamp.signup_subtitle || '').trim(),
       benefits: benefits.length ? benefits.filter((b) => typeof b === 'string') : DEFAULT_BENEFITS,

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
+import { bootcampApi } from '../lib/bootcamp';
 
 type VerificationState = 'verifying' | 'success' | 'failed';
 
@@ -47,9 +48,11 @@ const PaymentCallback: React.FC = () => {
   const { user } = useAuth();
   const [state, setState] = useState<VerificationState>('verifying');
   const [message, setMessage] = useState('Verifying your Flutterwave payment...');
+  const [bootcampResult, setBootcampResult] = useState<{ title: string; email: string; slug: string; tempPassword?: string } | null>(null);
 
   const subscriptionId = searchParams.get('sid') || '';
   const courseSlug = searchParams.get('course') || '';
+  const bootcampSlug = searchParams.get('slug') || '';
   const bundleTypes = searchParams.get('bundle') || '';
   const transactionRef = searchParams.get('tx_ref') || '';
   const flutterwaveTransactionId = searchParams.get('transaction_id') || undefined;
@@ -70,6 +73,29 @@ const PaymentCallback: React.FC = () => {
       }
 
       try {
+        if (subscriptionType === 'bootcamp_registration') {
+          const response = await bootcampApi.verifyRegistration({
+            slug: bootcampSlug,
+            transactionRef,
+            flutterwaveTransactionId,
+            status,
+          });
+
+          if (cancelled) {
+            return;
+          }
+
+          setBootcampResult({
+            title: response.bootcampTitle,
+            email: response.email,
+            slug: response.bootcampSlug,
+            tempPassword: response.tempPassword,
+          });
+          setState('success');
+          setMessage(response.message || 'Your bootcamp registration is confirmed.');
+          return;
+        }
+
         if (subscriptionType === 'student_course') {
           if (!courseSlug) {
             setState('failed');
@@ -149,10 +175,16 @@ const PaymentCallback: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [bundleTypes, courseSlug, flutterwaveTransactionId, status, subscriptionId, subscriptionType, transactionRef, user?.country]);
+  }, [bootcampSlug, bundleTypes, courseSlug, flutterwaveTransactionId, status, subscriptionId, subscriptionType, transactionRef, user?.country]);
 
   useEffect(() => {
     if (state !== 'success') {
+      return;
+    }
+
+    // Bootcamp registrants are not signed in yet — keep them on this page so they can
+    // copy their temporary password before heading to the bootcamp login.
+    if (subscriptionType === 'bootcamp_registration') {
       return;
     }
 
@@ -170,10 +202,43 @@ const PaymentCallback: React.FC = () => {
     };
   }, [courseSlug, navigate, nextPath, state, subscriptionType]);
 
+  if (subscriptionType === 'bootcamp_registration' && state === 'success' && bootcampResult) {
+    return (
+      <section className="section-shell surface-ring mx-auto max-w-2xl rounded-[32px] border border-white/60 bg-white/95 px-6 py-12 text-center sm:px-10">
+        <div className="text-5xl">🎉</div>
+        <h1 className="mt-4 font-display text-3xl font-bold text-slate-950">Welcome to {bootcampResult.title}</h1>
+        <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-slate-600">Your payment was confirmed and your spot is secured.</p>
+
+        <div className="mt-6 rounded-2xl border border-indigo-100 bg-indigo-50 px-5 py-4 text-left text-sm text-indigo-800">
+          {bootcampResult.tempPassword ? (
+            <>
+              Your account was created for <strong>{bootcampResult.email}</strong>. Sign in with your temporary password:
+              <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-4 py-3">
+                <code className="font-mono text-lg font-bold tracking-wider text-indigo-700">{bootcampResult.tempPassword}</code>
+              </div>
+              <p className="mt-2 text-center text-xs text-indigo-600">Save this now — you'll set your own password on first login.</p>
+            </>
+          ) : (
+            <>An account already exists for <strong>{bootcampResult.email}</strong>. Sign in with your existing password to access this bootcamp.</>
+          )}
+        </div>
+
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <Link to="/bootcamp/login" className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5">
+            Go to bootcamp login
+          </Link>
+          <Link to="/bootcamps" className="inline-flex items-center justify-center rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+            Back to bootcamps
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="section-shell surface-ring rounded-[32px] border border-white/60 bg-white/90 px-6 py-16 text-center sm:px-10">
       <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">Flutterwave Live</p>
-      <h1 className="mt-4 font-display text-3xl font-bold text-slate-950">{humanizeType(subscriptionType)} Payment</h1>
+      <h1 className="mt-4 font-display text-3xl font-bold text-slate-950">{subscriptionType === 'bootcamp_registration' ? 'Bootcamp Registration' : `${humanizeType(subscriptionType)} Payment`}</h1>
       <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-600">{message}</p>
 
       <div className="mt-8 inline-flex items-center gap-3 rounded-full px-4 py-2 text-sm font-semibold">
@@ -185,10 +250,10 @@ const PaymentCallback: React.FC = () => {
 
       <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
         <Link
-          to={nextPath}
+          to={subscriptionType === 'bootcamp_registration' ? '/bootcamps' : nextPath}
           className="inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
         >
-          Return to dashboard
+          {subscriptionType === 'bootcamp_registration' ? 'Back to bootcamps' : 'Return to dashboard'}
         </Link>
         <Link
           to="/contact"

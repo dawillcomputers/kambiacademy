@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { AuthUser } from '../../lib/auth';
+import { AuthUser, useAuth } from '../../lib/auth';
 import MobileBottomNav, { BottomNavItem } from './MobileBottomNav';
 
 interface DashboardLayoutProps {
@@ -25,7 +25,13 @@ const buildMenu = (showMaterials: boolean = false) => [
 export default function DashboardLayout({ children, user, showMaterials = false }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const menu = buildMenu(showMaterials);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/', { replace: true });
+  };
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -53,12 +59,16 @@ export default function DashboardLayout({ children, user, showMaterials = false 
     return match?.path || '/student';
   };
 
-  const bottomNavItems: BottomNavItem[] = menu.map(item => ({
-    key: item.path,
-    label: item.name,
-    icon: item.icon,
-    onClick: () => navigate(item.path),
-  }));
+  const bottomNavItems: BottomNavItem[] = [
+    ...menu.map(item => ({
+      key: item.path,
+      label: item.name,
+      icon: item.icon,
+      onClick: () => navigate(item.path),
+    })),
+    { key: '/student/profile', label: 'Profile', icon: '👤', onClick: () => navigate('/student/profile') },
+    { key: '__logout', label: 'Logout', icon: '🚪', onClick: () => { void handleLogout(); } },
+  ];
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-white">
@@ -75,6 +85,7 @@ export default function DashboardLayout({ children, user, showMaterials = false 
         fixed md:static inset-y-0 left-0 z-50
         w-72 h-screen overflow-y-auto border-r border-white/10
         bg-gradient-to-br from-indigo-900 via-slate-900 to-black
+        flex flex-col
         transform transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0
@@ -88,7 +99,7 @@ export default function DashboardLayout({ children, user, showMaterials = false 
             ✕
           </button>
         </div>
-        <nav className="space-y-2 px-3 pb-6">
+        <nav className="space-y-2 px-3 pb-4">
           {menu.map((item) => {
             const isActive = location.pathname === item.path || (item.path !== '/student' && location.pathname.startsWith(item.path));
             return (
@@ -106,6 +117,22 @@ export default function DashboardLayout({ children, user, showMaterials = false 
             );
           })}
         </nav>
+
+        {/* Account actions pinned to the bottom of the sidebar */}
+        <div className="mt-auto space-y-2 border-t border-white/10 px-3 py-4">
+          <button
+            onClick={() => navigate('/student/profile')}
+            className="flex w-full items-center gap-2 rounded-xl p-3 text-left text-white transition-colors hover:bg-white/10"
+          >
+            👤 Edit Profile
+          </button>
+          <button
+            onClick={() => { void handleLogout(); }}
+            className="flex w-full items-center gap-2 rounded-xl border border-rose-400/20 bg-rose-500/10 p-3 text-left font-semibold text-rose-100 transition-colors hover:bg-rose-500/20"
+          >
+            🚪 Logout
+          </button>
+        </div>
       </aside>
 
       {/* Content */}
@@ -137,6 +164,14 @@ export default function DashboardLayout({ children, user, showMaterials = false 
               </div>
             )}
             <span className="text-sm font-medium hidden sm:inline">Edit Profile</span>
+          </button>
+          <button
+            onClick={() => { void handleLogout(); }}
+            className="ml-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-rose-200 transition-colors hover:bg-rose-500/15"
+            title="Log out"
+          >
+            <span>🚪</span>
+            <span className="hidden sm:inline">Logout</span>
           </button>
         </header>
 
