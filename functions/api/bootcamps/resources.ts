@@ -1,5 +1,6 @@
 import { getAuthUser } from '../../_shared/auth';
 import { canManageBootcamp, canViewBootcamp } from '../../_shared/bootcamp';
+import { recordActivity } from '../../_shared/activity';
 
 interface Env {
   DB: D1Database;
@@ -56,6 +57,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   )
     .bind(body.bootcamp_id, body.title, body.description || '', type, body.url || '', body.content || '', user.id)
     .run();
+
+  await recordActivity(env.DB, {
+    bootcampId: body.bootcamp_id,
+    type: type === 'announcement' ? 'announcement' : 'material',
+    title: type === 'announcement' ? body.title : `New material: ${body.title}`,
+    body: body.description || '',
+    link: body.url || '#materials',
+    refId: Number(result.meta.last_row_id),
+    createdBy: user.id,
+  });
 
   return Response.json({ message: 'Resource added.', id: result.meta.last_row_id }, { status: 201 });
 };

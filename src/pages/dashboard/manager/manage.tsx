@@ -5,8 +5,10 @@ import ResourcesManager from '../../../../components/bootcamp/ResourcesManager';
 import CompetitionsManager from '../../../../components/bootcamp/CompetitionsManager';
 import TeamManager from '../../../../components/bootcamp/TeamManager';
 import RegistrationConfig from '../../../../components/bootcamp/RegistrationConfig';
+import LiveSessionsManager from '../../../../components/bootcamp/LiveSessionsManager';
+import DiscountsManager from '../../../../components/bootcamp/DiscountsManager';
 
-type Tab = 'content' | 'competitions' | 'team' | 'registration' | 'settings';
+type Tab = 'content' | 'live' | 'competitions' | 'team' | 'discounts' | 'registration' | 'settings';
 
 const ManagerManageBootcamp: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -115,8 +117,10 @@ const ManagerManageBootcamp: React.FC = () => {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'content', label: 'Hub content' },
+    { key: 'live', label: 'Live classes' },
     { key: 'competitions', label: 'Competitions' },
     { key: 'team', label: 'Facilitators & Mentors' },
+    { key: 'discounts', label: 'Discount codes' },
     { key: 'registration', label: 'Signup page' },
     { key: 'settings', label: 'Settings' },
   ];
@@ -150,8 +154,10 @@ const ManagerManageBootcamp: React.FC = () => {
       </div>
 
       {tab === 'content' && <ResourcesManager bootcampId={bootcampId} />}
+      {tab === 'live' && <LiveSessionsManager bootcampId={bootcampId} />}
       {tab === 'competitions' && <CompetitionsManager bootcampId={bootcampId} />}
       {tab === 'team' && <TeamManager bootcampId={bootcampId} />}
+      {tab === 'discounts' && <DiscountsManager bootcampId={bootcampId} />}
       {tab === 'registration' && <RegistrationConfig bootcamp={bootcamp} onSaved={load} />}
       {tab === 'settings' && (
         <form onSubmit={saveSettings} className="max-w-2xl space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

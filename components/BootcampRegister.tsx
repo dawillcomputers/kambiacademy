@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { BootcampRegistrationInput, SignupConfig, bootcampApi } from '../lib/bootcamp';
+import { BootcampRegistrationInput, DiscountValidation, SignupConfig, bootcampApi, discountApi } from '../lib/bootcamp';
 
 const QUALIFICATIONS = ['Secondary School', 'OND/ND', 'HND', "Bachelor's Degree", "Master's Degree", 'PhD', 'Other'];
 const AGE_RANGES = ['Under 18', '18 – 24', '25 – 34', '35 – 44', '45+'];
@@ -89,6 +89,9 @@ const BootcampRegister: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [done, setDone] = useState<{ title: string; email: string; tempPassword?: string } | null>(null);
+  const [discountCode, setDiscountCode] = useState('');
+  const [discount, setDiscount] = useState<DiscountValidation | null>(null);
+  const [applyingDiscount, setApplyingDiscount] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -147,7 +150,11 @@ const BootcampRegister: React.FC = () => {
     setSubmitting(true);
     setError('');
     try {
-      const result = await bootcampApi.register({ ...form, slug });
+      const result = await bootcampApi.register({
+        ...form,
+        slug,
+        discount_code: discount?.valid ? discountCode.trim().toUpperCase() : undefined,
+      });
       // Paid bootcamps hand off to Flutterwave; the payment-callback page finalizes it.
       if (result.requiresPayment && result.payment_url) {
         window.location.assign(result.payment_url);
@@ -163,7 +170,27 @@ const BootcampRegister: React.FC = () => {
   };
 
   const fee = Number(config?.price || 0);
-  const feeLabel = fee > 0 ? `₦${fee.toLocaleString()}` : '';
+  const effectiveFee = discount?.valid ? discount.amount_after : fee;
+  const feeLabel = effectiveFee > 0 ? `₦${effectiveFee.toLocaleString()}` : '';
+
+  const applyDiscount = async () => {
+    if (!discountCode.trim() || !config) return;
+    setApplyingDiscount(true);
+    setError('');
+    try {
+      const res = await discountApi.validate({
+        code: discountCode,
+        bootcampId: config.bootcampId,
+        amount: fee,
+        email: form.email.trim().toLowerCase() || undefined,
+      });
+      setDiscount(res);
+    } catch (err) {
+      setDiscount({ valid: false, reason: err instanceof Error ? err.message : 'Could not check code.', amount_before: fee, amount_after: fee, discount: 0, is_free: false });
+    } finally {
+      setApplyingDiscount(false);
+    }
+  };
 
   if (done) {
     const nextSteps = ['Verify Email', 'Join the Community', 'Complete Profile', 'Access Orientation Materials', 'Add Event to Calendar'];
@@ -251,6 +278,7 @@ const BootcampRegister: React.FC = () => {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-indigo-500">Registration</p>
             <h1 className="mt-1 font-display text-2xl font-bold text-slate-900">{config.title}</h1>
+            <p className="mt-0.5 text-xs text-slate-500">Already registered? <Link to="/bootcamp/login" className="font-semibold text-indigo-600 hover:underline">Sign in</Link></p>
           </div>
           <span className="text-sm font-semibold text-slate-500">Step {stepIndex + 1} of {steps.length}</span>
         </div>
@@ -370,12 +398,42 @@ const BootcampRegister: React.FC = () => {
           {current === 'consent' && (
             <>
               {fee > 0 && (
-                <div className="flex items-center justify-between gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3.5">
-                  <div>
-                    <p className="text-sm font-semibold text-indigo-900">Registration fee</p>
-                    <p className="text-xs text-indigo-600">Secured by Flutterwave — pay after you agree below.</p>
+                <div className="space-y-3 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-indigo-900">Registration fee</p>
+                      <p className="text-xs text-indigo-600">Secured by Flutterwave — pay after you agree below.</p>
+                    </div>
+                    <div className="text-right">
+                      {discount?.valid && discount.discount > 0 && (
+                        <span className="mr-2 text-sm text-slate-400 line-through">₦{fee.toLocaleString()}</span>
+                      )}
+                      <span className="font-display text-xl font-bold text-indigo-700">{effectiveFee > 0 ? `₦${effectiveFee.toLocaleString()}` : 'Free'}</span>
+                    </div>
                   </div>
-                  <span className="font-display text-xl font-bold text-indigo-700">{feeLabel}</span>
+                  <div className="flex gap-2">
+                    <input
+                      value={discountCode}
+                      onChange={(e) => { setDiscountCode(e.target.value); setDiscount(null); }}
+                      placeholder="Discount code"
+                      className="w-full rounded-xl border border-indigo-200 bg-white px-3 py-2 text-sm font-semibold uppercase tracking-wide text-indigo-900 placeholder:font-normal placeholder:normal-case placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={applyDiscount}
+                      disabled={applyingDiscount || !discountCode.trim()}
+                      className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      {applyingDiscount ? '…' : 'Apply'}
+                    </button>
+                  </div>
+                  {discount && (
+                    <p className={`text-xs font-semibold ${discount.valid ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {discount.valid
+                        ? `Code applied — you save ₦${discount.discount.toLocaleString()}${discount.is_free ? ' (registration is now free!)' : ''}.`
+                        : discount.reason || 'Invalid code.'}
+                    </p>
+                  )}
                 </div>
               )}
               {[
@@ -406,7 +464,7 @@ const BootcampRegister: React.FC = () => {
             <button onClick={next} className="rounded-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5">Save & Continue</button>
           ) : (
             <button onClick={submit} disabled={submitting} className="rounded-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 disabled:opacity-60">
-              {submitting ? 'Processing…' : fee > 0 ? `Pay ${feeLabel} & Register` : 'Submit Registration'}
+              {submitting ? 'Processing…' : effectiveFee > 0 ? `Pay ${feeLabel} & Register` : 'Submit Registration'}
             </button>
           )}
         </div>

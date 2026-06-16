@@ -1,4 +1,5 @@
 import { hashPassword, generateTempPassword } from '../../_shared/auth';
+import { evaluateDiscount, recordRedemption, DiscountCodeRow } from '../../_shared/discounts';
 
 interface Env {
   DB: D1Database;
@@ -44,6 +45,7 @@ interface RegistrationBody {
   consent_updates?: boolean;
   consent_community?: boolean;
   consent_jobs?: boolean;
+  discount_code?: string;
   // verify-only fields
   transactionRef?: string;
   tx_ref?: string;
@@ -151,8 +153,9 @@ async function upsertRegistration(env: Env, params: {
   paymentStatus: string;
   paymentRef: string;
   amountDue: number;
+  discountCode?: string;
 }) {
-  const { userId, bootcampId, body, email, tempPassword, registrationStatus, paymentStatus, paymentRef, amountDue } = params;
+  const { userId, bootcampId, body, email, tempPassword, registrationStatus, paymentStatus, paymentRef, amountDue, discountCode } = params;
   await env.DB.prepare(
     `INSERT INTO bootcamp_registrations (
        user_id, bootcamp_id, full_name, email, phone, gender, date_of_birth, age_range,
@@ -162,8 +165,8 @@ async function upsertRegistration(env: Env, params: {
        career_goals, career_goals_text, startup_interest, team_interest, startup_idea, startup_idea_text,
        linkedin_url, github_url, portfolio_url, profile_photo,
        consent_terms, consent_updates, consent_community, consent_jobs, temp_password,
-       registration_status, payment_status, payment_ref, amount_due
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       registration_status, payment_status, payment_ref, amount_due, discount_code
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       userId, bootcampId, (body.full_name || '').trim(), email, body.phone || '', body.gender || '', body.date_of_birth || '', body.age_range || '',
@@ -173,7 +176,7 @@ async function upsertRegistration(env: Env, params: {
       jsonArray(body.career_goals), body.career_goals_text || '', body.startup_interest || '', body.team_interest || '', body.startup_idea || '', body.startup_idea_text || '',
       body.linkedin_url || '', body.github_url || '', body.portfolio_url || '', body.profile_photo || '',
       body.consent_terms ? 1 : 0, body.consent_updates ? 1 : 0, body.consent_community ? 1 : 0, body.consent_jobs ? 1 : 0, tempPassword,
-      registrationStatus, paymentStatus, paymentRef, amountDue,
+      registrationStatus, paymentStatus, paymentRef, amountDue, discountCode || '',
     )
     .run();
 }
@@ -205,7 +208,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const registration = await env.DB.prepare(
-      `SELECT r.*, b.title AS bootcamp_title, b.slug AS bootcamp_slug
+      `SELECT r.*, b.title AS bootcamp_title, b.slug AS bootcamp_slug, b.price AS bootcamp_price
        FROM bootcamp_registrations r JOIN bootcamps b ON b.id = r.bootcamp_id
        WHERE r.payment_ref = ? ORDER BY r.id DESC LIMIT 1`,
     ).bind(transactionRef).first<any>();
@@ -235,6 +238,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         "UPDATE bootcamp_registrations SET registration_status = 'active', payment_status = 'paid', updated_at = datetime('now') WHERE id = ?",
       ).bind(registration.id).run();
       await activateEnrollment(env, Number(registration.bootcamp_id), Number(registration.user_id), amountDue);
+
+      // Record the discount redemption now that the payment has cleared.
+      if (registration.discount_code) {
+        const code = await env.DB.prepare('SELECT * FROM discount_codes WHERE code = ?').bind(registration.discount_code).first<DiscountCodeRow>();
+        if (code) {
+          await recordRedemption(env.DB, code, {
+            email: registration.email,
+            userId: Number(registration.user_id),
+            bootcampId: Number(registration.bootcamp_id),
+            amountBefore: Number(registration.bootcamp_price || amountDue),
+            amountAfter: amountDue,
+          });
+        }
+      }
     }
 
     return Response.json({
@@ -271,7 +288,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return Response.json({ error: 'Registration for this bootcamp is closed.' }, { status: 400 });
   }
 
-  const fee = roundCurrency(Math.max(0, Number(bootcamp.price || 0)));
+  const listPrice = roundCurrency(Math.max(0, Number(bootcamp.price || 0)));
+  let fee = listPrice;
+  let appliedCode: DiscountCodeRow | null = null;
+
+  // Apply a discount code if supplied (re-validated server-side).
+  if (listPrice > 0 && body.discount_code?.trim()) {
+    const evaluation = await evaluateDiscount(env.DB, body.discount_code, { bootcampId: bootcamp.id, amount: listPrice, email });
+    if (!evaluation.valid) {
+      return Response.json({ error: evaluation.reason || 'This discount code is not valid.' }, { status: 400 });
+    }
+    fee = evaluation.amountAfter;
+    appliedCode = evaluation.code || null;
+  }
 
   // Find or create the bootcamp account.
   let userId: number;
@@ -293,13 +322,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     isNewAccount = true;
   }
 
-  // Free bootcamp → finalize immediately, exactly as before.
+  // Free bootcamp, or a code that covers the full fee → finalize immediately.
   if (fee <= 0) {
     await upsertRegistration(env, {
       userId, bootcampId: bootcamp.id, body, email, tempPassword,
-      registrationStatus: 'active', paymentStatus: 'free', paymentRef: '', amountDue: 0,
+      registrationStatus: 'active', paymentStatus: appliedCode ? 'discounted' : 'free', paymentRef: '', amountDue: 0,
+      discountCode: appliedCode?.code || '',
     });
     await activateEnrollment(env, bootcamp.id, userId, 0);
+    if (appliedCode) {
+      await recordRedemption(env.DB, appliedCode, {
+        email, userId, bootcampId: bootcamp.id, amountBefore: listPrice, amountAfter: 0,
+      });
+    }
     return Response.json(
       {
         message: `Welcome to ${bootcamp.title}! Your registration is complete.`,
@@ -324,6 +359,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   await upsertRegistration(env, {
     userId, bootcampId: bootcamp.id, body, email, tempPassword,
     registrationStatus: 'pending_payment', paymentStatus: 'unpaid', paymentRef: transactionRef, amountDue: fee,
+    discountCode: appliedCode?.code || '',
   });
 
   try {

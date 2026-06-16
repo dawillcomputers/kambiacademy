@@ -82,6 +82,18 @@ export default function KambiAIAssistant() {
   const suggestions = assistantSuggestions.length ? assistantSuggestions : defaultSuggestions;
 
   const storageKey = useMemo(() => (user ? `kambi-ai-history:${user.id}` : ''), [user?.id]);
+  const openKey = useMemo(() => (user ? `kambi-ai-open:${user.id}` : ''), [user?.id]);
+
+  // Remember whether the panel was open across navigation and reloads.
+  useEffect(() => {
+    if (!openKey) return;
+    try { setIsOpen(window.localStorage.getItem(openKey) === '1'); } catch { /* ignore */ }
+  }, [openKey]);
+
+  useEffect(() => {
+    if (!openKey) return;
+    try { window.localStorage.setItem(openKey, isOpen ? '1' : '0'); } catch { /* ignore */ }
+  }, [isOpen, openKey]);
 
   useEffect(() => {
     if (!user) {
@@ -187,13 +199,26 @@ export default function KambiAIAssistant() {
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-200">Kambi AI</p>
                 <h3 className="mt-2 text-lg font-bold">Assistant for {user.role.replace('_', ' ')}</h3>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:bg-white/20"
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  aria-label="Minimize assistant"
+                  title="Minimize"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/10 text-lg font-bold leading-none text-white transition hover:bg-white/20"
+                >
+                  –
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setIsOpen(false); setInput(''); }}
+                  aria-label="Close assistant"
+                  title="Close"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/10 text-sm font-bold text-white transition hover:bg-rose-500/40"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           </div>
 

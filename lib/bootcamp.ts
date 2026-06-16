@@ -293,6 +293,95 @@ export const bootcampApi = {
   removeCompetition: (id: number) => api.del<{ message: string }>(`/api/competitions?id=${id}`),
 };
 
+export interface DiscountCode {
+  id: number;
+  code: string;
+  description: string;
+  type: 'percent' | 'fixed';
+  value: number;
+  scope: 'global' | 'bootcamp';
+  bootcamp_id: number | null;
+  bootcamp_title?: string | null;
+  max_uses: number | null;
+  used_count: number;
+  single_use_per_email: number;
+  expires_at: string | null;
+  active: number;
+  created_at: string;
+}
+
+export interface DiscountValidation {
+  valid: boolean;
+  reason?: string;
+  amount_before: number;
+  amount_after: number;
+  discount: number;
+  is_free: boolean;
+  type?: 'percent' | 'fixed';
+  value?: number;
+}
+
+export const discountApi = {
+  list: (bootcampId?: number) =>
+    api.get<{ codes: DiscountCode[] }>(`/api/discounts${bootcampId ? `?bootcamp=${bootcampId}` : ''}`),
+  create: (input: {
+    code: string; description?: string; type: 'percent' | 'fixed'; value: number;
+    scope?: 'global' | 'bootcamp'; bootcamp_id?: number | null; max_uses?: number | null;
+    single_use_per_email?: boolean; expires_at?: string | null;
+  }) => api.post<{ id: number }>('/api/discounts', { action: 'create', ...input }),
+  toggle: (id: number, active: boolean) => api.patch<{ message: string }>('/api/discounts', { id, active }),
+  remove: (id: number) => api.del<{ message: string }>(`/api/discounts?id=${id}`),
+  // Public live preview while registering.
+  validate: (input: { code: string; bootcampId?: number; amount: number; email?: string }) =>
+    api.post<DiscountValidation>('/api/discounts', { action: 'validate', ...input }),
+};
+
+export interface LiveSession {
+  id: number;
+  bootcamp_id: number;
+  title: string;
+  description: string;
+  provider: 'zoom' | 'meet' | 'teams' | 'other';
+  url: string;
+  meeting_id: string;
+  passcode: string;
+  starts_at: string | null;
+  duration_minutes: number;
+  status: 'scheduled' | 'live' | 'ended';
+  created_at: string;
+}
+
+export interface ActivityItem {
+  id: number;
+  type: 'material' | 'competition' | 'live' | 'announcement' | 'mentor';
+  title: string;
+  body: string;
+  link: string;
+  icon: string;
+  created_at: string;
+  author_name?: string | null;
+  like_count: number;
+  save_count: number;
+  liked: boolean;
+  saved: boolean;
+}
+
+export const liveApi = {
+  list: (bootcampId: number) => api.get<{ sessions: LiveSession[] }>(`/api/bootcamps/live-sessions?bootcamp=${bootcampId}`),
+  create: (input: Partial<LiveSession> & { bootcamp_id: number; title: string }) =>
+    api.post<{ id: number }>('/api/bootcamps/live-sessions', input),
+  update: (input: Partial<LiveSession> & { id: number }) => api.patch<{ message: string }>('/api/bootcamps/live-sessions', input),
+  remove: (id: number) => api.del<{ message: string }>(`/api/bootcamps/live-sessions?id=${id}`),
+};
+
+export const activityApi = {
+  list: (bootcampId: number) => api.get<{ activity: ActivityItem[] }>(`/api/bootcamps/activity?bootcamp=${bootcampId}`),
+  announce: (input: { bootcamp_id: number; title: string; body?: string; link?: string }) =>
+    api.post<{ message: string }>('/api/bootcamps/activity', { action: 'announce', ...input }),
+  react: (activityId: number, kind: 'like' | 'save') =>
+    api.post<{ active: boolean }>('/api/bootcamps/activity', { action: 'react', activity_id: activityId, kind }),
+};
+
 export const formatBootcampDate = (value?: string | null): string => {
   if (!value) return '';
   const date = new Date(value);

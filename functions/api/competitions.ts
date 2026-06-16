@@ -1,5 +1,6 @@
 import { getAuthUser } from '../_shared/auth';
 import { canManageBootcamp, getCompetitionBootcampId } from '../_shared/bootcamp';
+import { recordActivity } from '../_shared/activity';
 
 interface Env {
   DB: D1Database;
@@ -111,6 +112,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const competitionId = Number(result.meta.last_row_id);
   await replaceWinners(env.DB, competitionId, body.winners);
+
+  await recordActivity(env.DB, {
+    bootcampId: body.bootcamp_id,
+    type: 'competition',
+    title: `New competition: ${body.title}`,
+    body: body.description || '',
+    link: '/competitions',
+    refId: competitionId,
+    createdBy: user.id,
+  });
 
   return Response.json({ message: 'Competition posted.', id: competitionId }, { status: 201 });
 };

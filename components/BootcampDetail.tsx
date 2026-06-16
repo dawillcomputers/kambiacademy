@@ -129,6 +129,11 @@ const BootcampDetail: React.FC = () => {
                 </p>
               )}
             </div>
+            {!isEnrolled && (
+              <p className="mt-3 text-center text-xs text-slate-500">
+                Already registered? <Link to="/bootcamp/login" className="font-semibold text-indigo-600 hover:underline">Sign in</Link>
+              </p>
+            )}
             <p className="mt-4 text-center text-xs text-slate-400">
               Registering keeps full access to all Kambi Academy courses too.
             </p>
