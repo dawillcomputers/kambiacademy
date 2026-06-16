@@ -16,6 +16,7 @@ import SignUp from './components/SignUp';
 import ChangePassword from './components/ChangePassword';
 import JoinClass from './components/JoinClass';
 import KambiAIAssistant from './components/KambiAIAssistant';
+import PopupCampaign from './components/PopupCampaign';
 import BootcampHub from './components/BootcampHub';
 import BootcampDetail from './components/BootcampDetail';
 import BootcampRegister from './components/BootcampRegister';
@@ -318,6 +319,7 @@ const AppShell: React.FC = () => {
           </Suspense>
         )}
         <KambiAIAssistant />
+        <PopupCampaign />
       </div>
     );
   }
@@ -390,6 +392,7 @@ const AppShell: React.FC = () => {
       </main>
       <Footer branding={branding} contact={resolvedSiteData.contact} />
       <KambiAIAssistant />
+      <PopupCampaign />
     </div>
   );
 };

@@ -416,6 +416,20 @@ option {
 .dash-light .text-rose-100,    .dash-light .text-rose-200,    .dash-light .text-rose-300    { color: #be123c !important; }
 .dash-light .text-orange-100,  .dash-light .text-orange-200 { color: #c2410c !important; }
 
+/* Rich text editor + rendered note content */
+.rte-content:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+}
+.rte-content h2 { font-size: 1.25rem; font-weight: 700; margin: 0.5rem 0; color: #0f172a; }
+.rte-content h3 { font-size: 1.05rem; font-weight: 700; margin: 0.5rem 0; color: #0f172a; }
+.rte-content p { margin: 0.4rem 0; }
+.rte-content ul { list-style: disc; padding-left: 1.4rem; margin: 0.4rem 0; }
+.rte-content ol { list-style: decimal; padding-left: 1.4rem; margin: 0.4rem 0; }
+.rte-content a { color: #4f46e5; text-decoration: underline; }
+.rte-content blockquote { border-left: 3px solid #c7d2fe; padding-left: 0.85rem; margin: 0.5rem 0; color: #475569; font-style: italic; }
+.rte-content strong { font-weight: 700; }
+
 /* Respect users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,

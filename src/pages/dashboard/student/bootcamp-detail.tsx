@@ -254,7 +254,10 @@ const StudentBootcampDetail: React.FC = () => {
                   <span className="ml-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase text-indigo-600">{resource.category}</span>
                 )}
                 {resource.description && <p className="mt-1 text-sm text-slate-600">{resource.description}</p>}
-                {resource.content && <p className="mt-1 whitespace-pre-line text-sm text-slate-600">{resource.content}</p>}
+                {resource.content && (/<[a-z][\s\S]*>/i.test(resource.content)
+                  ? <div className="rte-content mt-1 text-sm text-slate-600" dangerouslySetInnerHTML={{ __html: resource.content }} />
+                  : <p className="mt-1 whitespace-pre-line text-sm text-slate-600">{resource.content}</p>
+                )}
                 {resource.url && (
                   <a href={resource.url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-sm font-medium text-indigo-600 hover:underline">
                     Open resource →

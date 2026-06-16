@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { BootcampResource, bootcampApi } from '../../lib/bootcamp';
+import RichTextEditor from '../RichTextEditor';
 
 interface Props {
   bootcampId: number;
@@ -125,13 +126,13 @@ const ResourcesManager: React.FC<Props> = ({ bootcampId }) => {
             <input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
           </label>
         ) : (
-          <textarea
-            value={form.content}
-            onChange={(e) => setForm({ ...form, content: e.target.value })}
-            placeholder="Write the note or announcement…"
-            rows={3}
-            className="mt-3 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+          <div className="mt-3">
+            <RichTextEditor
+              value={form.content}
+              onChange={(html) => setForm({ ...form, content: html })}
+              placeholder="Write the note or announcement… use the toolbar for headings, lists, links."
+            />
+          </div>
         )}
         {error && <p className="mt-3 text-sm font-semibold text-rose-600">{error}</p>}
         <button
@@ -175,7 +176,10 @@ const ResourcesManager: React.FC<Props> = ({ bootcampId }) => {
                       📎 {resource.file_name} <span className="text-xs text-slate-400">{formatSize(resource.file_size)} · {resource.download_count || 0} downloads</span>
                     </a>
                   )}
-                  {resource.content && <p className="mt-1 whitespace-pre-line text-sm text-slate-600">{resource.content}</p>}
+                  {resource.content && (/<[a-z][\s\S]*>/i.test(resource.content)
+                    ? <div className="rte-content mt-1 text-sm text-slate-600" dangerouslySetInnerHTML={{ __html: resource.content }} />
+                    : <p className="mt-1 whitespace-pre-line text-sm text-slate-600">{resource.content}</p>
+                  )}
                 </div>
                 <button
                   onClick={() => remove(resource.id)}

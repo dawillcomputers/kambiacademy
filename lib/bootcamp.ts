@@ -429,6 +429,30 @@ export const activityApi = {
     api.post<{ active: boolean }>('/api/bootcamps/activity', { action: 'react', activity_id: activityId, kind }),
 };
 
+export interface PopupCampaignItem {
+  id: number;
+  title: string;
+  media_type: 'image' | 'video' | 'html';
+  media_url: string;
+  html: string;
+  link_url: string;
+  cta_label: string;
+  frequency: 'once' | 'daily' | 'always';
+  audience: 'all' | 'bootcamp';
+  bootcamp_id: number | null;
+  active?: number;
+  starts_at?: string | null;
+  ends_at?: string | null;
+}
+
+export const popupApi = {
+  active: (bootcampId?: number) => api.get<{ campaigns: PopupCampaignItem[] }>(`/api/popups${bootcampId ? `?bootcamp=${bootcampId}` : ''}`),
+  listAdmin: () => api.get<{ campaigns: PopupCampaignItem[] }>('/api/popups?scope=admin'),
+  create: (input: Partial<PopupCampaignItem>) => api.post<{ id: number }>('/api/popups', input),
+  toggle: (id: number, active: boolean) => api.patch<{ message: string }>('/api/popups', { id, active }),
+  remove: (id: number) => api.del<{ message: string }>(`/api/popups?id=${id}`),
+};
+
 export const formatBootcampDate = (value?: string | null): string => {
   if (!value) return '';
   const date = new Date(value);

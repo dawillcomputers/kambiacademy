@@ -14,6 +14,7 @@ import SuperAdminSettings from './settings';
 import SuperAdminAudit from './audit';
 import SuperAdminBilling from './billing';
 import SuperAdminPricing from './pricing';
+import SuperAdminCampaigns from './campaigns';
 
 const formatScheduleDate = (value?: string | null) => {
   if (!value) {
@@ -102,6 +103,7 @@ const fullSidebarItems: SidebarItem[] = [
   { name: 'Users', icon: '👥', path: '/superadmin/users' },
   { name: 'Courses', icon: '📚', path: '/superadmin/courses' },
   { name: 'Bootcamps', icon: '🚀', path: '/superadmin/bootcamps' },
+  { name: 'Campaigns', icon: '📢', path: '/superadmin/campaigns' },
   { name: 'Pricing', icon: '🏷️', path: '/superadmin/pricing' },
   { name: 'Billing', icon: '💳', path: '/superadmin/billing' },
   { name: 'Finance', icon: '💰', path: '/superadmin/finance' },
@@ -193,6 +195,7 @@ const SuperAdminRoutes: React.FC = () => {
                 <Route path="/users" element={<SuperAdminUsers />} />
                 <Route path="/courses" element={<SuperAdminCourses />} />
                 <Route path="/bootcamps" element={<SuperAdminBootcamps />} />
+                <Route path="/campaigns" element={<SuperAdminCampaigns />} />
                 <Route path="/billing" element={<SuperAdminBilling />} />
                 <Route path="/pricing" element={<SuperAdminPricing />} />
                 <Route path="/analytics" element={<SuperAdminAnalytics />} />
