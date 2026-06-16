@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
-  ActivityItem, Bootcamp, BootcampCompetition, BootcampResource, Facilitator, LiveSession,
-  activityApi, bootcampApi, formatBootcampDate, liveApi,
+  ActivityItem, Bootcamp, BootcampCompetition, BootcampMessage, BootcampResource, Facilitator, LiveSession,
+  activityApi, bootcampApi, formatBootcampDate, liveApi, messageApi,
 } from '../../../../lib/bootcamp';
 
 const typeBadge = (type: string) => {
@@ -36,6 +36,9 @@ const StudentBootcampDetail: React.FC = () => {
   const [sessions, setSessions] = useState<LiveSession[]>([]);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [teamFilter, setTeamFilter] = useState('');
+  const [messages, setMessages] = useState<BootcampMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [meId, setMeId] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -92,6 +95,42 @@ const StudentBootcampDetail: React.FC = () => {
     catch { void load(); }
   };
 
+  // Poll the cohort group chat while a bootcamp is open.
+  useEffect(() => {
+    if (!bootcamp?.id) return;
+    let cancelled = false;
+    let lastId = 0;
+    const poll = async () => {
+      try {
+        const res = await messageApi.list(bootcamp.id, lastId);
+        if (cancelled) return;
+        setMeId(res.me);
+        if (res.messages.length) {
+          lastId = res.messages[res.messages.length - 1].id;
+          setMessages((prev) => [...prev, ...res.messages].slice(-200));
+        }
+      } catch { /* ignore transient errors */ }
+    };
+    void poll();
+    const timer = window.setInterval(poll, 5000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [bootcamp?.id]);
+
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = chatInput.trim();
+    if (!text || !bootcamp?.id) return;
+    setChatInput('');
+    try {
+      await messageApi.send(bootcamp.id, text);
+      const res = await messageApi.list(bootcamp.id, messages.length ? messages[messages.length - 1].id : 0);
+      setMeId(res.me);
+      if (res.messages.length) setMessages((prev) => [...prev, ...res.messages].slice(-200));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send message.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -118,6 +157,7 @@ const StudentBootcampDetail: React.FC = () => {
     { href: '#overview', label: 'Overview' },
     { href: '#live', label: `Live${upcoming.length ? ` (${upcoming.length})` : ''}` },
     { href: '#materials', label: 'Materials' },
+    { href: '#chat', label: 'Chat' },
     { href: '#community', label: 'Community' },
   ];
 
@@ -306,6 +346,42 @@ const StudentBootcampDetail: React.FC = () => {
           </div>
         </section>
       )}
+
+      <section id="chat" className="scroll-mt-16 rounded-3xl bg-white p-6 shadow-lg">
+        <h2 className="text-lg font-bold text-slate-900">💬 Cohort chat</h2>
+        <p className="text-sm text-slate-500">Chat with your bootcamp peers, facilitators and manager.</p>
+        <div className="mt-4 h-72 space-y-3 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          {messages.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-400">No messages yet — say hello! 👋</p>
+          ) : (
+            messages.map((m) => {
+              const mine = m.user_id === meId;
+              return (
+                <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm ${mine ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700 shadow-sm'}`}>
+                    {!mine && (
+                      <p className="mb-0.5 text-[11px] font-semibold text-indigo-600">
+                        {m.user_name || 'Member'}{m.user_role === 'manager' ? ' · Manager' : m.user_role === 'mentor' || m.user_role === 'facilitator' ? ` · ${m.user_role}` : ''}
+                      </p>
+                    )}
+                    <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+        <form onSubmit={sendMessage} className="mt-3 flex gap-2">
+          <input
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            placeholder="Type a message…"
+            maxLength={2000}
+            className="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <button type="submit" disabled={!chatInput.trim()} className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50">Send</button>
+        </form>
+      </section>
 
       <section id="community" className="scroll-mt-16 rounded-3xl bg-white p-6 shadow-lg">
         <h2 className="text-lg font-bold text-slate-900">📣 Community activity</h2>

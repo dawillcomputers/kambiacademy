@@ -445,6 +445,22 @@ export interface PopupCampaignItem {
   ends_at?: string | null;
 }
 
+export interface BootcampMessage {
+  id: number;
+  user_id: number;
+  user_name: string;
+  user_role: string;
+  body: string;
+  created_at: string;
+}
+
+export const messageApi = {
+  list: (bootcampId: number, after = 0) =>
+    api.get<{ messages: BootcampMessage[]; me: number }>(`/api/bootcamps/messages?bootcamp=${bootcampId}&after=${after}`),
+  send: (bootcampId: number, body: string) =>
+    api.post<{ id: number }>('/api/bootcamps/messages', { bootcamp_id: bootcampId, body }),
+};
+
 export const popupApi = {
   active: (bootcampId?: number) => api.get<{ campaigns: PopupCampaignItem[] }>(`/api/popups${bootcampId ? `?bootcamp=${bootcampId}` : ''}`),
   listAdmin: () => api.get<{ campaigns: PopupCampaignItem[] }>('/api/popups?scope=admin'),
