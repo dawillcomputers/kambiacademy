@@ -28,6 +28,13 @@ interface UseClassroomMediaResult {
   toggleAudio: () => Promise<void>;
   toggleVideo: () => Promise<void>;
   toggleScreenShare: () => Promise<void>;
+  devices: { cameras: MediaDeviceInfo[]; microphones: MediaDeviceInfo[]; speakers: MediaDeviceInfo[] };
+  selectedCameraId: string;
+  selectedMicrophoneId: string;
+  selectedSpeakerId: string;
+  selectCamera: (deviceId: string) => Promise<void>;
+  selectMicrophone: (deviceId: string) => Promise<void>;
+  selectSpeaker: (deviceId: string) => void;
   stop: () => void;
 }
 
@@ -93,6 +100,10 @@ export function useClassroomMedia({
   const [audioEnabled, setAudioEnabled] = useState(Boolean(config?.publishDefaults.audioEnabled));
   const [videoEnabled, setVideoEnabled] = useState(Boolean(config?.publishDefaults.videoEnabled));
   const [screenShareEnabled, setScreenShareEnabled] = useState(Boolean(config?.publishDefaults.screenShareEnabled));
+  const [devices, setDevices] = useState<{ cameras: MediaDeviceInfo[]; microphones: MediaDeviceInfo[]; speakers: MediaDeviceInfo[] }>({ cameras: [], microphones: [], speakers: [] });
+  const [selectedCameraId, setSelectedCameraId] = useState('');
+  const [selectedMicrophoneId, setSelectedMicrophoneId] = useState('');
+  const [selectedSpeakerId, setSelectedSpeakerId] = useState('');
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const startedRef = useRef(false);
@@ -114,6 +125,23 @@ export function useClassroomMedia({
 
   const syncRemoteStreams = useCallback(() => {
     setRemoteStreams(Array.from(remoteStreamsRef.current.entries()).map(([participantId, stream]) => ({ participantId, stream })));
+  }, []);
+
+  const refreshDevices = useCallback(async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) {
+      return;
+    }
+
+    try {
+      const list = await navigator.mediaDevices.enumerateDevices();
+      setDevices({
+        cameras: list.filter((device) => device.kind === 'videoinput'),
+        microphones: list.filter((device) => device.kind === 'audioinput'),
+        speakers: list.filter((device) => device.kind === 'audiooutput'),
+      });
+    } catch {
+      // Device enumeration is best-effort; ignore failures.
+    }
   }, []);
 
   const ensurePeerConnection = useCallback(() => {
@@ -362,6 +390,110 @@ export function useClassroomMedia({
     }
   }, [config, screenShareEnabled, stopTracks]);
 
+  const selectCamera = useCallback(async (deviceId: string) => {
+    try {
+      setError('');
+      const captureStream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId } },
+        audio: false,
+      });
+
+      const nextTrack = captureStream.getVideoTracks()[0];
+      if (!nextTrack) {
+        throw new Error('The selected camera did not provide a video track.');
+      }
+
+      nextTrack.enabled = videoEnabled;
+      const previousTrack = localTracksRef.current.video;
+      localTracksRef.current.video = nextTrack;
+
+      // While screen sharing, the video sender carries the screen track. Keep the
+      // new camera track staged so it takes over once sharing stops.
+      if (!screenShareEnabled) {
+        await senderRefs.current.video?.replaceTrack(nextTrack);
+      }
+
+      const nextPreview = new MediaStream();
+      const audioTrack = localTracksRef.current.audio;
+      if (audioTrack) {
+        nextPreview.addTrack(audioTrack);
+      }
+      nextPreview.addTrack(nextTrack);
+      if (!screenShareEnabled) {
+        setCameraStream(nextPreview);
+      } else {
+        cameraStreamRef.current = nextPreview;
+      }
+
+      if (previousTrack && previousTrack !== nextTrack) {
+        previousTrack.stop();
+      }
+
+      setSelectedCameraId(deviceId);
+      void refreshDevices();
+    } catch (mediaError) {
+      setStatus('error');
+      setError(mediaError instanceof Error ? mediaError.message : 'Failed to switch camera.');
+    }
+  }, [refreshDevices, screenShareEnabled, videoEnabled]);
+
+  const selectMicrophone = useCallback(async (deviceId: string) => {
+    try {
+      setError('');
+      const captureStream = await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: { exact: deviceId } },
+        video: false,
+      });
+
+      const nextTrack = captureStream.getAudioTracks()[0];
+      if (!nextTrack) {
+        throw new Error('The selected microphone did not provide an audio track.');
+      }
+
+      nextTrack.enabled = audioEnabled;
+      const previousTrack = localTracksRef.current.audio;
+      localTracksRef.current.audio = nextTrack;
+      await senderRefs.current.audio?.replaceTrack(nextTrack);
+
+      const nextPreview = new MediaStream();
+      nextPreview.addTrack(nextTrack);
+      const videoTrack = localTracksRef.current.video;
+      if (videoTrack && !screenShareEnabled) {
+        nextPreview.addTrack(videoTrack);
+      }
+      if (!screenShareEnabled) {
+        setCameraStream(nextPreview);
+      }
+
+      if (previousTrack && previousTrack !== nextTrack) {
+        previousTrack.stop();
+      }
+
+      setSelectedMicrophoneId(deviceId);
+      void refreshDevices();
+    } catch (mediaError) {
+      setStatus('error');
+      setError(mediaError instanceof Error ? mediaError.message : 'Failed to switch microphone.');
+    }
+  }, [audioEnabled, refreshDevices, screenShareEnabled]);
+
+  const selectSpeaker = useCallback((deviceId: string) => {
+    setSelectedSpeakerId(deviceId);
+  }, []);
+
+  useEffect(() => {
+    if (!navigator.mediaDevices?.addEventListener) {
+      return;
+    }
+
+    const handleDeviceChange = () => {
+      void refreshDevices();
+    };
+
+    navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
+    return () => navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
+  }, [refreshDevices]);
+
   useEffect(() => {
     if (!config || !currentParticipantId || startedRef.current) {
       return;
@@ -416,6 +548,9 @@ export function useClassroomMedia({
           setAudioEnabled(config.publishDefaults.audioEnabled);
           setVideoEnabled(config.publishDefaults.videoEnabled);
           setScreenShareEnabled(config.publishDefaults.screenShareEnabled);
+          setSelectedCameraId(videoTrack?.getSettings().deviceId || '');
+          setSelectedMicrophoneId(audioTrack?.getSettings().deviceId || '');
+          void refreshDevices();
           setStatus('ready');
           startedRef.current = true;
         }
@@ -432,7 +567,7 @@ export function useClassroomMedia({
     return () => {
       cancelled = true;
     };
-  }, [classroomSessionId, config, currentParticipantId, ensurePeerConnection, publishLocalTracks]);
+  }, [classroomSessionId, config, currentParticipantId, ensurePeerConnection, publishLocalTracks, refreshDevices]);
 
   useEffect(() => {
     const missingPublications = participants
@@ -543,6 +678,13 @@ export function useClassroomMedia({
     toggleAudio,
     toggleVideo,
     toggleScreenShare,
+    devices,
+    selectedCameraId,
+    selectedMicrophoneId,
+    selectedSpeakerId,
+    selectCamera,
+    selectMicrophone,
+    selectSpeaker,
     stop,
   };
 }

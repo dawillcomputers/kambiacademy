@@ -38,7 +38,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const realtimeConfigured = Boolean(env.CLOUDFLARE_REALTIME_APP_ID && env.CLOUDFLARE_REALTIME_APP_SECRET);
   const publishDefaults: ParticipantMediaState = {
     audioEnabled: true,
-    videoEnabled: role === 'teacher',
+    // The host (class teacher or bootcamp manager) joins with camera on; other
+    // participants start with video off and can enable it themselves.
+    videoEnabled: authorized.session.isTeacher,
     screenShareEnabled: false,
   };
 
