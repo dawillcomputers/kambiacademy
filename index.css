@@ -416,6 +416,60 @@ option {
 .dash-light .text-rose-100,    .dash-light .text-rose-200,    .dash-light .text-rose-300    { color: #be123c !important; }
 .dash-light .text-orange-100,  .dash-light .text-orange-200 { color: #c2410c !important; }
 
+/* Student dashboard is authored for dark: in LIGHT mode, naked white text
+   (headings, labels) must darken — but text on a coloured button/badge/gradient
+   (which carries a bg-* utility) keeps its white. */
+.dash-light .text-white:not([class*="bg-"]) { color: #0f172a !important; }
+.dash-light .text-white\/90:not([class*="bg-"]) { color: #1e293b !important; }
+
+/* Teacher dashboard is authored for light: in DARK mode the translucent header
+   needs a dark surface (plain bg-white is already remapped, but not bg-white/95). */
+.dash-dark .bg-white\/95 { background-color: rgba(17,27,46,0.95) !important; }
+.dash-dark .bg-white\/90 { background-color: rgba(17,27,46,0.9) !important; }
+
+/* Opt-out for light-authored pages (e.g. Pricing) that mix light gradient/
+   arbitrary backgrounds with slate text. The dark remap flips the text but not
+   those backgrounds, causing light-on-light. Re-assert the light palette so the
+   page keeps its own readable design in dark mode too. Specificity (extra
+   .dash-force-light ancestor) beats the base .dash-dark remaps. */
+.dash-dark .dash-force-light .bg-white { background-color: #ffffff !important; }
+.dash-dark .dash-force-light .bg-slate-50,
+.dash-dark .dash-force-light .bg-slate-100,
+.dash-dark .dash-force-light .bg-gray-50,
+.dash-dark .dash-force-light .bg-gray-100 { background-color: #f8fafc !important; }
+.dash-dark .dash-force-light .bg-slate-900,
+.dash-dark .dash-force-light .bg-slate-950,
+.dash-dark .dash-force-light .bg-slate-800 { background-color: #020617 !important; }
+.dash-dark .dash-force-light .text-slate-950,
+.dash-dark .dash-force-light .text-slate-900,
+.dash-dark .dash-force-light .text-slate-800,
+.dash-dark .dash-force-light .text-gray-900,
+.dash-dark .dash-force-light .text-gray-800 { color: #0f172a !important; }
+.dash-dark .dash-force-light .text-slate-700,
+.dash-dark .dash-force-light .text-gray-700 { color: #334155 !important; }
+.dash-dark .dash-force-light .text-slate-600,
+.dash-dark .dash-force-light .text-gray-600 { color: #475569 !important; }
+.dash-dark .dash-force-light .text-slate-500,
+.dash-dark .dash-force-light .text-gray-500 { color: #64748b !important; }
+.dash-dark .dash-force-light .text-slate-400,
+.dash-dark .dash-force-light .text-gray-400 { color: #94a3b8 !important; }
+.dash-dark .dash-force-light .border-slate-100,
+.dash-dark .dash-force-light .border-slate-200,
+.dash-dark .dash-force-light .border-gray-100,
+.dash-dark .dash-force-light .border-gray-200 { border-color: #e2e8f0 !important; }
+.dash-dark .dash-force-light .border-slate-300,
+.dash-dark .dash-force-light .border-gray-300 { border-color: #cbd5e1 !important; }
+.dash-dark .dash-force-light .bg-indigo-50,  .dash-dark .dash-force-light .bg-indigo-100  { background-color: #eef2ff !important; }
+.dash-dark .dash-force-light .bg-emerald-50, .dash-dark .dash-force-light .bg-emerald-100 { background-color: #ecfdf5 !important; }
+.dash-dark .dash-force-light .bg-amber-50,   .dash-dark .dash-force-light .bg-amber-100   { background-color: #fffbeb !important; }
+.dash-dark .dash-force-light .bg-blue-50,    .dash-dark .dash-force-light .bg-blue-100    { background-color: #eff6ff !important; }
+.dash-dark .dash-force-light .text-indigo-600,  .dash-dark .dash-force-light .text-indigo-700  { color: #4f46e5 !important; }
+.dash-dark .dash-force-light .text-emerald-600, .dash-dark .dash-force-light .text-emerald-700 { color: #047857 !important; }
+.dash-dark .dash-force-light .text-rose-600,    .dash-dark .dash-force-light .text-rose-700    { color: #e11d48 !important; }
+.dash-dark .dash-force-light .text-amber-600,   .dash-dark .dash-force-light .text-amber-700, .dash-dark .dash-force-light .text-amber-800 { color: #b45309 !important; }
+.dash-dark .dash-force-light .text-blue-600,    .dash-dark .dash-force-light .text-blue-700    { color: #1d4ed8 !important; }
+.dash-dark .dash-force-light .text-violet-600,  .dash-dark .dash-force-light .text-violet-700  { color: #7c3aed !important; }
+
 /* Rich text editor + rendered note content */
 .rte-content:empty::before {
   content: attr(data-placeholder);

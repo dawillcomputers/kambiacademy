@@ -15,6 +15,7 @@ const navItems = [
   { label: 'About', to: '/about' },
   { label: 'Courses', to: '/courses' },
   { label: 'Bootcamps', to: '/bootcamps' },
+  { label: 'Library', to: '/library' },
   { label: 'Winners', to: '/competitions' },
   { label: 'Teach', to: '/teach' },
   { label: 'FAQ', to: '/faq' },

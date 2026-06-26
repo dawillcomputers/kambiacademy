@@ -27,7 +27,7 @@ const parse = (value?: string): any[] => {
   }
 };
 
-const inputCls = 'w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500';
+const inputCls = 'w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500';
 
 const RegistrationConfig: React.FC<Props> = ({ bootcamp, onSaved }) => {
   const [headline, setHeadline] = useState(bootcamp.signup_headline || '');

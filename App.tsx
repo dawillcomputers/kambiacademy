@@ -22,6 +22,7 @@ import BootcampDetail from './components/BootcampDetail';
 import BootcampRegister from './components/BootcampRegister';
 import BootcampLogin from './components/BootcampLogin';
 import Competitions from './components/Competitions';
+import Library from './components/Library';
 // Lazy-loaded dashboard chunks
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const SuperAdminRoutes = lazy(() => import('./src/pages/dashboard/superadmin'));
@@ -382,6 +383,7 @@ const AppShell: React.FC = () => {
               <Route path="/bootcamps/:slug/register" element={<BootcampRegister />} />
               <Route path="/bootcamp/login" element={<BootcampLogin />} />
               <Route path="/competitions" element={<Competitions />} />
+              <Route path="/library" element={<Library />} />
               <Route path="/faq" element={<Faq />} />
               <Route path="/teach" element={<BecomeTutor />} />
               <Route path="*" element={<Navigate to="/" replace />} />

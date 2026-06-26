@@ -7,11 +7,14 @@ import TeamManager from '../../../../components/bootcamp/TeamManager';
 import RegistrationConfig from '../../../../components/bootcamp/RegistrationConfig';
 import LiveSessionsManager from '../../../../components/bootcamp/LiveSessionsManager';
 import DiscountsManager from '../../../../components/bootcamp/DiscountsManager';
+import BootcampLiveClass from '../../../../components/bootcamp/BootcampLiveClass';
+import { useAuth } from '../../../../lib/auth';
 
 type Tab = 'content' | 'live' | 'competitions' | 'team' | 'discounts' | 'registration' | 'settings';
 
 const ManagerManageBootcamp: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const bootcampId = Number(id);
   const [bootcamp, setBootcamp] = useState<Bootcamp | null>(null);
   const [loading, setLoading] = useState(true);
@@ -154,7 +157,12 @@ const ManagerManageBootcamp: React.FC = () => {
       </div>
 
       {tab === 'content' && <ResourcesManager bootcampId={bootcampId} />}
-      {tab === 'live' && <LiveSessionsManager bootcampId={bootcampId} />}
+      {tab === 'live' && (
+        <div className="space-y-5">
+          {user && <BootcampLiveClass bootcampId={bootcampId} bootcampTitle={bootcamp.title} user={{ id: user.id, name: user.name, role: user.role }} />}
+          <LiveSessionsManager bootcampId={bootcampId} />
+        </div>
+      )}
       {tab === 'competitions' && <CompetitionsManager bootcampId={bootcampId} />}
       {tab === 'team' && <TeamManager bootcampId={bootcampId} />}
       {tab === 'discounts' && <DiscountsManager bootcampId={bootcampId} />}
@@ -168,7 +176,7 @@ const ManagerManageBootcamp: React.FC = () => {
             <input
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
           <div>
@@ -176,7 +184,7 @@ const ManagerManageBootcamp: React.FC = () => {
             <input
               value={form.tagline}
               onChange={(e) => setForm({ ...form, tagline: e.target.value })}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
           <div>
@@ -185,7 +193,7 @@ const ManagerManageBootcamp: React.FC = () => {
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={5}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
           <div>
@@ -207,7 +215,7 @@ const ManagerManageBootcamp: React.FC = () => {
                   value={form.cover_image_url}
                   onChange={(e) => setForm({ ...form, cover_image_url: e.target.value })}
                   placeholder="…or paste an image URL"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
             </div>
@@ -216,12 +224,12 @@ const ManagerManageBootcamp: React.FC = () => {
             <div>
               <label className="text-sm font-medium text-slate-700">Start date</label>
               <input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
             <div>
               <label className="text-sm font-medium text-slate-700">End date</label>
               <input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
           <button type="submit" disabled={saving} className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60">

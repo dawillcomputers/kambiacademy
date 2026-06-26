@@ -63,13 +63,13 @@ const BootcampLogin: React.FC = () => {
           <div>
             <label className="block text-sm font-semibold text-slate-700">Email address</label>
             <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="name@example.com" />
+              className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-black focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="name@example.com" />
           </div>
           <div>
             <label className="block text-sm font-semibold text-slate-700">Password</label>
             <div className="relative mt-1">
               <input type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-16 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Enter your password" />
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-16 text-sm text-black focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Enter your password" />
               <button type="button" onClick={() => setShowPassword((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500 hover:text-slate-700">
                 {showPassword ? 'Hide' : 'Show'}
               </button>

@@ -66,6 +66,8 @@ export function generateTempPassword(): string {
   return `Kambi-${suffix}`;
 }
 
+import { getAccumulateConfig } from './billingConfig';
+
 type SubscriptionGateType = 'platform' | 'storage' | 'live_class';
 
 const BILLING_START_DATE = '2026-05-01T00:00:00.000Z';
@@ -107,6 +109,12 @@ export interface SuperAdminBillingStatus {
   isDue: boolean;
   isLocked: boolean;
   currentSubscription: PlatformSubscriptionRow | null;
+  // Accumulate mode: when on, unpaid cycles never lock the dashboard — they pile
+  // up as a running balance the superadmin can clear later.
+  accumulate?: boolean;
+  accumulatedMonths?: number;
+  accumulatedAmountUsd?: number;
+  clearedThrough?: string | null;
 }
 
 const utcDayStart = (year: number, month: number, day: number) => new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
@@ -246,9 +254,22 @@ export async function getSuperAdminBillingStatus(user: any, db: D1Database): Pro
   const warningStartTime = cycle.warningStart.getTime();
   const dueTime = cycle.dueDate.getTime();
   const lockTime = cycle.lockDate.getTime();
-  const isLocked = requiresRenewal && nowTime >= lockTime;
   const isDue = requiresRenewal && nowTime >= dueTime && nowTime < lockTime;
   const isWarning = requiresRenewal && nowTime >= warningStartTime && nowTime < dueTime;
+
+  // Accumulate mode: never lock; instead tally unpaid cycles as a running balance.
+  const accumulateConfig = await getAccumulateConfig(db);
+  const isLocked = !accumulateConfig.enabled && requiresRenewal && nowTime >= lockTime;
+
+  let accumulatedMonths = 0;
+  if (accumulateConfig.enabled) {
+    const clearedTime = accumulateConfig.clearedThrough ? new Date(accumulateConfig.clearedThrough).getTime() : 0;
+    const baseline = new Date(Math.max(clearedTime, billingStartsAt.getTime()));
+    let months = (now.getUTCFullYear() - baseline.getUTCFullYear()) * 12 + (now.getUTCMonth() - baseline.getUTCMonth());
+    if (coversCurrentCycle) months -= 1;
+    accumulatedMonths = Math.max(0, months);
+  }
+  const accumulatedAmountUsd = Math.round(accumulatedMonths * PLATFORM_FEES.monthly * 100) / 100;
 
   let status: SuperAdminBillingStatus['status'] = 'current';
   let label = 'Current cycle cleared';
@@ -272,6 +293,13 @@ export async function getSuperAdminBillingStatus(user: any, db: D1Database): Pro
     message = `The main subscription for ${cycle.currentCycleLabel} is due on ${formatUtcDate(cycle.dueDate)}. Warning starts on ${formatUtcDate(cycle.warningStart)} and dashboard access locks on ${formatUtcDate(cycle.lockDate)} if unpaid.`;
   }
 
+  if (accumulateConfig.enabled) {
+    label = 'Accumulating';
+    message = requiresRenewal
+      ? `Accumulate mode is on — the dashboard stays open. ${accumulatedMonths} unpaid cycle${accumulatedMonths === 1 ? '' : 's'} ($${accumulatedAmountUsd.toFixed(2)}) are tallied so far. Clear them any time from the Billing page.`
+      : `Accumulate mode is on. The current cycle is settled; nothing is outstanding.`;
+  }
+
   return {
     applies: true,
     exempt: false,
@@ -291,6 +319,10 @@ export async function getSuperAdminBillingStatus(user: any, db: D1Database): Pro
     isDue,
     isLocked,
     currentSubscription: currentSubscription ?? null,
+    accumulate: accumulateConfig.enabled,
+    accumulatedMonths,
+    accumulatedAmountUsd,
+    clearedThrough: accumulateConfig.clearedThrough,
   };
 }
 

@@ -152,14 +152,14 @@ const CompetitionsManager: React.FC<Props> = ({ bootcampId }) => {
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               placeholder="Competition title"
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               required
             />
             <input
               type="date"
               value={form.event_date}
               onChange={(e) => setForm({ ...form, event_date: e.target.value })}
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
           <textarea
@@ -167,20 +167,20 @@ const CompetitionsManager: React.FC<Props> = ({ bootcampId }) => {
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             placeholder="Description (optional)"
             rows={2}
-            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <input
               value={form.image_url}
               onChange={(e) => setForm({ ...form, image_url: e.target.value })}
               placeholder="Cover image URL (optional)"
-              className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <input
               value={form.flyer_url}
               onChange={(e) => setForm({ ...form, flyer_url: e.target.value })}
               placeholder="Flyer image URL (optional)"
-              className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
           <textarea
@@ -188,7 +188,7 @@ const CompetitionsManager: React.FC<Props> = ({ bootcampId }) => {
             onChange={(e) => setForm({ ...form, rules: e.target.value })}
             placeholder="Rules / eligibility (optional)"
             rows={2}
-            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -210,13 +210,13 @@ const CompetitionsManager: React.FC<Props> = ({ bootcampId }) => {
                     value={prize.title}
                     onChange={(e) => updatePrize(index, { title: e.target.value })}
                     placeholder="Label (e.g. 1st Place)"
-                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   <input
                     value={prize.reward}
                     onChange={(e) => updatePrize(index, { reward: e.target.value })}
                     placeholder="Reward (e.g. ₦500,000 + Internship)"
-                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   <button
                     type="button"
@@ -248,19 +248,19 @@ const CompetitionsManager: React.FC<Props> = ({ bootcampId }) => {
                     value={winner.name}
                     onChange={(e) => updateWinner(index, { name: e.target.value })}
                     placeholder="Winner name"
-                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   <input
                     value={winner.prize}
                     onChange={(e) => updateWinner(index, { prize: e.target.value })}
                     placeholder="Prize / position"
-                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   <input
                     value={winner.image_url}
                     onChange={(e) => updateWinner(index, { image_url: e.target.value })}
                     placeholder="Photo URL"
-                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   <button
                     type="button"

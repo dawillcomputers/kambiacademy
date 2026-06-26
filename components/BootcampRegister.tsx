@@ -38,7 +38,7 @@ const emptyForm: BootcampRegistrationInput = {
   consent_terms: false, consent_updates: false, consent_community: false, consent_jobs: false,
 };
 
-const inputCls = 'w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500';
+const inputCls = 'w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-black focus:outline-none focus:ring-2 focus:ring-indigo-500';
 
 const Field: React.FC<{ label: string; required?: boolean; children: React.ReactNode }> = ({ label, required, children }) => (
   <div className="space-y-1.5">
@@ -416,7 +416,7 @@ const BootcampRegister: React.FC = () => {
                       value={discountCode}
                       onChange={(e) => { setDiscountCode(e.target.value); setDiscount(null); }}
                       placeholder="Discount code"
-                      className="w-full rounded-xl border border-indigo-200 bg-white px-3 py-2 text-sm font-semibold uppercase tracking-wide text-indigo-900 placeholder:font-normal placeholder:normal-case placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full rounded-xl border border-indigo-200 bg-white px-3 py-2 text-sm font-semibold uppercase tracking-wide text-black placeholder:font-normal placeholder:normal-case placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                     <button
                       type="button"

@@ -1,6 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import TeacherDashboardLayout from '../../../components/layout/TeacherDashboardLayout';
 import { api } from '../../../../lib/api';
+import { useAuth } from '../../../../lib/auth';
+import LiveClassroom from '../../../../components/LiveClassroom';
+
+const isBillingError = (msg: string) => /subscription|payment required|live class/i.test(msg);
 
 type Tab = 'classes' | 'live' | 'schedule';
 
@@ -28,6 +33,7 @@ interface LiveSession {
 const parseList = (v?: string | null) => String(v || '').split(',').map(s => s.trim()).filter(Boolean);
 
 export default function TeacherClassesPage() {
+  const { user } = useAuth();
   const [classes, setClasses] = useState<ClassRecord[]>([]);
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +42,8 @@ export default function TeacherClassesPage() {
   const [tab, setTab] = useState<Tab>('classes');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [needsLiveBilling, setNeedsLiveBilling] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [copiedVal, setCopiedVal] = useState<string | null>(null);
 
   const [classForm, setClassForm] = useState({ title: '', description: '', max_students: '30' });
@@ -88,13 +96,16 @@ export default function TeacherClassesPage() {
 
   const handleStartLive = async (c: ClassRecord) => {
     setStartingId(c.id);
-    setError(''); setMessage('');
+    setError(''); setMessage(''); setNeedsLiveBilling(false);
     try {
       const r = await api.startLiveSession(c.id, `Live: ${c.title}`);
-      setMessage(`Live session #${r.id} started for "${c.title}".`);
       await load();
+      // Open the realtime classroom (asks for camera + microphone permissions).
+      setActiveSessionId(r.id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to start live session.');
+      const msg = e instanceof Error ? e.message : 'Failed to start live session.';
+      if (isBillingError(msg)) setNeedsLiveBilling(true);
+      setError(msg);
     } finally {
       setStartingId(null);
     }
@@ -147,6 +158,29 @@ export default function TeacherClassesPage() {
     { key: 'schedule', label: 'Schedule' },
   ];
 
+  if (activeSessionId !== null && user) {
+    return (
+      <TeacherDashboardLayout>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">Live Classroom</h1>
+              <p className="text-sm text-slate-500">Camera and microphone access is required to host the class.</p>
+            </div>
+            <button onClick={() => { setActiveSessionId(null); void load(); }} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              Back to classes
+            </button>
+          </div>
+          <LiveClassroom
+            sessionId={activeSessionId}
+            user={{ id: Number(user.id), name: user.name, role: user.role }}
+            onLeave={() => { setActiveSessionId(null); void load(); }}
+          />
+        </div>
+      </TeacherDashboardLayout>
+    );
+  }
+
   return (
     <TeacherDashboardLayout>
       <div className="space-y-6">
@@ -157,6 +191,12 @@ export default function TeacherClassesPage() {
 
         {message && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div>}
         {error && <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
+        {needsLiveBilling && (
+          <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+            <span>Live classes need the Live Classes add-on. Activate it to start hosting.</span>
+            <Link to="/teacher/billing" className="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700">Manage live-class billing</Link>
+          </div>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-4">
           {stats.map(s => (
@@ -281,9 +321,14 @@ export default function TeacherClassesPage() {
                             </p>
                           </div>
                           {isActive && (
-                            <button onClick={() => handleEndSession(s.id)} className="rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
-                              End Session
-                            </button>
+                            <div className="flex gap-2">
+                              <button onClick={() => setActiveSessionId(s.id)} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                                Join (camera &amp; mic)
+                              </button>
+                              <button onClick={() => handleEndSession(s.id)} className="rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
+                                End Session
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>

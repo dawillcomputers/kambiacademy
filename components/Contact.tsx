@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Button from './Button';
 import Card from './Card';
+import { api } from '../lib/api';
 
 interface ContactProps {
     onBack?: () => void;
@@ -11,16 +12,31 @@ interface ContactProps {
 const Contact: React.FC<ContactProps> = ({ onBack, canGoBack }) => {
   const [formState, setFormState] = useState({ name: '', email: '', message: '' });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormState({ ...formState, [e.target.name]: e.target.value });
   };
-  
-  const handleSubmit = (e: React.FormEvent) => {
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, you would send this data to a server
-    console.log('Form submitted:', formState);
-    setIsSubmitted(true);
+    setError('');
+    setSubmitting(true);
+    try {
+      await api.submitContact({
+        name: formState.name,
+        email: formState.email,
+        company: '',
+        topic: '',
+        message: formState.message,
+      });
+      setIsSubmitted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send your message. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -71,8 +87,9 @@ const Contact: React.FC<ContactProps> = ({ onBack, canGoBack }) => {
                                 <label htmlFor="message" className="block text-sm font-bold text-gray-700 mb-1">Message</label>
                                 <textarea name="message" id="message" rows={5} required onChange={handleChange} value={formState.message} className="block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="How can we help you?"></textarea>
                             </div>
+                            {error && <p className="text-sm font-semibold text-rose-600">{error}</p>}
                             <div className="pt-2">
-                                <Button type="submit" className="w-full py-4 text-xl" size="large">Send Message</Button>
+                                <Button type="submit" disabled={submitting} className="w-full py-4 text-xl" size="large">{submitting ? 'Sending…' : 'Send Message'}</Button>
                             </div>
                         </form>
                     )}
@@ -90,7 +107,7 @@ const Contact: React.FC<ContactProps> = ({ onBack, canGoBack }) => {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                     </svg>
                                 </div>
-                                <p>123 Academy Lane<br/>Tech City, TX 75001</p>
+                                <p>No. 45 Oxford Street, Trademore Estate,<br/>Apo-Dutse, Abuja</p>
                             </div>
                             <div className="flex items-start space-x-4">
                                 <div className="bg-indigo-600/20 p-2 rounded-lg text-indigo-400">
@@ -98,7 +115,7 @@ const Contact: React.FC<ContactProps> = ({ onBack, canGoBack }) => {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                     </svg>
                                 </div>
-                                <p><a href="mailto:contact@kambi.academy" className="text-indigo-400 hover:text-white transition-colors">contact@kambi.academy</a></p>
+                                <p><a href="mailto:support@kambiacademy.com" className="text-indigo-400 hover:text-white transition-colors">support@kambiacademy.com</a></p>
                             </div>
                             <div className="flex items-start space-x-4">
                                 <div className="bg-indigo-600/20 p-2 rounded-lg text-indigo-400">
@@ -106,7 +123,7 @@ const Contact: React.FC<ContactProps> = ({ onBack, canGoBack }) => {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                                     </svg>
                                 </div>
-                                <p><a href="tel:+1234567890" className="text-indigo-400 hover:text-white transition-colors">(123) 456-7890</a></p>
+                                <p><a href="tel:+2348101077187" className="text-indigo-400 hover:text-white transition-colors">(+234) 08101077187</a></p>
                             </div>
                         </address>
                     </div>

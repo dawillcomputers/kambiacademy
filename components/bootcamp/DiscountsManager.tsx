@@ -79,7 +79,7 @@ const DiscountsManager: React.FC<{ bootcampId: number }> = ({ bootcampId }) => {
     }
   };
 
-  const input = 'w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500';
+  const input = 'w-full rounded-xl border border-slate-300 px-3 py-2 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500';
 
   return (
     <div className="space-y-6">

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../lib/auth';
+import { useDashTheme } from '../../../lib/useDashTheme';
 
 interface TeacherDashboardLayoutProps {
   children: React.ReactNode;
@@ -18,7 +19,6 @@ const primaryNav: NavItem[] = [
   { name: 'Classes', path: '/teacher/classes', icon: '🏫' },
   { name: 'Assignments', path: '/teacher/assignments', icon: '📝' },
   { name: 'Quizzes', path: '/teacher/quizzes', icon: '📋' },
-  { name: 'Subscriptions', path: '/teacher/subscriptions', icon: '💳' },
   { name: 'Wallet', path: '/teacher/wallet', icon: '💰' },
   { name: 'Profile', path: '/teacher/profile', icon: '👤' },
 ];
@@ -27,7 +27,6 @@ const utilityNav: NavItem[] = [
   { name: 'Chat', path: '/teacher/chat', icon: '💬' },
   { name: 'Materials', path: '/teacher/materials', icon: '📁' },
   { name: 'Students', path: '/teacher/students', icon: '🎓' },
-  { name: 'Billing', path: '/teacher/billing', icon: '🧾' },
   { name: 'Settings', path: '/teacher/settings', icon: '⚙️' },
   { name: 'AI Studio', path: '/teacher/ai', icon: '🤖' },
 ];
@@ -54,6 +53,7 @@ const isActive = (pathname: string, itemPath: string) => {
 
 export default function TeacherDashboardLayout({ children }: TeacherDashboardLayoutProps) {
   const { user, logout } = useAuth();
+  const { isLight, toggle } = useDashTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -105,7 +105,7 @@ export default function TeacherDashboardLayout({ children }: TeacherDashboardLay
   const pageName = useMemo(() => getPageName(location.pathname), [location.pathname]);
 
   return (
-    <div className="flex min-h-screen bg-slate-100">
+    <div className={`flex min-h-screen bg-slate-100 ${isLight ? '' : 'dash-root dash-dark'}`}>
       {sidebarOpen && (
         <button
           type="button"
@@ -275,6 +275,15 @@ export default function TeacherDashboardLayout({ children }: TeacherDashboardLay
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={toggle}
+                title={isLight ? 'Switch to dark mode' : 'Switch to light mode'}
+                aria-label="Toggle theme"
+                className="rounded-full border border-slate-200 bg-white px-3 py-2 text-lg shadow-sm transition hover:bg-slate-50"
+              >
+                {isLight ? '🌙' : '☀️'}
+              </button>
               <Link
                 to="/teacher/courses"
                 className="hidden rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 md:inline-flex"

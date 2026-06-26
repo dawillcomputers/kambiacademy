@@ -1,5 +1,6 @@
 import type { LiveSessionSummary, RealtimeChatMessage } from '../../lib/liveClassroomProtocol';
 import { getAuthUser } from './auth';
+import { canManageBootcamp, canViewBootcamp } from './bootcamp';
 
 interface AuthorizedSessionRow {
   id: number;
@@ -8,7 +9,9 @@ interface AuthorizedSessionRow {
   title: string;
   status: string;
   started_at: string;
-  class_title: string;
+  class_title: string | null;
+  bootcamp_id: number | null;
+  bootcamp_title: string | null;
 }
 
 interface ChatMessageRow {
@@ -29,9 +32,11 @@ export async function getAuthorizedLiveSession(request: Request, db: D1Database,
   }
 
   const session = await db.prepare(
-    `SELECT ls.id, ls.class_id, ls.tutor_id, ls.title, ls.status, ls.started_at, pc.title AS class_title
+    `SELECT ls.id, ls.class_id, ls.tutor_id, ls.title, ls.status, ls.started_at, ls.bootcamp_id,
+            pc.title AS class_title, b.title AS bootcamp_title
      FROM live_sessions ls
-     JOIN private_classes pc ON pc.id = ls.class_id
+     LEFT JOIN private_classes pc ON pc.id = ls.class_id
+     LEFT JOIN bootcamps b ON b.id = ls.bootcamp_id
      WHERE ls.id = ?`,
   ).bind(sessionId).first<AuthorizedSessionRow>();
 
@@ -41,15 +46,28 @@ export async function getAuthorizedLiveSession(request: Request, db: D1Database,
     };
   }
 
-  const isTutor = session.tutor_id === user.id;
-  const isMember = await db.prepare(
-    'SELECT 1 FROM private_class_members WHERE class_id = ? AND user_id = ?',
-  ).bind(session.class_id, user.id).first();
+  let isTutor: boolean;
 
-  if (!isTutor && !isMember) {
-    return {
-      error: Response.json({ error: 'You are not a member of this live class' }, { status: 403 }),
-    };
+  if (session.bootcamp_id) {
+    // Bootcamp live class: managers/super admins host; enrolled participants join.
+    const canView = await canViewBootcamp(db, user, session.bootcamp_id);
+    if (!canView) {
+      return {
+        error: Response.json({ error: 'You are not part of this bootcamp' }, { status: 403 }),
+      };
+    }
+    isTutor = await canManageBootcamp(db, user, session.bootcamp_id);
+  } else {
+    isTutor = session.tutor_id === user.id;
+    const isMember = await db.prepare(
+      'SELECT 1 FROM private_class_members WHERE class_id = ? AND user_id = ?',
+    ).bind(session.class_id, user.id).first();
+
+    if (!isTutor && !isMember) {
+      return {
+        error: Response.json({ error: 'You are not a member of this live class' }, { status: 403 }),
+      };
+    }
   }
 
   const summary: LiveSessionSummary = {
@@ -57,7 +75,7 @@ export async function getAuthorizedLiveSession(request: Request, db: D1Database,
     classId: session.class_id,
     tutorId: session.tutor_id,
     title: session.title,
-    classTitle: session.class_title,
+    classTitle: session.bootcamp_id ? (session.bootcamp_title || 'Bootcamp') : (session.class_title || 'Live Class'),
     startedAt: session.started_at,
     isTeacher: isTutor,
   };

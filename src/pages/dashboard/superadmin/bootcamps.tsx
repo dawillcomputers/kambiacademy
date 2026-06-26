@@ -23,7 +23,7 @@ const statusBadge = (status: string) => {
   return 'bg-amber-100 text-amber-700';
 };
 
-const fieldCls = 'w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500';
+const fieldCls = 'w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500';
 
 // Label + description wrapper so every field is self-explanatory.
 const Labeled: React.FC<{ label: string; description: string; required?: boolean; children: React.ReactNode }> = ({ label, description, required, children }) => (
@@ -491,7 +491,7 @@ const SuperAdminBootcamps: React.FC = () => {
                         value={managerEmails[bootcamp.id] ?? ''}
                         onChange={(e) => setManagerEmails((prev) => ({ ...prev, [bootcamp.id]: e.target.value }))}
                         placeholder={bootcamp.manager_email || 'manager@example.com'}
-                        className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
                     <button onClick={() => assignManager(bootcamp)} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
@@ -508,7 +508,7 @@ const SuperAdminBootcamps: React.FC = () => {
                         min={0}
                         value={initialCounts[bootcamp.id] ?? String(bootcamp.initial_participants ?? 0)}
                         onChange={(e) => setInitialCounts((prev) => ({ ...prev, [bootcamp.id]: e.target.value }))}
-                        className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
                     <button onClick={() => saveInitial(bootcamp)} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">

@@ -15,6 +15,8 @@ import SuperAdminAudit from './audit';
 import SuperAdminBilling from './billing';
 import SuperAdminPricing from './pricing';
 import SuperAdminCampaigns from './campaigns';
+import SuperAdminMessages from './messages';
+import SuperAdminLibrary from './library';
 
 const formatScheduleDate = (value?: string | null) => {
   if (!value) {
@@ -103,7 +105,9 @@ const fullSidebarItems: SidebarItem[] = [
   { name: 'Users', icon: '👥', path: '/superadmin/users' },
   { name: 'Courses', icon: '📚', path: '/superadmin/courses' },
   { name: 'Bootcamps', icon: '🚀', path: '/superadmin/bootcamps' },
+  { name: 'Library', icon: '📚', path: '/superadmin/library' },
   { name: 'Campaigns', icon: '📢', path: '/superadmin/campaigns' },
+  { name: 'Messages', icon: '✉️', path: '/superadmin/messages' },
   { name: 'Pricing', icon: '🏷️', path: '/superadmin/pricing' },
   { name: 'Billing', icon: '💳', path: '/superadmin/billing' },
   { name: 'Finance', icon: '💰', path: '/superadmin/finance' },
@@ -114,6 +118,7 @@ const fullSidebarItems: SidebarItem[] = [
 
 const systemOverrideSidebarItems: SidebarItem[] = [
   { name: 'Billing', icon: '💳', path: '/superadmin/billing' },
+  { name: 'Bootcamps', icon: '🚀', path: '/superadmin/bootcamps' },
 ];
 
 const SuperAdminRoutes: React.FC = () => {
@@ -154,6 +159,9 @@ const SuperAdminRoutes: React.FC = () => {
 
   const superAdminBilling = subscriptionState?.superAdminBilling;
   const isBillingRoute = location.pathname === '/superadmin/billing' || location.pathname.startsWith('/superadmin/billing/');
+  // The System Override (locked) view is billing-only, but the SOU may still
+  // start/manage bootcamps from here.
+  const isBootcampsRoute = location.pathname.startsWith('/superadmin/bootcamps');
   const isSystemOverrideUser = user?.role === 'SOU';
   const sidebarItems = isSystemOverrideUser ? systemOverrideSidebarItems : fullSidebarItems;
   const shouldShowBanner = Boolean(superAdminBilling?.applies && !superAdminBilling?.exempt && (superAdminBilling?.isWarning || superAdminBilling?.isDue || superAdminBilling?.isLocked));
@@ -174,7 +182,7 @@ const SuperAdminRoutes: React.FC = () => {
           </div>
         )}
 
-        {isSystemOverrideUser && !isBillingRoute ? (
+        {isSystemOverrideUser && !isBillingRoute && !isBootcampsRoute ? (
           <Navigate to="/superadmin/billing" replace />
         ) : subscriptionLoading && !isBillingRoute ? (
           <div className="mx-6 rounded-[28px] border border-white/10 bg-[#111B2E] px-6 py-10 text-sm text-[#A9B4CC] shadow-lg lg:mx-8">
@@ -186,6 +194,7 @@ const SuperAdminRoutes: React.FC = () => {
               <>
                 <Route path="/" element={<Navigate to="/superadmin/billing" replace />} />
                 <Route path="/billing" element={<SuperAdminBilling />} />
+                <Route path="/bootcamps" element={<SuperAdminBootcamps />} />
                 <Route path="*" element={<Navigate to="/superadmin/billing" replace />} />
               </>
             ) : (
@@ -196,6 +205,8 @@ const SuperAdminRoutes: React.FC = () => {
                 <Route path="/courses" element={<SuperAdminCourses />} />
                 <Route path="/bootcamps" element={<SuperAdminBootcamps />} />
                 <Route path="/campaigns" element={<SuperAdminCampaigns />} />
+                <Route path="/library" element={<SuperAdminLibrary />} />
+                <Route path="/messages" element={<SuperAdminMessages />} />
                 <Route path="/billing" element={<SuperAdminBilling />} />
                 <Route path="/pricing" element={<SuperAdminPricing />} />
                 <Route path="/analytics" element={<SuperAdminAnalytics />} />

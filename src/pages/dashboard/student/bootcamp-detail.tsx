@@ -4,6 +4,8 @@ import {
   ActivityItem, Bootcamp, BootcampCompetition, BootcampMessage, BootcampResource, Facilitator, LiveSession,
   activityApi, bootcampApi, formatBootcampDate, liveApi, messageApi,
 } from '../../../../lib/bootcamp';
+import { useAuth } from '../../../../lib/auth';
+import BootcampLiveClass from '../../../../components/bootcamp/BootcampLiveClass';
 
 const typeBadge = (type: string) => {
   if (type === 'announcement') return 'bg-amber-100 text-amber-700';
@@ -29,6 +31,7 @@ const calendarUrl = (s: LiveSession): string => {
 
 const StudentBootcampDetail: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
+  const { user } = useAuth();
   const [bootcamp, setBootcamp] = useState<Bootcamp | null>(null);
   const [resources, setResources] = useState<BootcampResource[]>([]);
   const [competitions, setCompetitions] = useState<BootcampCompetition[]>([]);
@@ -235,7 +238,12 @@ const StudentBootcampDetail: React.FC = () => {
 
       <section id="live" className="scroll-mt-16 rounded-3xl bg-white p-6 shadow-lg">
         <h2 className="text-lg font-bold text-slate-900">🎥 Live classes</h2>
-        <p className="text-sm text-slate-500">Join scheduled sessions and add them to your calendar.</p>
+        <p className="text-sm text-slate-500">Join the realtime class, scheduled sessions, and add them to your calendar.</p>
+        {user && bootcamp && (
+          <div className="mt-4">
+            <BootcampLiveClass bootcampId={bootcamp.id} bootcampTitle={bootcamp.title} user={{ id: user.id, name: user.name, role: user.role }} />
+          </div>
+        )}
         {sessions.length === 0 ? (
           <p className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
             No live sessions scheduled yet.

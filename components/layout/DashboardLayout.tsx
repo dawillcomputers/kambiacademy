@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthUser, useAuth } from '../../lib/auth';
+import { useDashTheme } from '../../lib/useDashTheme';
 import MobileBottomNav, { BottomNavItem } from './MobileBottomNav';
 
 interface DashboardLayoutProps {
@@ -26,6 +27,7 @@ export default function DashboardLayout({ children, user, showMaterials = false 
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const { isLight, toggle } = useDashTheme();
   const menu = buildMenu(showMaterials);
 
   const handleLogout = async () => {
@@ -71,7 +73,7 @@ export default function DashboardLayout({ children, user, showMaterials = false 
   ];
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-white">
+    <div className={`flex h-screen ${isLight ? 'dash-root dash-light bg-slate-100 text-slate-900' : 'bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-white'}`}>
 
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
@@ -83,8 +85,8 @@ export default function DashboardLayout({ children, user, showMaterials = false 
       {/* Sidebar - hidden on mobile, slide-in drawer */}
       <aside className={`
         fixed md:static inset-y-0 left-0 z-50
-        w-72 h-screen overflow-y-auto border-r border-white/10
-        bg-gradient-to-br from-indigo-900 via-slate-900 to-black
+        w-72 h-screen overflow-y-auto border-r
+        ${isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-gradient-to-br from-indigo-900 via-slate-900 to-black'}
         flex flex-col
         transform transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -148,6 +150,14 @@ export default function DashboardLayout({ children, user, showMaterials = false 
             </svg>
           </button>
           <div className="flex-1" />
+          <button
+            onClick={toggle}
+            title={isLight ? 'Switch to dark mode' : 'Switch to light mode'}
+            aria-label="Toggle theme"
+            className="mr-1 rounded-lg px-3 py-2 text-lg transition-colors hover:bg-white/10"
+          >
+            {isLight ? '🌙' : '☀️'}
+          </button>
           <button
             onClick={() => navigate('/student/profile')}
             className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors"

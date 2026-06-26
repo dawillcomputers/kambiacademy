@@ -64,6 +64,48 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  // Superadmin contact inbox
+  listContactMessages: () => request<any>('/api/admin/contact'),
+  replyContactMessage: (submissionId: number, message: string) =>
+    request<any>('/api/admin/contact', {
+      method: 'POST',
+      body: JSON.stringify({ submission_id: submissionId, message }),
+    }),
+  updateContactMessageStatus: (submissionId: number, status: 'new' | 'replied' | 'resolved') =>
+    request<any>('/api/admin/contact', {
+      method: 'PATCH',
+      body: JSON.stringify({ submission_id: submissionId, status }),
+    }),
+
+  // ---- Library / books ----
+  listBooks: () => request<any>('/api/books'),
+  getBook: (id: number) => request<any>(`/api/books?id=${id}`),
+  listMyBooks: () => request<any>('/api/books?mine=1'),
+  listAdminBooks: () => request<any>('/api/books?admin=1'),
+  createBook: (form: FormData) => request<any>('/api/books', { method: 'POST', body: form }),
+  updateBook: (payload: Record<string, any>) => request<any>('/api/books', { method: 'PATCH', body: JSON.stringify(payload) }),
+  deleteBook: (id: number) => request<any>('/api/books', { method: 'DELETE', body: JSON.stringify({ id }) }),
+  startBookPurchase: (bookId: number) => request<any>('/api/books/purchase', { method: 'POST', body: JSON.stringify({ bookId }) }),
+  verifyBookPurchase: (data: { transaction_ref: string; flutterwaveTransactionId?: string; status?: string }) =>
+    request<any>('/api/books/purchase', { method: 'POST', body: JSON.stringify({ action: 'verify', ...data }) }),
+  // ---- Bootcamp live classes (reuse the realtime classroom) ----
+  getBootcampLiveClass: (bootcampId: number) => request<any>(`/api/bootcamps/live-class?bootcampId=${bootcampId}`),
+  startBootcampLiveClass: (bootcampId: number, title?: string) =>
+    request<any>('/api/bootcamps/live-class', { method: 'POST', body: JSON.stringify({ bootcampId, title }) }),
+  endBootcampLiveClass: (sessionId: number) =>
+    request<any>('/api/bootcamps/live-class', { method: 'POST', body: JSON.stringify({ action: 'end', sessionId }) }),
+
+  // Fetches the book file with auth and returns a blob URL for the reader/download.
+  fetchBookBlobUrl: async (id: number) => {
+    const token = localStorage.getItem('auth_token');
+    const response = await fetch(resolveUrl(`/api/books/file?id=${id}`), {
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+    if (!response.ok) throw new Error(await parseErrorMessage(response));
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  },
+
   submitCourseInquiry: (payload: CourseInquiryPayload) =>
     request<SubmissionResult>('/api/course-inquiries', {
       method: 'POST',
@@ -334,6 +376,18 @@ export const api = {
         action: 'manualGrantSystemAccess',
         planType,
       }),
+    }),
+
+  adminClearPeriodDues: (planType: 'monthly' | 'yearly' = 'monthly') =>
+    request<any>('/api/subscriptions', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'clearPeriodDues', planType }),
+    }),
+
+  adminSetBillingAccumulate: (enabled: boolean) =>
+    request<any>('/api/subscriptions', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'setBillingAccumulate', enabled }),
     }),
 
   verifyTeacherSubscriptionPayment: (data: {

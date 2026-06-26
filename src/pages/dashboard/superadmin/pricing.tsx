@@ -63,7 +63,7 @@ export default function SuperAdminPricing() {
   const marginPct = totalRevenue > 0 ? Math.round((totalMargin / totalRevenue) * 100) : 0;
 
   return (
-    <div className="space-y-8">
+    <div className="dash-force-light space-y-8">
       {/* HEADER */}
       <div className="rounded-[32px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.18),transparent_28%),linear-gradient(135deg,#ffffff,#f8fafc_50%,#ecfeff)] px-6 py-8 shadow-xl shadow-slate-200/70">
         <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-500">Pricing Engine</p>

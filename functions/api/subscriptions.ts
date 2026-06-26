@@ -1,4 +1,5 @@
 import { getAuthUser, getSuperAdminBillingStatus, getSuperAdminNextMonthlyCoverageEndDate, isFullAdmin, resolveSystemBillingUser } from '../_shared/auth';
+import { getBillingCurrencyConfig, toChargeAmount, type BillingCurrencyConfig } from '../_shared/billingConfig';
 
 interface Env {
   DB: D1Database;
@@ -161,21 +162,29 @@ async function insertPaymentRecord(options: {
   paymentGateway: string;
   transactionRef: string;
   createdAt: string;
+  chargedCurrency?: string;
+  chargedAmount?: number;
+  fxRate?: number | null;
 }) {
   const { db, config, subscriptionId, amount, paymentGateway, transactionRef, createdAt } = options;
+  // Internal `amount`/`currency` stay in USD for accounting; charged_* records
+  // what the gateway actually billed (e.g. NGN) so verification can match it.
+  const chargedCurrency = options.chargedCurrency ?? 'USD';
+  const chargedAmount = options.chargedAmount ?? amount;
+  const fxRate = options.fxRate ?? null;
 
   if (config.serviceType) {
     await db.prepare(`
-      INSERT INTO ${config.pay} (id, subscriptionId, amount, currency, status, paymentGateway, transactionRef, paymentDate, serviceType, createdAt)
-      VALUES (?,?,?,'USD','pending',?,?,?, ?,?)
-    `).bind(crypto.randomUUID(), subscriptionId, amount, paymentGateway, transactionRef, null, config.serviceType, createdAt).run();
+      INSERT INTO ${config.pay} (id, subscriptionId, amount, currency, status, paymentGateway, transactionRef, paymentDate, serviceType, createdAt, charged_currency, charged_amount, fx_rate)
+      VALUES (?,?,?,'USD','pending',?,?,?, ?,?,?,?,?)
+    `).bind(crypto.randomUUID(), subscriptionId, amount, paymentGateway, transactionRef, null, config.serviceType, createdAt, chargedCurrency, chargedAmount, fxRate).run();
     return;
   }
 
   await db.prepare(`
-    INSERT INTO ${config.pay} (id, subscriptionId, amount, currency, status, paymentGateway, transactionRef, paymentDate, createdAt)
-    VALUES (?,?,?,'USD','pending',?,?,?,?)
-  `).bind(crypto.randomUUID(), subscriptionId, amount, paymentGateway, transactionRef, null, createdAt).run();
+    INSERT INTO ${config.pay} (id, subscriptionId, amount, currency, status, paymentGateway, transactionRef, paymentDate, createdAt, charged_currency, charged_amount, fx_rate)
+    VALUES (?,?,?,'USD','pending',?,?,?,?,?,?,?)
+  `).bind(crypto.randomUUID(), subscriptionId, amount, paymentGateway, transactionRef, null, createdAt, chargedCurrency, chargedAmount, fxRate).run();
 }
 
 async function logSubscriptionAudit(db: D1Database, action: string, description: string) {
@@ -261,11 +270,12 @@ async function initializeFlutterwavePayment(options: {
   origin: string;
   transactionRef: string;
   amount: number;
+  currency: string;
   redirectQuery: string;
   description: string;
   user: { email: string; name: string };
 }) {
-  const { secret, origin, transactionRef, amount, redirectQuery, description, user } = options;
+  const { secret, origin, transactionRef, amount, currency, redirectQuery, description, user } = options;
   const response = await fetch('https://api.flutterwave.com/v3/payments', {
     method: 'POST',
     headers: {
@@ -275,7 +285,7 @@ async function initializeFlutterwavePayment(options: {
     body: JSON.stringify({
       tx_ref: transactionRef,
       amount,
-      currency: 'USD',
+      currency,
       payment_options: FLUTTERWAVE_PREFERRED_PAYMENT_OPTIONS,
       redirect_url: `${origin.replace(/\/$/, '')}/payment-callback?${redirectQuery}`,
       customer: { email: user.email, name: user.name },
@@ -309,9 +319,10 @@ async function createPendingSubscriptionCheckout(options: {
   planType: PlanType;
   transactionRef: string;
   paymentGateway: string;
+  currencyConfig: BillingCurrencyConfig;
   endDateOverride?: string;
 }) {
-  const { db, userId, type, planType, transactionRef, paymentGateway, endDateOverride } = options;
+  const { db, userId, type, planType, transactionRef, paymentGateway, currencyConfig, endDateOverride } = options;
   const config = tbl(type);
   const fees = getFees(type);
   const startDate = new Date();
@@ -326,6 +337,8 @@ async function createPendingSubscriptionCheckout(options: {
 
   const subscriptionId = crypto.randomUUID();
   const nowIso = startDate.toISOString();
+  const usdAmount = fees[planType];
+  const chargedAmount = toChargeAmount(usdAmount, currencyConfig);
 
   await insertSubscriptionRecord({
     db,
@@ -342,15 +355,20 @@ async function createPendingSubscriptionCheckout(options: {
     db,
     config,
     subscriptionId,
-    amount: fees[planType],
+    amount: usdAmount,
     paymentGateway,
     transactionRef,
     createdAt: nowIso,
+    chargedCurrency: currencyConfig.currency,
+    chargedAmount,
+    fxRate: currencyConfig.currency === 'NGN' ? currencyConfig.rate : null,
   });
 
   return {
     subscriptionId,
-    amount: fees[planType],
+    amount: usdAmount,
+    chargedAmount,
+    chargedCurrency: currencyConfig.currency,
     startDate: nowIso,
     endDate: endDate.toISOString(),
     subscriptionType: type,
@@ -483,18 +501,22 @@ async function finalizeSubscriptionPayment(options: {
   }
 
   const payment = await env.DB.prepare(`
-    SELECT id, amount, status
+    SELECT id, amount, charged_amount, status
     FROM ${pay}
     WHERE subscriptionId = ?
       ${paymentTypeClause}
       AND transactionRef = ?
     ORDER BY createdAt DESC
     LIMIT 1
-  `).bind(subscriptionId, ...typeBinds, transactionRef).first<{ id: string; amount: number; status: PaymentStatus }>();
+  `).bind(subscriptionId, ...typeBinds, transactionRef).first<{ id: string; amount: number; charged_amount: number | null; status: PaymentStatus }>();
 
   if (!payment) {
     return { response: Response.json({ error: 'Payment record not found' }, { status: 404 }) };
   }
+
+  // The gateway billed `charged_amount` (e.g. NGN); fall back to USD `amount`
+  // for legacy/manual records that predate the charged_* columns.
+  const expectedChargeAmount = payment.charged_amount != null ? payment.charged_amount : payment.amount;
 
   if (payment.status === 'success') {
     return {
@@ -515,7 +537,7 @@ async function finalizeSubscriptionPayment(options: {
 
   if (requestedStatus === 'success' && teacherFlutterwaveSecret) {
     try {
-      const verification = await verifyFlutterwavePayment(teacherFlutterwaveSecret, transactionRef, payment.amount, flutterwaveTransactionId);
+      const verification = await verifyFlutterwavePayment(teacherFlutterwaveSecret, transactionRef, expectedChargeAmount, flutterwaveTransactionId);
       if (!verification.verified) {
         nextStatus = 'failed';
         message = `${getTypeLabel(subscriptionType)} payment verification failed.`;
@@ -577,6 +599,7 @@ async function finalizeBundleSubscriptionPayment(options: {
     planType: PlanType;
     paymentId: string;
     amount: number;
+    chargedAmount: number;
     paymentStatus: PaymentStatus;
   }> = [];
 
@@ -592,14 +615,14 @@ async function finalizeBundleSubscriptionPayment(options: {
     }
 
     const payment = await env.DB.prepare(`
-      SELECT id, amount, status
+      SELECT id, amount, charged_amount, status
       FROM ${pay}
       WHERE subscriptionId = ?
         ${paymentTypeClause}
         AND transactionRef = ?
       ORDER BY createdAt DESC
       LIMIT 1
-    `).bind(item.subscriptionId, ...typeBinds, transactionRef).first<{ id: string; amount: number; status: PaymentStatus }>();
+    `).bind(item.subscriptionId, ...typeBinds, transactionRef).first<{ id: string; amount: number; charged_amount: number | null; status: PaymentStatus }>();
 
     if (!payment) {
       return { response: Response.json({ error: 'Payment record not found for bundle item' }, { status: 404 }) };
@@ -611,6 +634,7 @@ async function finalizeBundleSubscriptionPayment(options: {
       planType: subscription.planType,
       paymentId: payment.id,
       amount: payment.amount,
+      chargedAmount: payment.charged_amount != null ? payment.charged_amount : payment.amount,
       paymentStatus: payment.status,
     });
   }
@@ -628,6 +652,7 @@ async function finalizeBundleSubscriptionPayment(options: {
   }
 
   const expectedAmount = bundleRecords.reduce((sum, record) => sum + record.amount, 0);
+  const expectedChargeAmount = bundleRecords.reduce((sum, record) => sum + record.chargedAmount, 0);
   let nextStatus: PaymentStatus = requestedStatus === 'success' ? 'success' : 'failed';
   let message = requestedStatus === 'success'
     ? 'All due teacher payments were verified successfully.'
@@ -635,7 +660,7 @@ async function finalizeBundleSubscriptionPayment(options: {
 
   if (requestedStatus === 'success' && teacherFlutterwaveSecret) {
     try {
-      const verification = await verifyFlutterwavePayment(teacherFlutterwaveSecret, transactionRef, expectedAmount, flutterwaveTransactionId);
+      const verification = await verifyFlutterwavePayment(teacherFlutterwaveSecret, transactionRef, expectedChargeAmount, flutterwaveTransactionId);
       if (!verification.verified) {
         nextStatus = 'failed';
         message = 'Combined teacher payment verification failed.';
@@ -816,6 +841,74 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     });
   }
 
+  // Clear every due for the current period in one click: grant the main
+  // subscription (if not already active) and reset the accumulate baseline.
+  if (body.action === 'clearPeriodDues') {
+    if (user.role !== 'super_admin' && user.role !== 'SOU') {
+      return Response.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const planType: PlanType = body.planType === 'yearly' ? 'yearly' : 'monthly';
+    const targetUser = await resolveSystemBillingUser(user, env.DB);
+    if (!targetUser) {
+      return Response.json({ error: 'No system billing owner could be resolved.' }, { status: 404 });
+    }
+
+    await cleanupUnpaidActiveSubscriptions(env.DB, targetUser.id, 'platform');
+    let granted = null;
+    const existing = await getCurrentActiveSubscription(env.DB, targetUser.id, 'platform');
+    if (!existing) {
+      granted = await createManualSubscriptionGrant({
+        db: env.DB,
+        targetUser,
+        grantedBy: user,
+        type: 'platform',
+        planType,
+      });
+    }
+
+    // Reset the accumulation baseline to the covered-through date so the running
+    // balance returns to zero.
+    const clearedThrough = granted?.endDate
+      || existing?.endDate
+      || getSuperAdminNextMonthlyCoverageEndDate();
+    await env.DB.prepare(
+      "INSERT INTO platform_settings (key, value) VALUES ('system_billing_cleared_through', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    ).bind(clearedThrough).run();
+
+    await logSubscriptionAudit(
+      env.DB,
+      'system_dues_cleared',
+      `${user.email} cleared all main-subscription dues for the period. Coverage through ${clearedThrough}.`,
+    );
+
+    return Response.json({
+      message: `All dues for this period have been cleared. Coverage through ${new Date(clearedThrough).toLocaleDateString()}.`,
+      clearedThrough,
+      subscription: granted,
+    });
+  }
+
+  // Toggle accumulate mode (carry unpaid cycles forward instead of locking).
+  if (body.action === 'setBillingAccumulate') {
+    if (user.role !== 'super_admin' && user.role !== 'SOU') {
+      return Response.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const enabled = Boolean(body.enabled);
+    await env.DB.prepare(
+      "INSERT INTO platform_settings (key, value) VALUES ('system_billing_accumulate', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    ).bind(enabled ? 'true' : 'false').run();
+
+    await logSubscriptionAudit(
+      env.DB,
+      'system_billing_accumulate_toggled',
+      `${user.email} turned ${enabled ? 'on' : 'off'} accumulate mode for the main subscription.`,
+    );
+
+    return Response.json({ message: `Accumulate mode ${enabled ? 'enabled' : 'disabled'}.`, enabled });
+  }
+
   if (body.action === 'verify') {
     const { subscriptionId, transactionRef, flutterwaveTransactionId, status: callbackStatus = 'failed', subscriptionType = 'platform' } = body;
     if (!subscriptionId || !transactionRef) {
@@ -896,12 +989,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       }
     }
 
+    const currencyConfig = await getBillingCurrencyConfig(env.DB);
     const transactionRef = `teacher-bundle-${crypto.randomUUID()}-${Date.now()}`;
     const pendingItems = [] as Array<{
       subscriptionId: string;
       subscriptionType: SubscriptionType;
       planType: PlanType;
       amount: number;
+      chargedAmount: number;
+      chargedCurrency: string;
       startDate: string;
       endDate: string;
     }>;
@@ -917,6 +1013,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         planType: item.planType,
         transactionRef,
         paymentGateway: FLUTTERWAVE_PAYMENT_GATEWAY,
+        currencyConfig,
         endDateOverride: superAdminBilling?.requiresRenewal && item.planType === 'monthly'
           ? getSuperAdminNextMonthlyCoverageEndDate()
           : undefined,
@@ -924,6 +1021,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const amount = pendingItems.reduce((sum, item) => sum + item.amount, 0);
+    const chargeAmount = pendingItems.reduce((sum, item) => sum + item.chargedAmount, 0);
     const origin = resolvePaymentOrigin(request);
     const redirectQuery = new URLSearchParams({
       type: 'bundle',
@@ -938,7 +1036,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         secret: teacherFlutterwaveSecret,
         origin,
         transactionRef,
-        amount,
+        amount: chargeAmount,
+        currency: currencyConfig.currency,
         redirectQuery,
         description: `Teacher bundle checkout for ${pendingItems.map((item) => getTypeLabel(item.subscriptionType)).join(' + ')}`,
         user,
@@ -987,6 +1086,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const config = tbl(type);
   const f = getFees(type);
+  const currencyConfig = await getBillingCurrencyConfig(env.DB);
+  const usdAmount = f[planType as PlanType];
+  const chargedAmount = toChargeAmount(usdAmount, currencyConfig);
   const superAdminBilling = user.role === 'super_admin' && type === 'platform'
     ? await getSuperAdminBillingStatus(user, env.DB)
     : null;
@@ -1019,7 +1121,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       secret: teacherFlutterwaveSecret,
       origin,
       transactionRef,
-      amount: f[planType as PlanType],
+      amount: chargedAmount,
+      currency: currencyConfig.currency,
       redirectQuery: new URLSearchParams({
         type,
         sid: subscriptionId,
@@ -1047,10 +1150,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     db: env.DB,
     config,
     subscriptionId,
-    amount: f[planType as PlanType],
+    amount: usdAmount,
     paymentGateway: FLUTTERWAVE_PAYMENT_GATEWAY,
     transactionRef,
     createdAt: startDate,
+    chargedCurrency: currencyConfig.currency,
+    chargedAmount,
+    fxRate: currencyConfig.currency === 'NGN' ? currencyConfig.rate : null,
   });
 
   await logSubscriptionAudit(

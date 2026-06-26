@@ -247,6 +247,36 @@ export default function SuperAdminBillingPage() {
     }
   };
 
+  const handleClearPeriodDues = async () => {
+    setMessage('');
+    setError('');
+    setSavingTarget('clear-period');
+    try {
+      const response = await api.adminClearPeriodDues('monthly');
+      setMessage(response?.message || 'All dues for this period have been cleared.');
+      await loadOverview();
+    } catch (clearError) {
+      setError(clearError instanceof Error ? clearError.message : 'Failed to clear period dues.');
+    } finally {
+      setSavingTarget(null);
+    }
+  };
+
+  const handleToggleAccumulate = async (enabled: boolean) => {
+    setMessage('');
+    setError('');
+    setSavingTarget('accumulate');
+    try {
+      const response = await api.adminSetBillingAccumulate(enabled);
+      setMessage(response?.message || `Accumulate mode ${enabled ? 'enabled' : 'disabled'}.`);
+      await loadOverview();
+    } catch (toggleError) {
+      setError(toggleError instanceof Error ? toggleError.message : 'Failed to update accumulate mode.');
+    } finally {
+      setSavingTarget(null);
+    }
+  };
+
   const handleReserveTopUp = async () => {
     const hoursToAdd = Number(reserveHoursInput);
     if (!Number.isFinite(hoursToAdd) || hoursToAdd <= 0) {
@@ -855,6 +885,44 @@ export default function SuperAdminBillingPage() {
                             {savingTarget === 'manual-grant-yearly' ? 'Granting access...' : 'Mark yearly billing as paid and cover the full year.'}
                           </p>
                         </button>
+                      </div>
+
+                      <div className="mt-5 border-t border-amber-400/20 pt-5">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">Clear all dues for this period</p>
+                            <p className="mt-2 leading-6 text-[#A9B4CC]">
+                              Marks every outstanding main-subscription due for the current period as settled and resets the accumulated balance.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleClearPeriodDues}
+                            disabled={Boolean(savingTarget)}
+                            className="shrink-0 rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-5 py-3 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {savingTarget === 'clear-period' ? 'Clearing…' : 'Clear period dues'}
+                          </button>
+                        </div>
+
+                        <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-white/10 bg-black/10 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">Accumulate mode</p>
+                            <p className="mt-2 leading-6 text-[#A9B4CC]">
+                              {superAdminBilling?.accumulate
+                                ? `On — the dashboard never locks. Running balance: $${Number(superAdminBilling?.accumulatedAmountUsd || 0).toFixed(2)} (${Number(superAdminBilling?.accumulatedMonths || 0)} cycle${Number(superAdminBilling?.accumulatedMonths || 0) === 1 ? '' : 's'}).`
+                                : 'Off — unpaid cycles follow the normal due/lock schedule. Turn on to carry fees forward instead of locking.'}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleAccumulate(!superAdminBilling?.accumulate)}
+                            disabled={Boolean(savingTarget)}
+                            className={`shrink-0 rounded-2xl border px-5 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${superAdminBilling?.accumulate ? 'border-emerald-400/30 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/20' : 'border-white/15 bg-white/5 text-[#EAF0FF] hover:bg-white/10'}`}
+                          >
+                            {savingTarget === 'accumulate' ? 'Saving…' : superAdminBilling?.accumulate ? 'Turn accumulate off' : 'Turn accumulate on'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}

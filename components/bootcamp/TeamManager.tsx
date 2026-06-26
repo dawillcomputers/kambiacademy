@@ -122,10 +122,10 @@ const TeamManager: React.FC<Props> = ({ bootcampId }) => {
                       <div className="mt-3 grid gap-2">
                         {([['expertise', 'Expertise (e.g. Payments, ML)'], ['industry', 'Industry'], ['country', 'Country'], ['linkedin_url', 'LinkedIn URL']] as const).map(([key, ph]) => (
                           <input key={key} value={(profile as any)[key]} onChange={(e) => setProfile({ ...profile, [key]: e.target.value })} placeholder={ph}
-                            className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                            className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                         ))}
                         <textarea value={profile.bio} onChange={(e) => setProfile({ ...profile, bio: e.target.value })} rows={2} placeholder="Short bio"
-                          className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                          className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-[#ffffff] text-[#000000] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                         <button onClick={() => saveProfile(m.id)} className="justify-self-start rounded-lg bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Save profile</button>
                       </div>
                     )}

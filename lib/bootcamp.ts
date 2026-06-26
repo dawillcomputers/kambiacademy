@@ -173,6 +173,7 @@ export interface BootcampRegistrationInput {
   consent_updates?: boolean;
   consent_community?: boolean;
   consent_jobs?: boolean;
+  discount_code?: string;
 }
 
 export interface BootcampRegistrationResult {
