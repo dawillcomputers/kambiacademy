@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Course } from '../../../../types';
 import { AuthUser } from '../../../../lib/auth';
 import Card from '../../../../components/Card';
@@ -12,8 +13,22 @@ interface StudentCoursesProps {
 }
 
 const StudentCourses: React.FC<StudentCoursesProps> = ({ user, courses, onSelectCourse, progressMap = {} }) => {
+  const [searchParams] = useSearchParams();
+  const viewParam = searchParams.get('view');
+  const enrolledCount = user.enrolledCourses?.length || 0;
   const [searchTerm, setSearchTerm] = useState('');
-  const [filter, setFilter] = useState<'all' | 'enrolled' | 'available'>('enrolled');
+  const [filter, setFilter] = useState<'all' | 'enrolled' | 'available'>(
+    viewParam === 'available' || viewParam === 'all' || viewParam === 'enrolled'
+      ? viewParam
+      : enrolledCount > 0 ? 'enrolled' : 'available',
+  );
+
+  // Keep the tab in sync when the sidebar link changes ?view= without remounting.
+  useEffect(() => {
+    if (viewParam === 'available' || viewParam === 'all' || viewParam === 'enrolled') {
+      setFilter(viewParam);
+    }
+  }, [viewParam]);
 
   const enrolledCourses = courses.filter(c => user.enrolledCourses?.includes(c.id));
   const availableCourses = courses.filter(c => !user.enrolledCourses?.includes(c.id));

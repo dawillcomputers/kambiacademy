@@ -56,7 +56,6 @@ interface RegistrationBody {
 
 const FLUTTERWAVE_PAYMENT_GATEWAY = 'flutterwave_live';
 const PRODUCTION_SITE_ORIGIN = 'https://kambiacademy.com';
-const FLUTTERWAVE_PREFERRED_PAYMENT_OPTIONS = 'banktransfer,card,ussd';
 const roundCurrency = (value: number) => Math.round(value * 100) / 100;
 const isSuccessfulIntent = (status?: string | null) => ['success', 'successful', 'completed'].includes(String(status || '').toLowerCase());
 
@@ -99,7 +98,7 @@ async function initializeFlutterwavePayment(options: {
       tx_ref: transactionRef,
       amount,
       currency: 'NGN',
-      payment_options: FLUTTERWAVE_PREFERRED_PAYMENT_OPTIONS,
+      // No payment_options → Flutterwave shows every method enabled on the account.
       redirect_url: `${origin.replace(/\/$/, '')}/payment-callback?${redirectQuery}`,
       customer: { email: user.email, name: user.name },
       customizations: {

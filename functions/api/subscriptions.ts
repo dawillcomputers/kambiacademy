@@ -35,7 +35,8 @@ const SYSTEM_MONITOR_USER_ID = 0;
 const FLUTTERWAVE_PAYMENT_GATEWAY = 'flutterwave_live';
 const BILLING_START_DATE = '2026-05-01T00:00:00.000Z';
 const PRODUCTION_SITE_ORIGIN = 'https://kambiacademy.com';
-const FLUTTERWAVE_PREFERRED_PAYMENT_OPTIONS = 'banktransfer,card,ussd';
+// System subscription billing is restricted to card + USSD only.
+const FLUTTERWAVE_PREFERRED_PAYMENT_OPTIONS = 'card,ussd';
 const isSuccessfulFlutterwaveStatus = (status?: string | null) => ['success', 'successful', 'completed'].includes(String(status || '').toLowerCase());
 
 const PLATFORM_FEES: FeeConfig = {

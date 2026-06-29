@@ -77,6 +77,18 @@ export default function KambiAIAssistant() {
   const [isSending, setIsSending] = useState(false);
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [assistantSuggestions, setAssistantSuggestions] = useState<string[]>([]);
+  // Hidden entirely for the session once the user dismisses it.
+  const [dismissed, setDismissed] = useState(false);
+  // While a full-screen live class is running we get out of its way automatically.
+  const [immersive, setImmersive] = useState(false);
+
+  useEffect(() => {
+    const sync = () => setImmersive(document.body.classList.contains('live-immersive'));
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   const defaultSuggestions = useMemo(() => suggestionMap[user?.role || ''] || suggestionMap.student, [user?.role]);
   const suggestions = assistantSuggestions.length ? assistantSuggestions : defaultSuggestions;
@@ -139,7 +151,7 @@ export default function KambiAIAssistant() {
     }
   }, [messages, storageKey]);
 
-  if (!user) {
+  if (!user || dismissed || immersive) {
     return null;
   }
 
@@ -281,17 +293,28 @@ export default function KambiAIAssistant() {
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => setIsOpen((current) => !current)}
-        className="group inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-3 shadow-xl shadow-slate-900/20 transition hover:-translate-y-0.5 hover:shadow-2xl"
-      >
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[linear-gradient(135deg,#0f172a,#2563eb)] text-lg text-white shadow-lg shadow-blue-500/30">🤖</span>
-        <div className="text-left">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Kambi AI</p>
-          <p className="text-sm font-semibold text-slate-900">Open assistant</p>
-        </div>
-      </button>
+      <div className="group relative">
+        <button
+          type="button"
+          onClick={() => setIsOpen((current) => !current)}
+          className="inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-3 shadow-xl shadow-slate-900/20 transition hover:-translate-y-0.5 hover:shadow-2xl"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[linear-gradient(135deg,#0f172a,#2563eb)] text-lg text-white shadow-lg shadow-blue-500/30">🤖</span>
+          <div className="text-left">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Kambi AI</p>
+            <p className="text-sm font-semibold text-slate-900">Open assistant</p>
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => { setIsOpen(false); setDismissed(true); }}
+          aria-label="Hide Kambi AI assistant"
+          title="Hide assistant"
+          className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-500 shadow-md transition hover:bg-rose-50 hover:text-rose-600"
+        >
+          ✕
+        </button>
+      </div>
     </div>
   );
 }

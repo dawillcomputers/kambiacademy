@@ -10,25 +10,54 @@ interface DashboardLayoutProps {
   showMaterials?: boolean;
 }
 
-const buildMenu = (showMaterials: boolean = false) => [
-  { name: "Dashboard", icon: "🏠", path: "/student" },
-  { name: "My Courses", icon: "📚", path: "/student/courses" },
-  { name: "Bootcamp", icon: "🚀", path: "/student/bootcamp" },
-  ...(showMaterials ? [{ name: "Materials", icon: "📁", path: "/student/materials" }] : []),
-  { name: "Assignments", icon: "📝", path: "/student/assignments" },
-  { name: "Submissions", icon: "📤", path: "/student/submissions" },
-  { name: "Live Classes", icon: "🎥", path: "/student/live" },
-  { name: "Request Class", icon: "✏️", path: "/student/request-class" },
-  { name: "AI Courses", icon: "🤖", path: "/student/ai-courses" },
-  { name: "Chat", icon: "💬", path: "/student/chat" },
-];
+const buildMenu = (showMaterials: boolean = false, user?: AuthUser) => {
+  const enrolledCount = user?.enrolledCourses?.length || 0;
+
+  // Bootcamp registrants get a bootcamp-first sidebar. They can always browse and
+  // register for courses; once they've enrolled in at least one, "My Courses"
+  // appears so they can jump straight to their enrolled courses.
+  if (user?.role === 'bootcamp_student') {
+    return [
+      { name: "Dashboard", icon: "🏠", path: "/student" },
+      { name: "Bootcamp", icon: "🚀", path: "/student/bootcamp" },
+      { name: "Explore Courses", icon: "🧭", path: "/student/courses?view=available" },
+      ...(enrolledCount > 0 ? [{ name: "My Courses", icon: "📚", path: "/student/courses?view=enrolled" }] : []),
+      { name: "Live Classes", icon: "🎥", path: "/student/live" },
+      { name: "AI Courses", icon: "🤖", path: "/student/ai-courses" },
+      { name: "Chat", icon: "💬", path: "/student/chat" },
+    ];
+  }
+
+  return [
+    { name: "Dashboard", icon: "🏠", path: "/student" },
+    { name: "My Courses", icon: "📚", path: "/student/courses" },
+    { name: "Bootcamp", icon: "🚀", path: "/student/bootcamp" },
+    ...(showMaterials ? [{ name: "Materials", icon: "📁", path: "/student/materials" }] : []),
+    { name: "Assignments", icon: "📝", path: "/student/assignments" },
+    { name: "Submissions", icon: "📤", path: "/student/submissions" },
+    { name: "Live Classes", icon: "🎥", path: "/student/live" },
+    { name: "Request Class", icon: "✏️", path: "/student/request-class" },
+    { name: "AI Courses", icon: "🤖", path: "/student/ai-courses" },
+    { name: "Chat", icon: "💬", path: "/student/chat" },
+  ];
+};
 
 export default function DashboardLayout({ children, user, showMaterials = false }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user: authUser } = useAuth();
   const { isLight, toggle } = useDashTheme();
-  const menu = buildMenu(showMaterials);
+  const effectiveUser = user ?? authUser ?? undefined;
+  const menu = buildMenu(showMaterials, effectiveUser);
+
+  // Active-state match that also understands query-string entries (e.g. the
+  // bootcamp_student "Explore Courses" vs "My Courses" links share a pathname).
+  const matchPath = (path: string) => {
+    if (path.includes('?')) {
+      return location.pathname + location.search === path;
+    }
+    return location.pathname === path || (path !== '/student' && location.pathname.startsWith(path));
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -54,10 +83,7 @@ export default function DashboardLayout({ children, user, showMaterials = false 
   }, [location.pathname]);
 
   const getActiveKey = () => {
-    const match = menu.find(item =>
-      item.path === location.pathname ||
-      (item.path !== '/student' && location.pathname.startsWith(item.path))
-    );
+    const match = menu.find(item => matchPath(item.path));
     return match?.path || '/student';
   };
 
@@ -103,7 +129,7 @@ export default function DashboardLayout({ children, user, showMaterials = false 
         </div>
         <nav className="space-y-2 px-3 pb-4">
           {menu.map((item) => {
-            const isActive = location.pathname === item.path || (item.path !== '/student' && location.pathname.startsWith(item.path));
+            const isActive = matchPath(item.path);
             return (
               <Link
                 key={item.name}

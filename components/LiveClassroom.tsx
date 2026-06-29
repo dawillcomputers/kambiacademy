@@ -396,6 +396,13 @@ export default function LiveClassroom({ sessionId, user, onLeave }: LiveClassroo
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
 
+  // Signal "immersive" mode to the rest of the app (e.g. so the floating Kambi AI
+  // assistant gets out of the way of the full-screen classroom).
+  useEffect(() => {
+    document.body.classList.toggle('live-immersive', expanded);
+    return () => document.body.classList.remove('live-immersive');
+  }, [expanded]);
+
   const toggleNativeFullscreen = useCallback(() => {
     const element = rootRef.current;
     if (!element) {

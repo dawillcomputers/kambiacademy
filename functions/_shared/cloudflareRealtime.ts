@@ -107,9 +107,12 @@ export async function createCloudflareSession(
   }
 
   const path = `/sessions/new${query.size ? `?${query.toString()}` : ''}`;
-  return cloudflareRealtimeRequest<CloudflareSessionResponse>(env, path, 'POST', {
-    ...(options?.sessionDescription ? { sessionDescription: options.sessionDescription } : {}),
-  });
+  // Only send a JSON body when we actually have an SDP offer. Posting an empty
+  // `{}` makes Cloudflare try to validate it as a session description and fail
+  // ("session description" body validation error → our 503). With no body it
+  // simply mints an empty session for us to add tracks to afterwards.
+  const body = options?.sessionDescription ? { sessionDescription: options.sessionDescription } : undefined;
+  return cloudflareRealtimeRequest<CloudflareSessionResponse>(env, path, 'POST', body);
 }
 
 export async function addCloudflareTracks(

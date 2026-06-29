@@ -297,7 +297,6 @@ const BootcampRegister: React.FC = () => {
               <Field label="Email Address" required><input type="email" className={inputCls} value={form.email} onChange={(e) => set({ email: e.target.value })} placeholder="name@example.com" /></Field>
               <Field label="Phone Number" required><input className={inputCls} value={form.phone} onChange={(e) => set({ phone: e.target.value })} placeholder="+234 ..." /></Field>
               <Field label="Gender" required><RadioGroup columns={3} options={GENDERS} value={form.gender} onChange={(v) => set({ gender: v })} /></Field>
-              <Field label="Date of Birth"><input type="date" className={inputCls} value={form.date_of_birth} onChange={(e) => set({ date_of_birth: e.target.value })} /></Field>
               <Field label="Age Range" required><RadioGroup columns={3} options={AGE_RANGES} value={form.age_range} onChange={(v) => set({ age_range: v })} /></Field>
             </>
           )}
